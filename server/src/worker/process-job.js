@@ -2,13 +2,22 @@ const path = require('node:path');
 const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
 const { downloadMedia } = require('../services/downloader-service');
+const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
 const { claimNextQueuedJob } = require('./queue');
 
 function buildTargetPath(jobId) {
   return path.join('downloads', `${jobId}.mp4`);
 }
 
-async function processOneCycle(extractor = extractFromTweet, downloader = downloadMedia) {
+const productionPageFactory = createPlaywrightPageFactory();
+
+async function productionExtractor(tweetUrl) {
+  return extractFromTweet(tweetUrl, {
+    pageFactory: productionPageFactory,
+  });
+}
+
+async function processOneCycle(extractor = productionExtractor, downloader = downloadMedia) {
   const job = await claimNextQueuedJob();
   if (!job) {
     return null;
@@ -58,4 +67,5 @@ async function processOneCycle(extractor = extractFromTweet, downloader = downlo
 module.exports = {
   processOneCycle,
   buildTargetPath,
+  productionExtractor,
 };

@@ -13,8 +13,9 @@
 ## Manual Smoke
 
 1. Start app: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1`
-2. Open `http://localhost:5173`.
-3. Submit a valid tweet URL (`https://x.com/<user>/status/<id>`).
-4. Confirm job appears in dashboard and transitions out of `queued`.
-5. Confirm server logs show processing cycle activity.
-6. Restart server during a running job and confirm stale jobs are recovered to `failed`.
+2. Bootstrap login once: `npm run auth:bootstrap --prefix server`.
+3. Open `http://localhost:5173`.
+4. Submit a valid tweet URL (`https://x.com/<user>/status/<id>`).
+5. Confirm job appears in dashboard and transitions out of `queued`.
+6. Confirm server logs show processing cycle activity.
+7. Restart server during a running job and confirm stale jobs are recovered to `failed`.

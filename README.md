@@ -49,6 +49,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
 
 - Open `http://localhost:5173`.
 
+## Manual Login Session (Playwright)
+
+The extractor now uses a persistent Playwright browser profile in production worker runs.
+
+1. Run bootstrap once:
+
+```bash
+npm run auth:bootstrap --prefix server
+```
+
+2. A browser window opens on X login.
+3. Log in manually as yourself.
+4. Return to terminal and press Enter.
+5. Future jobs reuse the same local session profile (`PLAYWRIGHT_USER_DATA_DIR`).
+
 ## Script Reference
 
 - `npm run dev`: run server and client together
@@ -59,6 +74,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
 - `npm run lint`: lint client
 - `npm run check`: validate release checklist files and required scripts
 - `npm run verify`: test + build + lint + release checklist
+- `npm run auth:bootstrap --prefix server`: open persistent browser for manual X login
 
 ## Verification Matrix
 
