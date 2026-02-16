@@ -1,16 +1,16 @@
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { app } = require('./app');
+const { getServerConfig } = require('./config/env');
 
 dotenv.config();
 
-const PORT = Number(process.env.PORT || 4000);
-const MONGODB_URI = process.env.MONGODB_URI || '';
+const config = getServerConfig();
 
 async function start() {
-  if (MONGODB_URI) {
+  if (config.mongoUri) {
     try {
-      await mongoose.connect(MONGODB_URI);
+      await mongoose.connect(config.mongoUri);
       console.log('MongoDB connected');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -20,8 +20,8 @@ async function start() {
     console.warn('MONGODB_URI is not set. Running API without database connection.');
   }
 
-  app.listen(PORT, () => {
-    console.log(`API listening on http://localhost:${PORT}`);
+  app.listen(config.port, () => {
+    console.log(`API listening on http://localhost:${config.port}`);
   });
 }
 
