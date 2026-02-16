@@ -44,7 +44,7 @@ function downloadHlsWithFfmpeg(
   {
     targetPath,
     spawnImpl = spawn,
-    ffmpegPath = 'ffmpeg',
+    ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg',
   } = {}
 ) {
   if (!targetPath) {
@@ -63,7 +63,14 @@ function downloadHlsWithFfmpeg(
       stdio: 'ignore',
     });
 
-    child.once('error', reject);
+    child.once('error', (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('ENOENT')) {
+        reject(new Error('ffmpeg not found. Set FFMPEG_PATH or install ffmpeg on PATH.'));
+        return;
+      }
+      reject(error);
+    });
     child.once('close', (code) => {
       if (code === 0) {
         resolve({
