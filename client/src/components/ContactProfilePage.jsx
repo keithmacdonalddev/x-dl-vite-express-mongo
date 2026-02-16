@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   bulkDeleteJobs,
   deleteContactProfile,
@@ -30,6 +30,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   const [editContactName, setEditContactName] = useState('')
   const [isMutating, setIsMutating] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [hiddenJobIds, setHiddenJobIds] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({
     isOpen: false,
     mode: '',
@@ -49,12 +50,42 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     () => jobs.filter((job) => makeContactSlug(job) === normalizedSlug).sort(sortNewestFirst),
     [jobs, normalizedSlug]
   )
+  const visibleContactJobs = useMemo(
+    () => contactJobs.filter((job) => !hiddenJobIds[job._id]),
+    [contactJobs, hiddenJobIds]
+  )
 
   const selectedIds = useMemo(
-    () => contactJobs.map((job) => job._id).filter((id) => Boolean(selectedJobIds[id])),
-    [contactJobs, selectedJobIds]
+    () => visibleContactJobs.map((job) => job._id).filter((id) => Boolean(selectedJobIds[id])),
+    [visibleContactJobs, selectedJobIds]
   )
   const selectedCount = selectedIds.length
+
+  useEffect(() => {
+    const validIds = new Set(visibleContactJobs.map((job) => job._id))
+    setSelectedJobIds((current) => {
+      const next = {}
+      for (const key of Object.keys(current)) {
+        if (validIds.has(key)) {
+          next[key] = current[key]
+        }
+      }
+      return next
+    })
+  }, [visibleContactJobs])
+
+  useEffect(() => {
+    const jobIds = new Set(contactJobs.map((job) => job._id))
+    setHiddenJobIds((current) => {
+      const next = {}
+      for (const key of Object.keys(current)) {
+        if (jobIds.has(key)) {
+          next[key] = current[key]
+        }
+      }
+      return next
+    })
+  }, [contactJobs])
 
   function toggleSelection(jobId) {
     setSelectedJobIds((current) => ({
@@ -64,12 +95,12 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   }
 
   function toggleAllSelection() {
-    if (selectedCount === contactJobs.length) {
+    if (selectedCount === visibleContactJobs.length) {
       setSelectedJobIds({})
       return
     }
     const next = {}
-    for (const job of contactJobs) {
+    for (const job of visibleContactJobs) {
       next[job._id] = true
     }
     setSelectedJobIds(next)
@@ -101,7 +132,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
       isOpen: true,
       mode: 'contact',
       jobId: '',
-      count: contactJobs.length,
+      count: visibleContactJobs.length,
     })
   }
 
@@ -123,8 +154,16 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     try {
       if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
         await deleteJob(confirmDelete.jobId)
+        setHiddenJobIds((current) => ({ ...current, [confirmDelete.jobId]: true }))
       } else if (confirmDelete.mode === 'bulk') {
         await bulkDeleteJobs(selectedIds)
+        setHiddenJobIds((current) => {
+          const next = { ...current }
+          for (const jobId of selectedIds) {
+            next[jobId] = true
+          }
+          return next
+        })
         setSelectedJobIds({})
       } else if (confirmDelete.mode === 'contact') {
         await deleteContactProfile(normalizedSlug)
@@ -271,12 +310,12 @@ export function ContactProfilePage({ contactSlug, onBack }) {
         <section className="card">
           <div className="jobs-header">
             <h2>Posts</h2>
-            <p>{contactJobs.length} entries</p>
+            <p>{visibleContactJobs.length} entries</p>
           </div>
 
           <div className="bulk-toolbar">
-            <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={contactJobs.length === 0}>
-              {selectedCount === contactJobs.length && contactJobs.length > 0 ? 'Clear all' : 'Select all'}
+            <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={visibleContactJobs.length === 0}>
+              {selectedCount === visibleContactJobs.length && visibleContactJobs.length > 0 ? 'Clear all' : 'Select all'}
             </button>
             <button type="button" className="danger-btn" onClick={openBulkDelete} disabled={selectedCount === 0 || isMutating}>
               Delete selected ({selectedCount})
@@ -284,11 +323,11 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           </div>
 
           {isLoading && <p>Loading profile...</p>}
-          {!isLoading && contactJobs.length === 0 && <p>No jobs found for this contact yet.</p>}
+          {!isLoading && visibleContactJobs.length === 0 && <p>No jobs found for this contact yet.</p>}
 
-          {!isLoading && contactJobs.length > 0 && (
+          {!isLoading && visibleContactJobs.length > 0 && (
             <ul className="profile-grid">
-              {contactJobs.map((job) => (
+              {visibleContactJobs.map((job) => (
                 <li key={job._id} className="profile-card">
                   {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) && (
                     <img
@@ -457,4 +496,3 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     </main>
   )
 }
-

@@ -30,6 +30,7 @@ export function JobsPage({ onOpenContact }) {
   const [manualSubmittingJobId, setManualSubmittingJobId] = useState('')
   const [editingJobId, setEditingJobId] = useState('')
   const [submitError, setSubmitError] = useState('')
+  const [hiddenJobIds, setHiddenJobIds] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({
     isOpen: false,
     mode: '',
@@ -39,7 +40,8 @@ export function JobsPage({ onOpenContact }) {
   const { jobs, isLoading, error: pollError, refresh } = useJobsPolling({ intervalMs: 3000 })
 
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
-  const allJobIds = useMemo(() => jobs.map((job) => job._id), [jobs])
+  const visibleJobs = useMemo(() => jobs.filter((job) => !hiddenJobIds[job._id]), [jobs, hiddenJobIds])
+  const allJobIds = useMemo(() => visibleJobs.map((job) => job._id), [visibleJobs])
   const selectedIds = useMemo(() => getSelectedIds(selectedJobIds, allJobIds), [selectedJobIds, allJobIds])
   const selectedCount = selectedIds.length
 
@@ -55,6 +57,19 @@ export function JobsPage({ onOpenContact }) {
       return next
     })
   }, [allJobIds])
+
+  useEffect(() => {
+    const jobIds = new Set(jobs.map((job) => job._id))
+    setHiddenJobIds((current) => {
+      const next = {}
+      for (const key of Object.keys(current)) {
+        if (jobIds.has(key)) {
+          next[key] = current[key]
+        }
+      }
+      return next
+    })
+  }, [jobs])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -175,8 +190,16 @@ export function JobsPage({ onOpenContact }) {
     try {
       if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
         await deleteJob(confirmDelete.jobId)
+        setHiddenJobIds((current) => ({ ...current, [confirmDelete.jobId]: true }))
       } else if (confirmDelete.mode === 'bulk') {
         await bulkDeleteJobs(selectedIds)
+        setHiddenJobIds((current) => {
+          const next = { ...current }
+          for (const jobId of selectedIds) {
+            next[jobId] = true
+          }
+          return next
+        })
         setSelectedJobIds({})
       }
 
@@ -299,11 +322,11 @@ export function JobsPage({ onOpenContact }) {
           <section className="card">
             <div className="jobs-header">
               <h2>Jobs Timeline</h2>
-              <p>{jobs.length} total</p>
+              <p>{visibleJobs.length} total</p>
             </div>
 
             <div className="bulk-toolbar">
-              <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={jobs.length === 0}>
+              <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={visibleJobs.length === 0}>
                 {selectedCount === allJobIds.length && allJobIds.length > 0 ? 'Clear all' : 'Select all'}
               </button>
               <button
@@ -317,10 +340,10 @@ export function JobsPage({ onOpenContact }) {
             </div>
 
             {isLoading && <p>Loading jobs...</p>}
-            {!isLoading && jobs.length === 0 && <p>No jobs yet.</p>}
-            {!isLoading && jobs.length > 0 && (
+            {!isLoading && visibleJobs.length === 0 && <p>No jobs yet.</p>}
+            {!isLoading && visibleJobs.length > 0 && (
               <ul className="jobs-list">
-                {jobs.map((job) => (
+                {visibleJobs.map((job) => (
                   <li key={job._id} className="job-row">
                     <div className="row-actions-top">
                       <label className="select-box">
@@ -514,4 +537,3 @@ export function JobsPage({ onOpenContact }) {
     </main>
   )
 }
-
