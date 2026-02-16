@@ -85,7 +85,7 @@ jobsRouter.post('/', async (req, res) => {
       res,
       400,
       ERROR_CODES.INVALID_TWEET_URL,
-      'Invalid tweetUrl. Expected format: https://x.com/<user>/status/<id>'
+      'Invalid tweetUrl. Expected X or TikTok URL, for example: https://x.com/<user>/status/<id> or https://www.tiktok.com/@<user>/video/<id>'
     );
   }
 

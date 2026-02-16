@@ -25,11 +25,23 @@ test('extractFromTweet returns direct media URL payload shape', async () => {
   assert.equal(closed, true);
 });
 
-test('extractFromTweet throws for invalid tweet URL input', async () => {
+test('extractFromTweet accepts TikTok-style direct media candidates without file extension', async () => {
+  const { pickMediaUrl } = require('../src/services/extractor-service');
+
+  const picked = pickMediaUrl([
+    'https://v19-webapp-prime.tiktok.com/video/tos/alisg/tos-alisg-pve-0037c001/o48THMGOIDCIRKOheIAAEoVLcLOFjemjgvej4X/?a=1988&mime_type=video_mp4',
+    'https://example.com/not-media',
+  ]);
+
+  assert.equal(picked.sourceType, 'direct');
+  assert.match(picked.mediaUrl, /tiktok\.com\/video\/tos\//i);
+});
+
+test('extractFromTweet throws for invalid post URL input', async () => {
   const { extractFromTweet } = require('../src/services/extractor-service');
 
   await assert.rejects(
     async () => extractFromTweet('https://google.com/anything', { pageFactory: async () => ({}) }),
-    /invalid tweet url/i
+    /invalid post url/i
   );
 });

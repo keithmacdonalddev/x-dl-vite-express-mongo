@@ -159,3 +159,57 @@ test('createPlaywrightPageFactory relaunches context when cached context is clos
 
   assert.equal(launchCount, 2);
 });
+
+test('createPlaywrightPageFactory captures TikTok media URLs without file extension', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  const fakeChromium = {
+    launchPersistentContext: async () => ({
+      once() {},
+      async newPage() {
+        const handlers = new Map();
+        return {
+          on(event, handler) {
+            handlers.set(event, handler);
+          },
+          off(event) {
+            handlers.delete(event);
+          },
+          async goto() {
+            const responseHandler = handlers.get('response');
+            if (responseHandler) {
+              responseHandler({
+                url: () =>
+                  'https://v19-webapp-prime.tiktok.com/video/tos/alisg/tos-alisg-pve-0037c001/o48THMGOIDCIRKOheIAAEoVLcLOFjemjgvej4X/?mime_type=video_mp4',
+                headers: () => ({ 'content-type': 'video/mp4' }),
+              });
+            }
+          },
+          async waitForTimeout() {},
+          async title() {
+            return 'TikTok';
+          },
+          async content() {
+            return '<html></html>';
+          },
+          async close() {},
+        };
+      },
+      async close() {},
+    }),
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://www.tiktok.com/@user/video/7606119826259512584');
+  const mediaUrls = await page.collectMediaUrls();
+  await page.close();
+
+  assert.equal(mediaUrls.length, 1);
+  assert.match(mediaUrls[0], /tiktok\.com\/video\/tos\//i);
+});

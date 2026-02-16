@@ -1,6 +1,8 @@
 const path = require('node:path');
 
-const MEDIA_URL_PATTERN = /\.(mp4|m3u8)(\?.*)?$/i;
+const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
+const TIKTOK_MEDIA_PATH_PATTERN = /\/(video\/tos\/|aweme\/v1\/play\/)/i;
+const VIDEO_CONTENT_TYPE_PATTERN = /^(video\/|application\/(vnd\.apple\.mpegurl|x-mpegurl))/i;
 const AUTH_REQUIRED_PATTERN = /(log in|login|sign in|authenticate|session expired)/i;
 const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|unusual traffic|challenge)/i;
 
@@ -69,6 +71,39 @@ function assessAccessState({ title, content, finalUrl }) {
     return 'BOT_CHALLENGE';
   }
   return '';
+}
+
+function isLikelyMediaResponse(response) {
+  if (!response || typeof response.url !== 'function') {
+    return false;
+  }
+
+  const url = response.url();
+  if (typeof url !== 'string' || !url) {
+    return false;
+  }
+
+  if (MEDIA_URL_PATTERN.test(url)) {
+    return true;
+  }
+
+  if (TIKTOK_MEDIA_PATH_PATTERN.test(url)) {
+    return true;
+  }
+
+  try {
+    if (typeof response.headers === 'function') {
+      const headers = response.headers() || {};
+      const contentType = headers['content-type'] || headers['Content-Type'] || '';
+      if (VIDEO_CONTENT_TYPE_PATTERN.test(contentType)) {
+        return true;
+      }
+    }
+  } catch {
+    // ignore header parsing failures
+  }
+
+  return false;
 }
 
 async function getPersistentContext(options = {}) {
@@ -142,9 +177,8 @@ function createPlaywrightPageFactory(options = {}) {
 
     const onResponse = (response) => {
       try {
-        const url = response.url();
-        if (typeof url === 'string' && MEDIA_URL_PATTERN.test(url)) {
-          mediaUrls.add(url);
+        if (isLikelyMediaResponse(response)) {
+          mediaUrls.add(response.url());
         }
       } catch {
         // swallow response parsing errors

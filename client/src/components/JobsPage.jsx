@@ -70,18 +70,18 @@ export function JobsPage() {
       <header>
         <p className="eyebrow">x-dl rewrite</p>
         <h1>Jobs Dashboard</h1>
-        <p className="subhead">Submit a tweet URL and track extraction/download job status.</p>
+        <p className="subhead">Submit an X or TikTok post URL and track extraction/download job status.</p>
       </header>
 
       <section className="card">
         <h2>Create job</h2>
         <form className="job-form" onSubmit={handleSubmit}>
-          <label htmlFor="tweetUrl">Tweet URL</label>
+          <label htmlFor="tweetUrl">Post URL</label>
           <input
             id="tweetUrl"
             name="tweetUrl"
             type="url"
-            placeholder="https://x.com/user/status/123..."
+            placeholder="https://x.com/user/status/123... or https://www.tiktok.com/@user/video/123..."
             value={tweetUrl}
             onChange={(event) => setTweetUrl(event.target.value)}
             required
@@ -104,7 +104,7 @@ export function JobsPage() {
                   <strong>Status:</strong> {job.status}
                 </p>
                 <p>
-                  <strong>Tweet:</strong> {job.tweetUrl}
+                  <strong>URL:</strong> {job.tweetUrl}
                 </p>
                 <p>
                   <strong>Created:</strong> {formatTimestamp(job.createdAt)}

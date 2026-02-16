@@ -1,4 +1,30 @@
-function isTweetUrl(input) {
+const X_HOSTS = new Set(['x.com', 'twitter.com']);
+const TIKTOK_HOSTS = new Set(['tiktok.com', 'm.tiktok.com']);
+const TIKTOK_SHORT_HOSTS = new Set(['vm.tiktok.com', 'vt.tiktok.com']);
+
+function isXStatusUrl(parsed) {
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (parts.length < 3 || parts[1] !== 'status') {
+    return false;
+  }
+
+  return /^\d+$/.test(parts[2]);
+}
+
+function isTikTokVideoUrl(parsed) {
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (parts.length < 3 || parts[1] !== 'video') {
+    return false;
+  }
+
+  if (!parts[0].startsWith('@')) {
+    return false;
+  }
+
+  return /^\d+$/.test(parts[2]);
+}
+
+function isSupportedPostUrl(input) {
   if (typeof input !== 'string' || !input.trim()) {
     return false;
   }
@@ -6,21 +32,29 @@ function isTweetUrl(input) {
   try {
     const parsed = new URL(input);
     const hostname = parsed.hostname.replace(/^www\./i, '').toLowerCase();
-    const allowedHosts = new Set(['x.com', 'twitter.com']);
 
-    if (!allowedHosts.has(hostname)) {
-      return false;
+    if (X_HOSTS.has(hostname)) {
+      return isXStatusUrl(parsed);
     }
 
-    const parts = parsed.pathname.split('/').filter(Boolean);
-    if (parts.length < 3 || parts[1] !== 'status') {
-      return false;
+    if (TIKTOK_HOSTS.has(hostname)) {
+      return isTikTokVideoUrl(parsed);
     }
 
-    return /^\d+$/.test(parts[2]);
+    if (TIKTOK_SHORT_HOSTS.has(hostname)) {
+      // TikTok short links redirect to canonical video URLs.
+      return parsed.pathname.length > 1;
+    }
+
+    return false;
   } catch {
     return false;
   }
+}
+
+// Backward-compatible name used throughout existing route/model code.
+function isTweetUrl(input) {
+  return isSupportedPostUrl(input);
 }
 
 function isHttpUrl(input) {
@@ -38,5 +72,6 @@ function isHttpUrl(input) {
 
 module.exports = {
   isTweetUrl,
+  isSupportedPostUrl,
   isHttpUrl,
 };

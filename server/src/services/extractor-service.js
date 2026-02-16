@@ -1,17 +1,49 @@
 const { SOURCE_TYPES } = require('../constants/job-status');
-const { isTweetUrl } = require('../utils/validation');
+const { isSupportedPostUrl } = require('../utils/validation');
+
+function isHlsCandidate(url) {
+  if (typeof url !== 'string') {
+    return false;
+  }
+
+  if (/\.m3u8(\?.*)?$/i.test(url)) {
+    return true;
+  }
+
+  return /mime_type=(application%2Fvnd\.apple\.mpegurl|application%2Fx-mpegurl)/i.test(url);
+}
+
+function isDirectVideoCandidate(url) {
+  if (typeof url !== 'string') {
+    return false;
+  }
+
+  if (/^https?:\/\/.+\.(mp4|webm|mov|m4v|gif)(\?.*)?$/i.test(url)) {
+    return true;
+  }
+
+  if (/mime_type=video_[a-z0-9]+/i.test(url)) {
+    return true;
+  }
+
+  if (/\/video\/tos\//i.test(url) || /\/aweme\/v1\/play\//i.test(url)) {
+    return true;
+  }
+
+  return false;
+}
 
 function pickMediaUrl(urls) {
   if (!Array.isArray(urls) || urls.length === 0) {
     return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN };
   }
 
-  const direct = urls.find((url) => typeof url === 'string' && /^https?:\/\/.+\.mp4(\?.*)?$/i.test(url));
+  const direct = urls.find((url) => isDirectVideoCandidate(url));
   if (direct) {
     return { mediaUrl: direct, sourceType: SOURCE_TYPES.DIRECT };
   }
 
-  const hls = urls.find((url) => typeof url === 'string' && /\.m3u8(\?.*)?$/i.test(url));
+  const hls = urls.find((url) => isHlsCandidate(url));
   if (hls) {
     return { mediaUrl: hls, sourceType: SOURCE_TYPES.HLS };
   }
@@ -25,8 +57,8 @@ function pickMediaUrl(urls) {
 }
 
 async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
-  if (!isTweetUrl(tweetUrl)) {
-    throw new Error('Invalid tweet URL');
+  if (!isSupportedPostUrl(tweetUrl)) {
+    throw new Error('Invalid post URL');
   }
 
   if (typeof pageFactory !== 'function') {
@@ -44,7 +76,7 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
     const { mediaUrl, sourceType } = pickMediaUrl(mediaUrls);
 
     if (!mediaUrl) {
-      throw new Error('No media URL extracted from tweet');
+      throw new Error('No media URL extracted from post');
     }
 
     return {

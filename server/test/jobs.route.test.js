@@ -48,6 +48,20 @@ test('POST /api/jobs creates a queued job for a valid tweet URL', async () => {
   assert.ok(saved);
 });
 
+test('POST /api/jobs creates a queued job for a valid TikTok URL', async () => {
+  const response = await request(app)
+    .post('/api/jobs')
+    .send({ tweetUrl: 'https://www.tiktok.com/@someuser/video/7606119826259512584' });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.job.status, 'queued');
+  assert.equal(
+    response.body.job.tweetUrl,
+    'https://www.tiktok.com/@someuser/video/7606119826259512584'
+  );
+});
+
 test('POST /api/jobs rejects invalid tweet URL input', async () => {
   const response = await request(app)
     .post('/api/jobs')
