@@ -354,3 +354,62 @@ test('createPlaywrightPageFactory captures TikTok media URLs without file extens
   assert.equal(mediaUrls.length, 1);
   assert.match(mediaUrls[0], /tiktok\.com\/video\/tos\//i);
 });
+
+test('createPlaywrightPageFactory retries launch when persistent profile lock crashes Chromium', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  let launchCount = 0;
+  const fakeChromium = {
+    launchPersistentContext: async () => {
+      launchCount += 1;
+
+      if (launchCount === 1) {
+        throw new Error(
+          'browserType.launchPersistentContext: Target page, context or browser has been closed (exitCode=21)'
+        );
+      }
+
+      return {
+        once() {},
+        async close() {},
+        async newPage() {
+          return {
+            on() {},
+            off() {},
+            async goto() {},
+            async waitForTimeout() {},
+            async title() {
+              return 'TikTok';
+            },
+            locator() {
+              return {
+                async innerText() {
+                  return 'Video page';
+                },
+              };
+            },
+            async content() {
+              return '<html></html>';
+            },
+            url() {
+              return 'https://www.tiktok.com/@user/video/7606119826259512584';
+            },
+            async close() {},
+          };
+        },
+      };
+    },
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://www.tiktok.com/@user/video/7606119826259512584');
+  await page.close();
+
+  assert.equal(launchCount, 2);
+});

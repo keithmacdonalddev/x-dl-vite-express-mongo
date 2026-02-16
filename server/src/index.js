@@ -37,25 +37,28 @@ function applyDnsOverrideFromEnv(env = process.env) {
 async function start() {
   applyDnsOverrideFromEnv();
 
-  if (config.mongoUri) {
-    try {
-      await mongoose.connect(config.mongoUri);
-      console.log('MongoDB connected');
-      const recoveredCount = await recoverStaleJobs();
-      if (recoveredCount > 0) {
-        console.warn(`Recovered ${recoveredCount} stale running jobs after restart.`);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`MongoDB connection failed: ${message}`);
-    }
-  } else {
-    console.warn('MONGODB_URI is not set. Running API without database connection.');
-  }
-
   serverHandle = app.listen(config.port, () => {
     console.log(`API listening on http://localhost:${config.port}`);
   });
+
+  if (config.mongoUri) {
+    // Do not block HTTP startup on a slow/unreachable MongoDB handshake.
+    mongoose
+      .connect(config.mongoUri)
+      .then(async () => {
+        console.log('MongoDB connected');
+        const recoveredCount = await recoverStaleJobs();
+        if (recoveredCount > 0) {
+          console.warn(`Recovered ${recoveredCount} stale running jobs after restart.`);
+        }
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`MongoDB connection failed: ${message}`);
+      });
+  } else {
+    console.warn('MONGODB_URI is not set. Running API without database connection.');
+  }
 
   startQueueWorker({
     intervalMs: 1000,

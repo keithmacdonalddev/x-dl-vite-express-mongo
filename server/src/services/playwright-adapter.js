@@ -1,4 +1,5 @@
 const path = require('node:path');
+const fs = require('node:fs');
 
 const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
 const TIKTOK_MEDIA_PATH_PATTERN = /\/(video\/tos\/|aweme\/v1\/play\/)/i;
@@ -8,6 +9,7 @@ const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|performing security
 const X_AUTH_HOSTS = new Set(['x.com', 'twitter.com']);
 
 let persistentContextPromise = null;
+const CHROMIUM_SINGLETON_ARTIFACTS = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
 
 function parseBoolean(value, fallback) {
   if (typeof value !== 'string') {
@@ -96,6 +98,50 @@ function assessAccessState({ title, visibleText, content, finalUrl }) {
   return '';
 }
 
+function isLaunchClosedError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /target page, context or browser has been closed/i.test(message) ||
+    /browser has been closed/i.test(message) ||
+    /exitcode=21/i.test(message)
+  );
+}
+
+async function clearChromiumSingletonArtifacts(userDataDir) {
+  if (!userDataDir) {
+    return;
+  }
+
+  const removals = CHROMIUM_SINGLETON_ARTIFACTS.map((name) =>
+    fs.promises.rm(path.join(userDataDir, name), {
+      force: true,
+      recursive: true,
+    })
+  );
+
+  await Promise.all(removals).catch(() => {});
+}
+
+async function launchPersistentContextWithRecovery(chromium, config) {
+  try {
+    return await chromium.launchPersistentContext(config.userDataDir, {
+      headless: config.headless,
+      ...config.contextOptions,
+    });
+  } catch (error) {
+    if (!isLaunchClosedError(error)) {
+      throw error;
+    }
+
+    await clearChromiumSingletonArtifacts(config.userDataDir);
+
+    return chromium.launchPersistentContext(config.userDataDir, {
+      headless: config.headless,
+      ...config.contextOptions,
+    });
+  }
+}
+
 function isLikelyMediaResponse(response) {
   if (!response || typeof response.url !== 'function') {
     return false;
@@ -178,11 +224,7 @@ async function getPersistentContext(options = {}) {
   const chromium = resolveChromium(config.chromium);
 
   if (!persistentContextPromise) {
-    const contextPromise = chromium
-      .launchPersistentContext(config.userDataDir, {
-        headless: config.headless,
-        ...config.contextOptions,
-      })
+    const contextPromise = launchPersistentContextWithRecovery(chromium, config)
       .then((context) => {
         // If the browser exits unexpectedly, allow automatic relaunch on next usage.
         if (context && typeof context.once === 'function') {
