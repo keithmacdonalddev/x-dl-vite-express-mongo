@@ -4,6 +4,7 @@ const { app } = require('./app');
 const { getServerConfig } = require('./config/env');
 const { startQueueWorker, stopQueueWorker } = require('./worker/queue');
 const { processOneCycle } = require('./worker/process-job');
+const { recoverStaleJobs } = require('./worker/recovery');
 
 dotenv.config();
 
@@ -14,6 +15,10 @@ async function start() {
     try {
       await mongoose.connect(config.mongoUri);
       console.log('MongoDB connected');
+      const recoveredCount = await recoverStaleJobs();
+      if (recoveredCount > 0) {
+        console.warn(`Recovered ${recoveredCount} stale running jobs after restart.`);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`MongoDB connection failed: ${message}`);
