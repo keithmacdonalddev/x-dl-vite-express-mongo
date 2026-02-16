@@ -8,6 +8,11 @@ vi.mock('../api/jobsApi', () => ({
   createJob: vi.fn(),
   createManualRetryJob: vi.fn(),
   getJob: vi.fn(),
+  updateJob: vi.fn(),
+  deleteJob: vi.fn(),
+  bulkDeleteJobs: vi.fn(),
+  updateContactProfile: vi.fn(),
+  deleteContactProfile: vi.fn(),
 }))
 
 beforeEach(() => {
@@ -82,4 +87,40 @@ it('opens contact profile from contacts panel', async () => {
   fireEvent.click(button)
 
   expect(onOpenContact).toHaveBeenCalledWith('sample_user')
+})
+
+it('bulk deletes selected jobs after confirmation', async () => {
+  jobsApi.listJobs.mockResolvedValue({
+    ok: true,
+    jobs: [
+      {
+        _id: 'a1',
+        tweetUrl: 'https://x.com/u/status/100',
+        status: 'completed',
+        createdAt: '2026-02-16T10:00:00.000Z',
+      },
+      {
+        _id: 'a2',
+        tweetUrl: 'https://x.com/u/status/101',
+        status: 'completed',
+        createdAt: '2026-02-16T10:01:00.000Z',
+      },
+    ],
+  })
+  jobsApi.bulkDeleteJobs.mockResolvedValue({
+    ok: true,
+    deletedCount: 2,
+  })
+
+  render(<JobsPage />)
+  const checkboxes = await screen.findAllByRole('checkbox')
+  fireEvent.click(checkboxes[0])
+  fireEvent.click(checkboxes[1])
+
+  fireEvent.click(screen.getByRole('button', { name: /delete selected/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete permanently/i }))
+
+  await waitFor(() => {
+    expect(jobsApi.bulkDeleteJobs).toHaveBeenCalledWith(['a1', 'a2'])
+  })
 })

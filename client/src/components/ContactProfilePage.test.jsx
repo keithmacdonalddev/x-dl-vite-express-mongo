@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ContactProfilePage } from './ContactProfilePage'
 import * as jobsApi from '../api/jobsApi'
 
@@ -8,6 +8,11 @@ vi.mock('../api/jobsApi', () => ({
   createJob: vi.fn(),
   createManualRetryJob: vi.fn(),
   getJob: vi.fn(),
+  updateJob: vi.fn(),
+  deleteJob: vi.fn(),
+  bulkDeleteJobs: vi.fn(),
+  updateContactProfile: vi.fn(),
+  deleteContactProfile: vi.fn(),
 }))
 
 beforeEach(() => {
@@ -54,4 +59,33 @@ it('triggers back handler from profile page', async () => {
   await screen.findByText(/no jobs found for this contact yet/i)
   fireEvent.click(screen.getByRole('button', { name: /back to dashboard/i }))
   expect(onBack).toHaveBeenCalled()
+})
+
+it('deletes the whole contact after confirmation', async () => {
+  jobsApi.listJobs.mockResolvedValue({
+    ok: true,
+    jobs: [
+      {
+        _id: 'profile1',
+        tweetUrl: 'https://www.tiktok.com/@sample_user/video/7606119826259512584',
+        status: 'completed',
+        accountHandle: '@sample_user',
+        accountDisplayName: '@sample_user',
+        accountSlug: 'sample_user',
+        createdAt: '2026-02-16T10:00:00.000Z',
+      },
+    ],
+  })
+  jobsApi.deleteContactProfile.mockResolvedValue({ ok: true, deletedCount: 1 })
+
+  const onBack = vi.fn()
+  render(<ContactProfilePage contactSlug="sample_user" onBack={onBack} />)
+
+  fireEvent.click(await screen.findByRole('button', { name: /delete contact permanently/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete permanently/i }))
+
+  await waitFor(() => {
+    expect(jobsApi.deleteContactProfile).toHaveBeenCalledWith('sample_user')
+    expect(onBack).toHaveBeenCalled()
+  })
 })

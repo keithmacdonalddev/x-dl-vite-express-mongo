@@ -43,3 +43,50 @@ export async function createManualRetryJob(jobId, mediaUrl) {
   })
   return parseResponse(response)
 }
+
+export async function updateJob(jobId, payload) {
+  const response = await fetch(`${JOBS_API_BASE}/${jobId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload || {}),
+  })
+  return parseResponse(response)
+}
+
+export async function deleteJob(jobId) {
+  const response = await fetch(`${JOBS_API_BASE}/${jobId}`, {
+    method: 'DELETE',
+  })
+  return parseResponse(response)
+}
+
+export async function bulkDeleteJobs(jobIds) {
+  const response = await fetch(`${JOBS_API_BASE}/bulk-delete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ jobIds }),
+  })
+  return parseResponse(response)
+}
+
+export async function updateContactProfile(contactSlug, displayName) {
+  const response = await fetch(`${JOBS_API_BASE}/contact/${encodeURIComponent(contactSlug)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ displayName }),
+  })
+  return parseResponse(response)
+}
+
+export async function deleteContactProfile(contactSlug) {
+  const response = await fetch(`${JOBS_API_BASE}/contact/${encodeURIComponent(contactSlug)}`, {
+    method: 'DELETE',
+  })
+  return parseResponse(response)
+}

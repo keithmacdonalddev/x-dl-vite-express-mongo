@@ -1,5 +1,11 @@
-import { useMemo, useState } from 'react'
-import { createJob, createManualRetryJob } from '../api/jobsApi'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  bulkDeleteJobs,
+  createJob,
+  createManualRetryJob,
+  deleteJob,
+  updateJob,
+} from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
 import {
   buildContacts,
@@ -8,16 +14,47 @@ import {
   parseQualityLabel,
   toAssetHref,
 } from '../lib/contacts'
+import { ConfirmModal } from './ConfirmModal'
+
+function getSelectedIds(selectionMap, allIds) {
+  return allIds.filter((id) => Boolean(selectionMap[id]))
+}
 
 export function JobsPage({ onOpenContact }) {
   const [postUrl, setPostUrl] = useState('')
   const [manualMediaByJobId, setManualMediaByJobId] = useState({})
+  const [editDraftByJobId, setEditDraftByJobId] = useState({})
+  const [selectedJobIds, setSelectedJobIds] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isMutating, setIsMutating] = useState(false)
   const [manualSubmittingJobId, setManualSubmittingJobId] = useState('')
+  const [editingJobId, setEditingJobId] = useState('')
   const [submitError, setSubmitError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState({
+    isOpen: false,
+    mode: '',
+    jobId: '',
+    count: 0,
+  })
   const { jobs, isLoading, error: pollError, refresh } = useJobsPolling({ intervalMs: 3000 })
 
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
+  const allJobIds = useMemo(() => jobs.map((job) => job._id), [jobs])
+  const selectedIds = useMemo(() => getSelectedIds(selectedJobIds, allJobIds), [selectedJobIds, allJobIds])
+  const selectedCount = selectedIds.length
+
+  useEffect(() => {
+    const validIds = new Set(allJobIds)
+    setSelectedJobIds((current) => {
+      const next = {}
+      for (const key of Object.keys(current)) {
+        if (validIds.has(key)) {
+          next[key] = current[key]
+        }
+      }
+      return next
+    })
+  }, [allJobIds])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -78,6 +115,125 @@ export function JobsPage({ onOpenContact }) {
     }
   }
 
+  function toggleSelection(jobId) {
+    setSelectedJobIds((current) => ({
+      ...current,
+      [jobId]: !current[jobId],
+    }))
+  }
+
+  function toggleAllSelection() {
+    if (selectedCount === allJobIds.length) {
+      setSelectedJobIds({})
+      return
+    }
+
+    const next = {}
+    for (const jobId of allJobIds) {
+      next[jobId] = true
+    }
+    setSelectedJobIds(next)
+  }
+
+  function openSingleDelete(jobId) {
+    setConfirmDelete({
+      isOpen: true,
+      mode: 'single',
+      jobId,
+      count: 1,
+    })
+  }
+
+  function openBulkDelete() {
+    if (selectedCount === 0) {
+      return
+    }
+    setConfirmDelete({
+      isOpen: true,
+      mode: 'bulk',
+      jobId: '',
+      count: selectedCount,
+    })
+  }
+
+  function closeDeleteModal() {
+    if (isMutating) {
+      return
+    }
+    setConfirmDelete({
+      isOpen: false,
+      mode: '',
+      jobId: '',
+      count: 0,
+    })
+  }
+
+  async function handleConfirmDelete() {
+    setIsMutating(true)
+    setSubmitError('')
+
+    try {
+      if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
+        await deleteJob(confirmDelete.jobId)
+      } else if (confirmDelete.mode === 'bulk') {
+        await bulkDeleteJobs(selectedIds)
+        setSelectedJobIds({})
+      }
+
+      await refresh()
+      closeDeleteModal()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
+  function startEdit(job) {
+    setEditingJobId(job._id)
+    setEditDraftByJobId((current) => ({
+      ...current,
+      [job._id]: {
+        tweetUrl: job.tweetUrl || '',
+        accountDisplayName: job.accountDisplayName || '',
+      },
+    }))
+  }
+
+  function cancelEdit() {
+    setEditingJobId('')
+  }
+
+  async function submitEdit(event, job) {
+    event.preventDefault()
+    const draft = editDraftByJobId[job._id] || {}
+    const payload = {}
+
+    if (typeof draft.tweetUrl === 'string' && draft.tweetUrl.trim() && draft.tweetUrl.trim() !== job.tweetUrl) {
+      payload.tweetUrl = draft.tweetUrl.trim()
+    }
+    if (typeof draft.accountDisplayName === 'string' && draft.accountDisplayName.trim() !== (job.accountDisplayName || '')) {
+      payload.accountDisplayName = draft.accountDisplayName.trim()
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setEditingJobId('')
+      return
+    }
+
+    setIsMutating(true)
+    setSubmitError('')
+    try {
+      await updateJob(job._id, payload)
+      setEditingJobId('')
+      await refresh()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
   const errorMessage = submitError || pollError
 
   return (
@@ -134,7 +290,7 @@ export function JobsPage({ onOpenContact }) {
                 onChange={(event) => setPostUrl(event.target.value)}
                 required
               />
-              <button type="submit" disabled={isSubmitting}>
+              <button type="submit" disabled={isSubmitting || isMutating}>
                 {isSubmitting ? 'Submitting...' : 'Add job'}
               </button>
             </form>
@@ -146,12 +302,50 @@ export function JobsPage({ onOpenContact }) {
               <p>{jobs.length} total</p>
             </div>
 
+            <div className="bulk-toolbar">
+              <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={jobs.length === 0}>
+                {selectedCount === allJobIds.length && allJobIds.length > 0 ? 'Clear all' : 'Select all'}
+              </button>
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={openBulkDelete}
+                disabled={selectedCount === 0 || isMutating}
+              >
+                Delete selected ({selectedCount})
+              </button>
+            </div>
+
             {isLoading && <p>Loading jobs...</p>}
             {!isLoading && jobs.length === 0 && <p>No jobs yet.</p>}
             {!isLoading && jobs.length > 0 && (
               <ul className="jobs-list">
                 {jobs.map((job) => (
                   <li key={job._id} className="job-row">
+                    <div className="row-actions-top">
+                      <label className="select-box">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedJobIds[job._id])}
+                          onChange={() => toggleSelection(job._id)}
+                        />
+                        <span>Select</span>
+                      </label>
+                      <div className="row-buttons">
+                        <button type="button" className="ghost-btn small-btn" onClick={() => startEdit(job)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger-btn small-btn"
+                          onClick={() => openSingleDelete(job._id)}
+                          disabled={isMutating}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="job-top">
                       <div>
                         <p>
@@ -176,6 +370,50 @@ export function JobsPage({ onOpenContact }) {
                         />
                       )}
                     </div>
+
+                    {editingJobId === job._id && (
+                      <form className="edit-form" onSubmit={(event) => submitEdit(event, job)}>
+                        <label htmlFor={`edit-url-${job._id}`}>Post URL</label>
+                        <input
+                          id={`edit-url-${job._id}`}
+                          type="url"
+                          value={editDraftByJobId[job._id]?.tweetUrl || ''}
+                          onChange={(event) =>
+                            setEditDraftByJobId((current) => ({
+                              ...current,
+                              [job._id]: {
+                                ...(current[job._id] || {}),
+                                tweetUrl: event.target.value,
+                              },
+                            }))
+                          }
+                          required
+                        />
+                        <label htmlFor={`edit-display-${job._id}`}>Display name</label>
+                        <input
+                          id={`edit-display-${job._id}`}
+                          type="text"
+                          value={editDraftByJobId[job._id]?.accountDisplayName || ''}
+                          onChange={(event) =>
+                            setEditDraftByJobId((current) => ({
+                              ...current,
+                              [job._id]: {
+                                ...(current[job._id] || {}),
+                                accountDisplayName: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <div className="row-buttons">
+                          <button type="submit" disabled={isMutating}>
+                            {isMutating ? 'Saving...' : 'Save edit'}
+                          </button>
+                          <button type="button" className="ghost-btn" onClick={cancelEdit} disabled={isMutating}>
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
 
                     {job.metadata && (
                       <details>
@@ -215,7 +453,7 @@ export function JobsPage({ onOpenContact }) {
                             <li key={candidateUrl}>
                               <button
                                 type="button"
-                                disabled={manualSubmittingJobId === job._id}
+                                disabled={manualSubmittingJobId === job._id || isMutating}
                                 onClick={() => handleCandidateRetry(job._id, candidateUrl)}
                               >
                                 {manualSubmittingJobId === job._id ? 'Retrying...' : 'Use this media URL'}
@@ -246,7 +484,7 @@ export function JobsPage({ onOpenContact }) {
                           }
                           required
                         />
-                        <button type="submit" disabled={manualSubmittingJobId === job._id}>
+                        <button type="submit" disabled={manualSubmittingJobId === job._id || isMutating}>
                           {manualSubmittingJobId === job._id ? 'Retrying...' : 'Retry with media URL'}
                         </button>
                       </form>
@@ -259,6 +497,21 @@ export function JobsPage({ onOpenContact }) {
           </section>
         </section>
       </section>
+
+      <ConfirmModal
+        isOpen={confirmDelete.isOpen}
+        title={confirmDelete.mode === 'bulk' ? 'Delete selected jobs?' : 'Delete this job?'}
+        message={
+          confirmDelete.mode === 'bulk'
+            ? `Permanently delete ${confirmDelete.count} selected jobs and their local files?`
+            : 'Permanently delete this job and its local files?'
+        }
+        confirmLabel="Delete permanently"
+        isBusy={isMutating}
+        onCancel={closeDeleteModal}
+        onConfirm={handleConfirmDelete}
+      />
     </main>
   )
 }
+
