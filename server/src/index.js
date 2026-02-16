@@ -2,6 +2,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { app } = require('./app');
 const { getServerConfig } = require('./config/env');
+const { startQueueWorker, stopQueueWorker, claimNextQueuedJob } = require('./worker/queue');
 
 dotenv.config();
 
@@ -23,10 +24,31 @@ async function start() {
   app.listen(config.port, () => {
     console.log(`API listening on http://localhost:${config.port}`);
   });
+
+  startQueueWorker({
+    intervalMs: 1000,
+    onTick: async () => {
+      await claimNextQueuedJob();
+    },
+  });
 }
 
 start().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`Failed to start API: ${message}`);
   process.exit(1);
+});
+
+process.on('exit', () => {
+  stopQueueWorker();
+});
+
+process.on('SIGINT', () => {
+  stopQueueWorker();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  stopQueueWorker();
+  process.exit(0);
 });
