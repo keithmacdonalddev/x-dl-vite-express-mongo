@@ -413,3 +413,54 @@ test('createPlaywrightPageFactory retries launch when persistent profile lock cr
 
   assert.equal(launchCount, 2);
 });
+
+test('createPlaywrightPageFactory collects media URLs embedded in page content', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  const fakeChromium = {
+    launchPersistentContext: async () => ({
+      once() {},
+      async close() {},
+      async newPage() {
+        return {
+          on() {},
+          off() {},
+          async goto() {},
+          async waitForTimeout() {},
+          async title() {
+            return 'TikTok';
+          },
+          locator() {
+            return {
+              async innerText() {
+                return 'Normal page';
+              },
+            };
+          },
+          async content() {
+            return '<script>window.__DATA__={\"url\":\"https:\\\\u002F\\\\u002Fv16-webapp-prime.tiktok.com\\\\u002Fvideo\\\\u002Ftos\\\\u002Fabc?mime_type=video_mp4&br=3000\"};</script>';
+          },
+          url() {
+            return 'https://www.tiktok.com/@user/video/7606119826259512584';
+          },
+          async close() {},
+        };
+      },
+    }),
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://www.tiktok.com/@user/video/7606119826259512584');
+  const urls = await page.collectMediaUrls();
+  await page.close();
+
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /video\/tos/i);
+  assert.match(urls[0], /br=3000/i);
+});

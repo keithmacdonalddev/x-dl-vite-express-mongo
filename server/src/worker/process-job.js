@@ -40,16 +40,25 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
   try {
     let mediaUrl = '';
     let sourceType = job.sourceType || SOURCE_TYPES.UNKNOWN;
+    let candidateUrls = Array.isArray(job.candidateUrls) ? job.candidateUrls : [];
+    let imageUrls = Array.isArray(job.imageUrls) ? job.imageUrls : [];
+    let metadata = job.metadata && typeof job.metadata === 'object' ? job.metadata : {};
 
     if (isHttpUrl(job.extractedUrl)) {
       mediaUrl = job.extractedUrl;
       if (sourceType === SOURCE_TYPES.UNKNOWN) {
         sourceType = inferSourceTypeFromMediaUrl(mediaUrl);
       }
+      if (!candidateUrls.includes(mediaUrl)) {
+        candidateUrls = [mediaUrl, ...candidateUrls];
+      }
     } else {
       const extracted = await extractor(job.tweetUrl);
       mediaUrl = extracted && typeof extracted.mediaUrl === 'string' ? extracted.mediaUrl : '';
       sourceType = extracted.sourceType || SOURCE_TYPES.UNKNOWN;
+      candidateUrls = Array.isArray(extracted.candidateUrls) ? extracted.candidateUrls : [];
+      imageUrls = Array.isArray(extracted.imageUrls) ? extracted.imageUrls : [];
+      metadata = extracted.metadata && typeof extracted.metadata === 'object' ? extracted.metadata : {};
     }
 
     if (!mediaUrl) {
@@ -58,6 +67,9 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
 
     job.extractedUrl = mediaUrl;
     job.sourceType = sourceType;
+    job.candidateUrls = candidateUrls;
+    job.imageUrls = imageUrls;
+    job.metadata = metadata;
     job.progressPct = 50;
     await job.save();
 

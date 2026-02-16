@@ -114,27 +114,52 @@ function pickBestDirectMediaUrl(urls) {
   return candidates.sort(compareDirectQuality)[0];
 }
 
-function pickMediaUrl(urls) {
+function listCandidateMediaUrls(urls) {
   if (!Array.isArray(urls) || urls.length === 0) {
-    return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN };
+    return [];
   }
 
+  const directCandidates = urls
+    .filter((url) => isDirectVideoCandidate(url))
+    .sort(compareDirectQuality);
+
+  const hlsCandidates = urls.filter((url) => isHlsCandidate(url));
+
+  const combined = [...directCandidates, ...hlsCandidates];
+  return Array.from(new Set(combined));
+}
+
+function sanitizeUrlArray(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const cleaned = values.filter((value) => typeof value === 'string' && /^https?:\/\//i.test(value));
+  return Array.from(new Set(cleaned));
+}
+
+function pickMediaUrl(urls) {
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls: [] };
+  }
+
+  const candidateUrls = listCandidateMediaUrls(urls);
   const direct = pickBestDirectMediaUrl(urls);
   if (direct) {
-    return { mediaUrl: direct, sourceType: SOURCE_TYPES.DIRECT };
+    return { mediaUrl: direct, sourceType: SOURCE_TYPES.DIRECT, candidateUrls };
   }
 
   const hls = urls.find((url) => isHlsCandidate(url));
   if (hls) {
-    return { mediaUrl: hls, sourceType: SOURCE_TYPES.HLS };
+    return { mediaUrl: hls, sourceType: SOURCE_TYPES.HLS, candidateUrls };
   }
 
   const firstValid = urls.find((url) => typeof url === 'string' && /^https?:\/\//i.test(url));
   if (firstValid) {
-    return { mediaUrl: firstValid, sourceType: SOURCE_TYPES.UNKNOWN };
+    return { mediaUrl: firstValid, sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls };
   }
 
-  return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN };
+  return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls };
 }
 
 async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
@@ -155,7 +180,9 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
     }
 
     const mediaUrls = typeof page.collectMediaUrls === 'function' ? await page.collectMediaUrls() : [];
-    const { mediaUrl, sourceType } = pickMediaUrl(mediaUrls);
+    const imageUrls = typeof page.collectImageUrls === 'function' ? await page.collectImageUrls() : [];
+    const metadata = typeof page.collectPostMetadata === 'function' ? await page.collectPostMetadata() : {};
+    const { mediaUrl, sourceType, candidateUrls } = pickMediaUrl(mediaUrls);
 
     if (!mediaUrl) {
       throw new Error('No media URL extracted from post');
@@ -164,6 +191,9 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
     return {
       mediaUrl,
       sourceType,
+      candidateUrls: sanitizeUrlArray(candidateUrls),
+      imageUrls: sanitizeUrlArray(imageUrls),
+      metadata: metadata && typeof metadata === 'object' ? metadata : {},
     };
   } catch (error) {
     if (isAccessChallengeError(error)) {
@@ -181,4 +211,5 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
 module.exports = {
   extractFromTweet,
   pickMediaUrl,
+  listCandidateMediaUrls,
 };

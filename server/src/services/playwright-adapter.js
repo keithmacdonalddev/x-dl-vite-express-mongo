@@ -2,8 +2,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
+const IMAGE_URL_PATTERN = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
 const TIKTOK_MEDIA_PATH_PATTERN = /\/(video\/tos\/|aweme\/v1\/play\/)/i;
 const VIDEO_CONTENT_TYPE_PATTERN = /^(video\/|application\/(vnd\.apple\.mpegurl|x-mpegurl))/i;
+const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
 const AUTH_REQUIRED_PATTERN = /(log in|login|sign in|authenticate|session expired)/i;
 const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|performing security verification|unusual traffic)/i;
 const X_AUTH_HOSTS = new Set(['x.com', 'twitter.com']);
@@ -175,6 +177,112 @@ function isLikelyMediaResponse(response) {
   return false;
 }
 
+function isLikelyImageResponse(response) {
+  if (!response || typeof response.url !== 'function') {
+    return false;
+  }
+
+  const url = response.url();
+  if (typeof url !== 'string' || !url) {
+    return false;
+  }
+
+  if (IMAGE_URL_PATTERN.test(url)) {
+    return true;
+  }
+
+  try {
+    if (typeof response.headers === 'function') {
+      const headers = response.headers() || {};
+      const contentType = headers['content-type'] || headers['Content-Type'] || '';
+      if (IMAGE_CONTENT_TYPE_PATTERN.test(contentType)) {
+        return true;
+      }
+    }
+  } catch {
+    // ignore header parsing failures
+  }
+
+  return false;
+}
+
+function isLikelyMediaUrl(url) {
+  if (typeof url !== 'string') {
+    return false;
+  }
+  return (
+    MEDIA_URL_PATTERN.test(url) ||
+    TIKTOK_MEDIA_PATH_PATTERN.test(url)
+  );
+}
+
+function extractMediaUrlsFromContent(content) {
+  if (typeof content !== 'string' || !content) {
+    return [];
+  }
+
+  const normalized = content
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\\//g, '/')
+    .replace(/&amp;/g, '&');
+  const matches = normalized.match(/https?:\/\/[^\s"'<>\\]+/g) || [];
+
+  const mediaMatches = matches.filter((url) => isLikelyMediaUrl(url));
+  return Array.from(new Set(mediaMatches));
+}
+
+async function readPostMetadata(page) {
+  const metadata = {
+    title: '',
+    description: '',
+    author: '',
+    canonicalUrl: '',
+    pageUrl: '',
+  };
+
+  const [title, pageUrl] = await Promise.all([
+    page.title().catch(() => ''),
+    Promise.resolve(typeof page.url === 'function' ? page.url() : ''),
+  ]);
+  metadata.title = title || '';
+  metadata.pageUrl = pageUrl || '';
+
+  if (typeof page.locator !== 'function') {
+    return metadata;
+  }
+
+  const selectors = [
+    ['description', 'meta[name="description"]'],
+    ['description', 'meta[property="og:description"]'],
+    ['title', 'meta[property="og:title"]'],
+    ['canonicalUrl', 'link[rel="canonical"]'],
+  ];
+
+  for (const [field, selector] of selectors) {
+    try {
+      const locator = page.locator(selector).first();
+      const attr = selector.startsWith('link') ? 'href' : 'content';
+      const value = await locator.getAttribute(attr);
+      if (value && !metadata[field]) {
+        metadata[field] = value.trim();
+      }
+    } catch {
+      // ignore selector failures
+    }
+  }
+
+  try {
+    const authorMeta = await page.locator('meta[name="author"]').first().getAttribute('content');
+    if (authorMeta) {
+      metadata.author = authorMeta.trim();
+    }
+  } catch {
+    // ignore selector failures
+  }
+
+  return metadata;
+}
+
 async function sampleAccessState(page, targetUrl) {
   const visibleTextPromise =
     page && typeof page.locator === 'function'
@@ -283,11 +391,14 @@ function createPlaywrightPageFactory(options = {}) {
   return async function pageFactory() {
     const page = await openNewPage();
     const mediaUrls = new Set();
+    const imageUrls = new Set();
 
     const onResponse = (response) => {
       try {
         if (isLikelyMediaResponse(response)) {
           mediaUrls.add(response.url());
+        } else if (isLikelyImageResponse(response)) {
+          imageUrls.add(response.url());
         }
       } catch {
         // swallow response parsing errors
@@ -315,7 +426,26 @@ function createPlaywrightPageFactory(options = {}) {
         }
       },
       async collectMediaUrls() {
-        return Array.from(mediaUrls);
+        const combined = new Set(mediaUrls);
+
+        if (typeof page.content === 'function') {
+          try {
+            const content = await page.content();
+            for (const url of extractMediaUrlsFromContent(content)) {
+              combined.add(url);
+            }
+          } catch {
+            // ignore content extraction failures
+          }
+        }
+
+        return Array.from(combined);
+      },
+      async collectImageUrls() {
+        return Array.from(imageUrls);
+      },
+      async collectPostMetadata() {
+        return readPostMetadata(page);
       },
       async close() {
         page.off('response', onResponse);

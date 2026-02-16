@@ -135,6 +135,9 @@ jobsRouter.post('/:id/manual-retry', async (req, res) => {
       status: JOB_STATUSES.QUEUED,
       extractedUrl: mediaUrl,
       sourceType: inferSourceTypeFromMediaUrl(mediaUrl),
+      candidateUrls: [mediaUrl],
+      imageUrls: Array.isArray(original.imageUrls) ? original.imageUrls : [],
+      metadata: original.metadata && typeof original.metadata === 'object' ? original.metadata : {},
     });
 
     return res.status(201).json({

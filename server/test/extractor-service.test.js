@@ -12,6 +12,16 @@ test('extractFromTweet returns direct media URL payload shape', async () => {
       'https://video.twimg.com/ext_tw_video/123/pu/vid/1280x720/video.mp4',
       'https://video.twimg.com/ext_tw_video/123/pl/playlist.m3u8',
     ],
+    collectImageUrls: async () => [
+      'https://p16-sign-va.tiktokcdn.com/image1.jpg',
+      'https://p16-sign-va.tiktokcdn.com/image1.jpg',
+      'bad-url',
+    ],
+    collectPostMetadata: async () => ({
+      title: 'Some post title',
+      description: 'Some description',
+      author: 'some-author',
+    }),
     close: async () => {
       closed = true;
     },
@@ -22,6 +32,10 @@ test('extractFromTweet returns direct media URL payload shape', async () => {
   assert.equal(typeof data.mediaUrl, 'string');
   assert.match(data.mediaUrl, /^https?:\/\//);
   assert.equal(data.sourceType, 'direct');
+  assert.ok(Array.isArray(data.candidateUrls));
+  assert.ok(data.candidateUrls.length >= 2);
+  assert.deepEqual(data.imageUrls, ['https://p16-sign-va.tiktokcdn.com/image1.jpg']);
+  assert.equal(data.metadata.title, 'Some post title');
   assert.equal(closed, true);
 });
 

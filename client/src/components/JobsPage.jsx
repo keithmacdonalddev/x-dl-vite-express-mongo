@@ -13,6 +13,29 @@ function formatTimestamp(value) {
   return date.toLocaleString()
 }
 
+function parseQualityLabel(url, index) {
+  try {
+    const parsed = new URL(url)
+    const br = parsed.searchParams.get('br')
+    const bt = parsed.searchParams.get('bt')
+    const size = parsed.pathname.match(/(\d{2,5})x(\d{2,5})/)
+    const parts = [`Option ${index + 1}`]
+    if (size) {
+      parts.push(`${size[1]}x${size[2]}`)
+    }
+    if (br) {
+      parts.push(`br ${br}`)
+    }
+    if (bt) {
+      parts.push(`bt ${bt}`)
+    }
+    parts.push(parsed.hostname)
+    return parts.join(' | ')
+  } catch {
+    return `Option ${index + 1}`
+  }
+}
+
 export function JobsPage() {
   const [tweetUrl, setTweetUrl] = useState('')
   const [manualMediaByJobId, setManualMediaByJobId] = useState({})
@@ -55,6 +78,23 @@ export function JobsPage() {
         ...current,
         [jobId]: '',
       }))
+      await refresh()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setManualSubmittingJobId('')
+    }
+  }
+
+  async function handleCandidateRetry(jobId, mediaUrl) {
+    if (!mediaUrl) {
+      return
+    }
+
+    setManualSubmittingJobId(jobId)
+    setSubmitError('')
+    try {
+      await createManualRetryJob(jobId, mediaUrl)
       await refresh()
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : String(err))
@@ -109,6 +149,56 @@ export function JobsPage() {
                 <p>
                   <strong>Created:</strong> {formatTimestamp(job.createdAt)}
                 </p>
+                {job.metadata && (
+                  <details>
+                    <summary>Metadata</summary>
+                    <p>
+                      <strong>Title:</strong> {job.metadata.title || 'n/a'}
+                    </p>
+                    <p>
+                      <strong>Description:</strong> {job.metadata.description || 'n/a'}
+                    </p>
+                    <p>
+                      <strong>Author:</strong> {job.metadata.author || 'n/a'}
+                    </p>
+                  </details>
+                )}
+                {Array.isArray(job.imageUrls) && job.imageUrls.length > 0 && (
+                  <details>
+                    <summary>Images ({job.imageUrls.length})</summary>
+                    <ul className="assets-list">
+                      {job.imageUrls.map((imageUrl) => (
+                        <li key={imageUrl}>
+                          <a href={imageUrl} target="_blank" rel="noreferrer">
+                            {imageUrl}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {Array.isArray(job.candidateUrls) && job.candidateUrls.length > 0 && (
+                  <details>
+                    <summary>Media candidates ({job.candidateUrls.length})</summary>
+                    <ul className="assets-list">
+                      {job.candidateUrls.map((candidateUrl, index) => (
+                        <li key={candidateUrl}>
+                          <button
+                            type="button"
+                            disabled={manualSubmittingJobId === job._id}
+                            onClick={() => handleCandidateRetry(job._id, candidateUrl)}
+                          >
+                            {manualSubmittingJobId === job._id ? 'Retrying...' : 'Use this media URL'}
+                          </button>
+                          <p>{parseQualityLabel(candidateUrl, index)}</p>
+                          <a href={candidateUrl} target="_blank" rel="noreferrer">
+                            {candidateUrl}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
                 {job.status === 'failed' && (
                   <form className="manual-retry-form" onSubmit={(event) => handleManualRetry(event, job._id)}>
                     <label htmlFor={`manualMedia-${job._id}`}>Manual media URL</label>

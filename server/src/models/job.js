@@ -43,6 +43,18 @@ const jobSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    candidateUrls: {
+      type: [String],
+      default: [],
+    },
+    imageUrls: {
+      type: [String],
+      default: [],
+    },
+    metadata: {
+      type: Object,
+      default: {},
+    },
     outputPath: {
       type: String,
       default: '',
