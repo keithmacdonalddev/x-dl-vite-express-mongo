@@ -37,16 +37,54 @@ h1 {
   font-size: 1.05rem;
 }
 
-.ok p,
-.next p {
+.job-form {
+  display: grid;
+  gap: 10px;
+}
+
+.job-form input {
+  border: 1px solid #cac9dd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.job-form button {
+  width: fit-content;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: #2f4ecb;
+  cursor: pointer;
+}
+
+.job-form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.jobs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.job-row {
+  border: 1px solid #e2e0ef;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fcfcff;
+}
+
+.job-row p {
   margin: 6px 0;
 }
 
 .error {
   color: #a01f1f;
-}
-
-.next {
-  margin-top: 14px;
-  color: #53536e;
 }
