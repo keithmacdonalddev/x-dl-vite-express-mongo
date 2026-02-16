@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { createJob, listJobs } from '../api/jobsApi'
+import { useState } from 'react'
+import { createJob } from '../api/jobsApi'
+import { useJobsPolling } from '../hooks/useJobsPolling'
 
 function formatTimestamp(value) {
   if (!value) {
@@ -14,42 +15,9 @@ function formatTimestamp(value) {
 
 export function JobsPage() {
   const [tweetUrl, setTweetUrl] = useState('')
-  const [jobs, setJobs] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  async function refreshJobs() {
-    setError('')
-    const payload = await listJobs()
-    setJobs(Array.isArray(payload.jobs) ? payload.jobs : [])
-  }
-
-  useEffect(() => {
-    let mounted = true
-
-    async function load() {
-      try {
-        const payload = await listJobs()
-        if (mounted) {
-          setJobs(Array.isArray(payload.jobs) ? payload.jobs : [])
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : String(err))
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    load()
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const [submitError, setSubmitError] = useState('')
+  const { jobs, isLoading, error: pollError, refresh } = useJobsPolling({ intervalMs: 3000 })
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -58,17 +26,19 @@ export function JobsPage() {
     }
 
     setIsSubmitting(true)
-    setError('')
+    setSubmitError('')
     try {
       await createJob(tweetUrl.trim())
       setTweetUrl('')
-      await refreshJobs()
+      await refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setSubmitError(err instanceof Error ? err.message : String(err))
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const errorMessage = submitError || pollError
 
   return (
     <main className="app">
@@ -118,7 +88,7 @@ export function JobsPage() {
             ))}
           </ul>
         )}
-        {error && <p className="error">{error}</p>}
+        {errorMessage && <p className="error">{errorMessage}</p>}
       </section>
     </main>
   )
