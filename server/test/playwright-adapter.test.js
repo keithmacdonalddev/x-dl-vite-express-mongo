@@ -142,6 +142,67 @@ test('createPlaywrightPageFactory does not treat TikTok login copy as auth wall'
   await page.close();
 });
 
+test('createPlaywrightPageFactory waits for manual TikTok challenge solve window', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  let sampleIndex = 0;
+  const samples = [
+    {
+      title: 'Verify you are human',
+      content: '<body>Performing security verification</body>',
+      url: 'https://www.tiktok.com/@user/video/7606119826259512584',
+    },
+    {
+      title: 'Verify you are human',
+      content: '<body>Performing security verification</body>',
+      url: 'https://www.tiktok.com/@user/video/7606119826259512584',
+    },
+    {
+      title: 'TikTok',
+      content: '<body>Video page ready</body>',
+      url: 'https://www.tiktok.com/@user/video/7606119826259512584',
+    },
+  ];
+
+  const fakeChromium = {
+    launchPersistentContext: async () => ({
+      newPage: async () => ({
+        on() {},
+        off() {},
+        async goto() {},
+        async waitForTimeout() {
+          if (sampleIndex < samples.length - 1) {
+            sampleIndex += 1;
+          }
+        },
+        async title() {
+          return samples[sampleIndex].title;
+        },
+        async content() {
+          return samples[sampleIndex].content;
+        },
+        url() {
+          return samples[sampleIndex].url;
+        },
+        async close() {},
+      }),
+      async close() {},
+    }),
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+    manualSolveTimeoutMs: 3000,
+    manualSolvePollMs: 10,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://www.tiktok.com/@user/video/7606119826259512584');
+  await page.close();
+});
+
 test('createPlaywrightPageFactory relaunches context when cached context is closed', async () => {
   const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
 

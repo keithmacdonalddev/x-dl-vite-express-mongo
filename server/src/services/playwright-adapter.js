@@ -4,7 +4,7 @@ const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
 const TIKTOK_MEDIA_PATH_PATTERN = /\/(video\/tos\/|aweme\/v1\/play\/)/i;
 const VIDEO_CONTENT_TYPE_PATTERN = /^(video\/|application\/(vnd\.apple\.mpegurl|x-mpegurl))/i;
 const AUTH_REQUIRED_PATTERN = /(log in|login|sign in|authenticate|session expired)/i;
-const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|unusual traffic|challenge)/i;
+const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|performing security verification|unusual traffic)/i;
 const X_AUTH_HOSTS = new Set(['x.com', 'twitter.com']);
 
 let persistentContextPromise = null;
@@ -42,6 +42,19 @@ function resolveChromium(injectedChromium) {
 function getAdapterConfig(input = {}) {
   const env = input.env || process.env;
 
+  const settleMs = Number.isFinite(input.settleMs)
+    ? input.settleMs
+    : Number(env.PLAYWRIGHT_SETTLE_MS || 3000);
+  const navigationTimeoutMs = Number.isFinite(input.navigationTimeoutMs)
+    ? input.navigationTimeoutMs
+    : Number(env.PLAYWRIGHT_NAV_TIMEOUT_MS || 45000);
+  const manualSolveTimeoutMs = Number.isFinite(input.manualSolveTimeoutMs)
+    ? input.manualSolveTimeoutMs
+    : Number(env.PLAYWRIGHT_MANUAL_SOLVE_TIMEOUT_MS || 90000);
+  const manualSolvePollMs = Number.isFinite(input.manualSolvePollMs)
+    ? input.manualSolvePollMs
+    : Number(env.PLAYWRIGHT_MANUAL_SOLVE_POLL_MS || 1000);
+
   return {
     chromium: input.chromium,
     userDataDir:
@@ -52,12 +65,10 @@ function getAdapterConfig(input = {}) {
       typeof input.headless === 'boolean'
         ? input.headless
         : parseBoolean(env.PLAYWRIGHT_HEADLESS, false),
-    settleMs: Number.isFinite(input.settleMs)
-      ? input.settleMs
-      : Number(env.PLAYWRIGHT_SETTLE_MS || 3000),
-    navigationTimeoutMs: Number.isFinite(input.navigationTimeoutMs)
-      ? input.navigationTimeoutMs
-      : Number(env.PLAYWRIGHT_NAV_TIMEOUT_MS || 45000),
+    settleMs: Number.isFinite(settleMs) && settleMs >= 0 ? settleMs : 3000,
+    navigationTimeoutMs: Number.isFinite(navigationTimeoutMs) && navigationTimeoutMs > 0 ? navigationTimeoutMs : 45000,
+    manualSolveTimeoutMs: Number.isFinite(manualSolveTimeoutMs) && manualSolveTimeoutMs >= 0 ? manualSolveTimeoutMs : 90000,
+    manualSolvePollMs: Number.isFinite(manualSolvePollMs) && manualSolvePollMs > 0 ? manualSolvePollMs : 1000,
     contextOptions: input.contextOptions || {},
   };
 }
@@ -116,6 +127,44 @@ function isLikelyMediaResponse(response) {
   }
 
   return false;
+}
+
+async function sampleAccessState(page, targetUrl) {
+  const [title, content, finalUrl] = await Promise.all([
+    page.title().catch(() => ''),
+    page.content().catch(() => ''),
+    Promise.resolve(typeof page.url === 'function' ? page.url() : targetUrl),
+  ]);
+
+  const accessState = assessAccessState({ title, content, finalUrl });
+  return { accessState, finalUrl };
+}
+
+async function waitForManualSolveIfNeeded(page, targetUrl, config) {
+  const { accessState: initialAccessState } = await sampleAccessState(page, targetUrl);
+  if (initialAccessState !== 'BOT_CHALLENGE') {
+    return initialAccessState;
+  }
+
+  if (config.manualSolveTimeoutMs <= 0) {
+    return 'BOT_CHALLENGE';
+  }
+
+  const attempts = Math.max(1, Math.ceil(config.manualSolveTimeoutMs / config.manualSolvePollMs));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await page.waitForTimeout(config.manualSolvePollMs);
+    const { accessState } = await sampleAccessState(page, targetUrl);
+
+    if (!accessState) {
+      return '';
+    }
+
+    if (accessState === 'AUTH_REQUIRED') {
+      return 'AUTH_REQUIRED';
+    }
+  }
+
+  return 'BOT_CHALLENGE';
 }
 
 async function getPersistentContext(options = {}) {
@@ -210,13 +259,7 @@ function createPlaywrightPageFactory(options = {}) {
           await page.waitForTimeout(config.settleMs);
         }
 
-        const [title, content, finalUrl] = await Promise.all([
-          page.title().catch(() => ''),
-          page.content().catch(() => ''),
-          Promise.resolve(typeof page.url === 'function' ? page.url() : targetUrl),
-        ]);
-
-        const accessState = assessAccessState({ title, content, finalUrl });
+        const accessState = await waitForManualSolveIfNeeded(page, targetUrl, config);
         if (accessState) {
           throw new Error(
             `${accessState}: manual interaction required in persistent browser profile before extraction can continue.`
