@@ -1,0 +1,19 @@
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+
+const app = express();
+
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
+app.use(morgan('dev'));
+
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'x-dl-api',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+module.exports = { app };
