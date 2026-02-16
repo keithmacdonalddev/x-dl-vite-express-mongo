@@ -3,6 +3,7 @@ const { Job } = require('../models/job');
 const { JOB_STATUSES } = require('../constants/job-status');
 
 let pollHandle = null;
+let isTickRunning = false;
 
 async function claimNextQueuedJob() {
   if (mongoose.connection.readyState !== 1) {
@@ -38,11 +39,18 @@ function startQueueWorker({
   }
 
   pollHandle = setInterval(async () => {
+    if (isTickRunning) {
+      return;
+    }
+
+    isTickRunning = true;
     try {
       await onTick();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`Queue worker tick failed: ${message}`);
+    } finally {
+      isTickRunning = false;
     }
   }, intervalMs);
 
@@ -54,6 +62,7 @@ function stopQueueWorker() {
     clearInterval(pollHandle);
     pollHandle = null;
   }
+  isTickRunning = false;
 }
 
 module.exports = {

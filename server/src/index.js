@@ -2,7 +2,8 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { app } = require('./app');
 const { getServerConfig } = require('./config/env');
-const { startQueueWorker, stopQueueWorker, claimNextQueuedJob } = require('./worker/queue');
+const { startQueueWorker, stopQueueWorker } = require('./worker/queue');
+const { processOneCycle } = require('./worker/process-job');
 
 dotenv.config();
 
@@ -28,7 +29,7 @@ async function start() {
   startQueueWorker({
     intervalMs: 1000,
     onTick: async () => {
-      await claimNextQueuedJob();
+      await processOneCycle();
     },
   });
 }
