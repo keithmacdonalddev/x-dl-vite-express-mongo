@@ -73,8 +73,8 @@ function getAdapterConfig(input = {}) {
   };
 }
 
-function assessAccessState({ title, content, finalUrl }) {
-  const sample = `${title || ''}\n${content || ''}\n${finalUrl || ''}`;
+function assessAccessState({ title, visibleText, content, finalUrl }) {
+  const sample = `${title || ''}\n${visibleText || content || ''}\n${finalUrl || ''}`;
   let hostname = '';
 
   try {
@@ -130,13 +130,19 @@ function isLikelyMediaResponse(response) {
 }
 
 async function sampleAccessState(page, targetUrl) {
-  const [title, content, finalUrl] = await Promise.all([
+  const visibleTextPromise =
+    page && typeof page.locator === 'function'
+      ? page.locator('body').innerText().catch(() => '')
+      : Promise.resolve('');
+
+  const [title, visibleText, content, finalUrl] = await Promise.all([
     page.title().catch(() => ''),
+    visibleTextPromise,
     page.content().catch(() => ''),
     Promise.resolve(typeof page.url === 'function' ? page.url() : targetUrl),
   ]);
 
-  const accessState = assessAccessState({ title, content, finalUrl });
+  const accessState = assessAccessState({ title, visibleText, content, finalUrl });
   return { accessState, finalUrl };
 }
 

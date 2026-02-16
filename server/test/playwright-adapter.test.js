@@ -203,6 +203,50 @@ test('createPlaywrightPageFactory waits for manual TikTok challenge solve window
   await page.close();
 });
 
+test('createPlaywrightPageFactory ignores captcha metadata when visible text is normal', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  const fakeChromium = {
+    launchPersistentContext: async () => ({
+      newPage: async () => ({
+        on() {},
+        off() {},
+        async goto() {},
+        async waitForTimeout() {},
+        async title() {
+          return 'TikTok';
+        },
+        locator() {
+          return {
+            async innerText() {
+              return 'TikTok video page Log in Company Program Terms & Policies';
+            },
+          };
+        },
+        async content() {
+          return '<script id=\"api-domains\" type=\"application/json\">{\"captcha\":\"\"}</script>';
+        },
+        url() {
+          return 'https://www.tiktok.com/@user/video/7606119826259512584';
+        },
+        async close() {},
+      }),
+      async close() {},
+    }),
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+    manualSolveTimeoutMs: 0,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://www.tiktok.com/@user/video/7606119826259512584');
+  await page.close();
+});
+
 test('createPlaywrightPageFactory relaunches context when cached context is closed', async () => {
   const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
 
