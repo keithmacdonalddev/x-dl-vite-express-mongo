@@ -105,3 +105,57 @@ test('createPlaywrightPageFactory surfaces auth challenge states clearly', async
     /AUTH_REQUIRED/i
   );
 });
+
+test('createPlaywrightPageFactory relaunches context when cached context is closed', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  let launchCount = 0;
+
+  const fakeChromium = {
+    launchPersistentContext: async () => {
+      launchCount += 1;
+
+      if (launchCount === 1) {
+        return {
+          once() {},
+          async close() {},
+          async newPage() {
+            throw new Error('Target page, context or browser has been closed');
+          },
+        };
+      }
+
+      return {
+        once() {},
+        async close() {},
+        async newPage() {
+          return {
+            on() {},
+            off() {},
+            async goto() {},
+            async waitForTimeout() {},
+            async title() {
+              return 'X';
+            },
+            async content() {
+              return '<html></html>';
+            },
+            async close() {},
+          };
+        },
+      };
+    },
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://x.com/user/status/1');
+  await page.close();
+
+  assert.equal(launchCount, 2);
+});

@@ -76,15 +76,27 @@ async function getPersistentContext(options = {}) {
   const chromium = resolveChromium(config.chromium);
 
   if (!persistentContextPromise) {
-    persistentContextPromise = chromium
+    const contextPromise = chromium
       .launchPersistentContext(config.userDataDir, {
         headless: config.headless,
         ...config.contextOptions,
+      })
+      .then((context) => {
+        // If the browser exits unexpectedly, allow automatic relaunch on next usage.
+        if (context && typeof context.once === 'function') {
+          context.once('close', () => {
+            if (persistentContextPromise === contextPromise) {
+              persistentContextPromise = null;
+            }
+          });
+        }
+        return context;
       })
       .catch((error) => {
         persistentContextPromise = null;
         throw error;
       });
+    persistentContextPromise = contextPromise;
   }
 
   return persistentContextPromise;
@@ -103,9 +115,29 @@ async function closePersistentContext() {
 function createPlaywrightPageFactory(options = {}) {
   const config = getAdapterConfig(options);
 
-  return async function pageFactory() {
+  function isClosedContextError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return /target page, context or browser has been closed/i.test(message);
+  }
+
+  async function openNewPage() {
     const context = await getPersistentContext(config);
-    const page = await context.newPage();
+
+    try {
+      return await context.newPage();
+    } catch (error) {
+      if (!isClosedContextError(error)) {
+        throw error;
+      }
+
+      await closePersistentContext().catch(() => {});
+      const relaunched = await getPersistentContext(config);
+      return relaunched.newPage();
+    }
+  }
+
+  return async function pageFactory() {
+    const page = await openNewPage();
     const mediaUrls = new Set();
 
     const onResponse = (response) => {
