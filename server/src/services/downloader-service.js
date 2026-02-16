@@ -4,6 +4,67 @@ const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { spawn } = require('node:child_process');
 
+function isAuthBlockedStatus(status) {
+  return status === 401 || status === 403;
+}
+
+function inferReferer(mediaUrl) {
+  if (typeof mediaUrl !== 'string') {
+    return '';
+  }
+
+  if (/tiktok\.com/i.test(mediaUrl)) {
+    return 'https://www.tiktok.com/';
+  }
+
+  if (/twimg\.com|x\.com|twitter\.com/i.test(mediaUrl)) {
+    return 'https://x.com/';
+  }
+
+  return '';
+}
+
+async function downloadDirectWithPlaywrightSession(
+  mediaUrl,
+  {
+    targetPath,
+    getPersistentContextImpl,
+  } = {}
+) {
+  if (!targetPath) {
+    throw new Error('targetPath is required for authenticated direct download');
+  }
+
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+
+  const getPersistentContext =
+    getPersistentContextImpl ||
+    require('./playwright-adapter').getPersistentContext;
+
+  if (typeof getPersistentContext !== 'function') {
+    throw new Error('Playwright persistent context is not available');
+  }
+
+  const context = await getPersistentContext();
+  const referer = inferReferer(mediaUrl);
+  const headers = referer ? { referer } : undefined;
+  const response = await context.request.get(mediaUrl, { headers });
+
+  if (!response || !response.ok()) {
+    throw new Error(
+      `Authenticated direct download failed with status ${response ? response.status() : 'unknown'}`
+    );
+  }
+
+  const body = await response.body();
+  await fs.promises.writeFile(targetPath, body);
+
+  return {
+    outputPath: targetPath,
+    mode: 'direct',
+  };
+}
+
 function chooseDownloadMode(mediaUrl) {
   return typeof mediaUrl === 'string' && /\.m3u8(\?.*)?$/i.test(mediaUrl) ? 'hls' : 'direct';
 }
@@ -13,6 +74,7 @@ async function downloadDirect(
   {
     targetPath,
     fetchImpl = globalThis.fetch,
+    authenticatedDownloader = downloadDirectWithPlaywrightSession,
   } = {}
 ) {
   if (!targetPath) {
@@ -27,6 +89,14 @@ async function downloadDirect(
 
   const response = await fetchImpl(mediaUrl);
   if (!response || !response.ok || !response.body) {
+    if (
+      response &&
+      isAuthBlockedStatus(response.status) &&
+      typeof authenticatedDownloader === 'function'
+    ) {
+      return authenticatedDownloader(mediaUrl, { targetPath });
+    }
+
     throw new Error(`Direct download failed with status ${response ? response.status : 'unknown'}`);
   }
 
@@ -108,8 +178,11 @@ async function downloadMedia(
 }
 
 module.exports = {
+  isAuthBlockedStatus,
+  inferReferer,
   chooseDownloadMode,
   downloadDirect,
+  downloadDirectWithPlaywrightSession,
   downloadHlsWithFfmpeg,
   downloadMedia,
 };

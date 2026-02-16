@@ -62,3 +62,26 @@ test('downloadMedia delegates to hls strategy when URL points to a playlist', as
   assert.equal(result.mode, 'hls');
   assert.equal(result.outputPath, 'downloads/a.mp4');
 });
+
+test('downloadDirect falls back to authenticated downloader when direct fetch is 403', async () => {
+  const { downloadDirect } = require('../src/services/downloader-service');
+
+  let authenticatedCalled = false;
+
+  const result = await downloadDirect('https://v16-webapp-prime.tiktok.com/video/tos/...', {
+    targetPath: 'downloads/fallback.mp4',
+    fetchImpl: async () => ({
+      ok: false,
+      status: 403,
+      body: null,
+    }),
+    authenticatedDownloader: async (_mediaUrl, { targetPath }) => {
+      authenticatedCalled = true;
+      return { outputPath: targetPath, mode: 'direct' };
+    },
+  });
+
+  assert.equal(authenticatedCalled, true);
+  assert.equal(result.outputPath, 'downloads/fallback.mp4');
+  assert.equal(result.mode, 'direct');
+});
