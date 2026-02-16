@@ -37,6 +37,28 @@ test('extractFromTweet accepts TikTok-style direct media candidates without file
   assert.match(picked.mediaUrl, /tiktok\.com\/video\/tos\//i);
 });
 
+test('pickMediaUrl prefers higher TikTok bitrate direct URL', () => {
+  const { pickMediaUrl } = require('../src/services/extractor-service');
+
+  const low = 'https://v16-webapp-prime.tiktok.com/video/tos/alisg/path/?mime_type=video_mp4&br=900&bt=450';
+  const high = 'https://v16-webapp-prime.tiktok.com/video/tos/alisg/path/?mime_type=video_mp4&br=3200&bt=1600';
+
+  const picked = pickMediaUrl([low, high]);
+  assert.equal(picked.sourceType, 'direct');
+  assert.equal(picked.mediaUrl, high);
+});
+
+test('pickMediaUrl prefers higher resolution direct URL when present', () => {
+  const { pickMediaUrl } = require('../src/services/extractor-service');
+
+  const lowRes = 'https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/video.mp4';
+  const highRes = 'https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/video.mp4';
+
+  const picked = pickMediaUrl([lowRes, highRes]);
+  assert.equal(picked.sourceType, 'direct');
+  assert.equal(picked.mediaUrl, highRes);
+});
+
 test('extractFromTweet throws for invalid post URL input', async () => {
   const { extractFromTweet } = require('../src/services/extractor-service');
 

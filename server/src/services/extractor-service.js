@@ -38,12 +38,88 @@ function isDirectVideoCandidate(url) {
   return false;
 }
 
+function toPositiveInt(value) {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function getResolutionAreaFromPath(pathname) {
+  if (typeof pathname !== 'string') {
+    return 0;
+  }
+
+  const match = pathname.match(/(?:^|\/)(\d{2,5})x(\d{2,5})(?:\/|$)/);
+  if (!match) {
+    return 0;
+  }
+
+  const width = toPositiveInt(match[1]);
+  const height = toPositiveInt(match[2]);
+  if (!width || !height) {
+    return 0;
+  }
+
+  return width * height;
+}
+
+function getDirectQualityScore(url) {
+  const fallback = {
+    nonWatermark: 1,
+    area: 0,
+    br: 0,
+    bt: 0,
+  };
+
+  try {
+    const parsed = new URL(url);
+    const watermarkParam = parsed.searchParams.get('watermark') || parsed.searchParams.get('is_watermark') || '';
+    const hasWatermark = watermarkParam === '1' || /watermark/i.test(parsed.pathname) || /watermark/i.test(parsed.search);
+
+    return {
+      nonWatermark: hasWatermark ? 0 : 1,
+      area: getResolutionAreaFromPath(parsed.pathname),
+      br: toPositiveInt(parsed.searchParams.get('br')),
+      bt: toPositiveInt(parsed.searchParams.get('bt')),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function compareDirectQuality(leftUrl, rightUrl) {
+  const left = getDirectQualityScore(leftUrl);
+  const right = getDirectQualityScore(rightUrl);
+
+  if (left.nonWatermark !== right.nonWatermark) {
+    return right.nonWatermark - left.nonWatermark;
+  }
+  if (left.area !== right.area) {
+    return right.area - left.area;
+  }
+  if (left.br !== right.br) {
+    return right.br - left.br;
+  }
+  if (left.bt !== right.bt) {
+    return right.bt - left.bt;
+  }
+  return 0;
+}
+
+function pickBestDirectMediaUrl(urls) {
+  const candidates = urls.filter((url) => isDirectVideoCandidate(url));
+  if (candidates.length === 0) {
+    return '';
+  }
+
+  return candidates.sort(compareDirectQuality)[0];
+}
+
 function pickMediaUrl(urls) {
   if (!Array.isArray(urls) || urls.length === 0) {
     return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN };
   }
 
-  const direct = urls.find((url) => isDirectVideoCandidate(url));
+  const direct = pickBestDirectMediaUrl(urls);
   if (direct) {
     return { mediaUrl: direct, sourceType: SOURCE_TYPES.DIRECT };
   }
