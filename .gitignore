@@ -12,6 +12,8 @@ dist/
 .env.*
 server/.env
 server/.env.*
+!.env.example
+!server/.env.example
 downloads/
 tmp/
 
