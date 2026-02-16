@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const { jobsRouter } = require('./routes/jobs');
 
 const app = express();
 
@@ -15,5 +16,7 @@ app.get('/api/health', (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use('/api/jobs', jobsRouter);
 
 module.exports = { app };
