@@ -138,6 +138,12 @@ jobsRouter.post('/:id/manual-retry', async (req, res) => {
       candidateUrls: [mediaUrl],
       imageUrls: Array.isArray(original.imageUrls) ? original.imageUrls : [],
       metadata: original.metadata && typeof original.metadata === 'object' ? original.metadata : {},
+      accountPlatform: typeof original.accountPlatform === 'string' ? original.accountPlatform : 'unknown',
+      accountHandle: typeof original.accountHandle === 'string' ? original.accountHandle : '',
+      accountDisplayName: typeof original.accountDisplayName === 'string' ? original.accountDisplayName : '',
+      accountSlug: typeof original.accountSlug === 'string' ? original.accountSlug : '',
+      thumbnailUrl: typeof original.thumbnailUrl === 'string' ? original.thumbnailUrl : '',
+      thumbnailPath: typeof original.thumbnailPath === 'string' ? original.thumbnailPath : '',
     });
 
     return res.status(201).json({

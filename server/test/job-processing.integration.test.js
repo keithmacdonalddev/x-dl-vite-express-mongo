@@ -104,3 +104,36 @@ test('processing job with prefilled extractedUrl skips extractor and completes d
   assert.equal(result.status, JOB_STATUSES.COMPLETED);
   assert.equal(result.outputPath, 'downloads/111.mp4');
 });
+
+test('processing TikTok job writes output into account folder', async () => {
+  const { processOneCycle } = require('../src/worker/process-job');
+
+  await Job.create({
+    tweetUrl: 'https://www.tiktok.com/@creator_name/video/7606119826259512584',
+    status: JOB_STATUSES.QUEUED,
+  });
+
+  let capturedTargetPath = '';
+  const fakeExtractor = async () => ({
+    mediaUrl: 'https://v16-webapp-prime.tiktok.com/video/tos/alisg/path/?mime_type=video_mp4&br=1800',
+    sourceType: 'direct',
+    imageUrls: [],
+    metadata: {
+      author: '@creator_name',
+      title: 'Test clip',
+    },
+  });
+  const fakeDownloader = async (_mediaUrl, { targetPath }) => {
+    capturedTargetPath = targetPath;
+    return { outputPath: targetPath };
+  };
+
+  const result = await processOneCycle(fakeExtractor, fakeDownloader);
+
+  assert.ok(result);
+  assert.equal(result.status, JOB_STATUSES.COMPLETED);
+  assert.match(result.outputPath, /^downloads\/creator_name\//);
+  assert.match(capturedTargetPath.replace(/\\/g, '/'), /^downloads\/creator_name\//);
+  assert.equal(result.accountHandle, '@creator_name');
+  assert.equal(result.accountSlug, 'creator_name');
+});

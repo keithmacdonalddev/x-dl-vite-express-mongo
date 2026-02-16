@@ -1,13 +1,41 @@
 const path = require('node:path');
 const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
-const { downloadMedia } = require('../services/downloader-service');
+const { downloadMedia, downloadDirect } = require('../services/downloader-service');
 const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
+const {
+  deriveAccountProfile,
+  inferExtensionFromUrl,
+  normalizePathForApi,
+  sanitizeAccountSlug,
+} = require('../utils/account-profile');
 const { isHttpUrl } = require('../utils/validation');
 const { claimNextQueuedJob } = require('./queue');
 
-function buildTargetPath(jobId) {
-  return path.join('downloads', `${jobId}.mp4`);
+function buildTargetPath(jobId, accountSlug = 'unknown') {
+  const safeSlug = sanitizeAccountSlug(accountSlug || 'unknown');
+  return path.join('downloads', safeSlug, `${jobId}.mp4`);
+}
+
+function buildThumbnailPath(jobId, accountSlug, thumbnailUrl) {
+  const safeSlug = sanitizeAccountSlug(accountSlug || 'unknown');
+  const extension = inferExtensionFromUrl(thumbnailUrl, '.jpg');
+  return path.join('downloads', safeSlug, 'thumbnails', `${jobId}${extension}`);
+}
+
+function chooseThumbnailUrl(imageUrls, metadata) {
+  if (metadata && isHttpUrl(metadata.thumbnailUrl)) {
+    return metadata.thumbnailUrl;
+  }
+
+  if (Array.isArray(imageUrls)) {
+    const firstImage = imageUrls.find((value) => isHttpUrl(value));
+    if (firstImage) {
+      return firstImage;
+    }
+  }
+
+  return '';
 }
 
 const productionPageFactory = createPlaywrightPageFactory();
@@ -43,6 +71,10 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     let candidateUrls = Array.isArray(job.candidateUrls) ? job.candidateUrls : [];
     let imageUrls = Array.isArray(job.imageUrls) ? job.imageUrls : [];
     let metadata = job.metadata && typeof job.metadata === 'object' ? job.metadata : {};
+    let accountPlatform = typeof job.accountPlatform === 'string' ? job.accountPlatform : 'unknown';
+    let accountHandle = typeof job.accountHandle === 'string' ? job.accountHandle : '';
+    let accountDisplayName = typeof job.accountDisplayName === 'string' ? job.accountDisplayName : '';
+    let accountSlug = typeof job.accountSlug === 'string' ? job.accountSlug : '';
 
     if (isHttpUrl(job.extractedUrl)) {
       mediaUrl = job.extractedUrl;
@@ -61,6 +93,18 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       metadata = extracted.metadata && typeof extracted.metadata === 'object' ? extracted.metadata : {};
     }
 
+    const derivedAccount = deriveAccountProfile({
+      postUrl: job.tweetUrl,
+      metadata,
+    });
+
+    if (!accountPlatform || accountPlatform === 'unknown') {
+      accountPlatform = derivedAccount.platform || 'unknown';
+    }
+    accountHandle = accountHandle || derivedAccount.handle;
+    accountDisplayName = accountDisplayName || derivedAccount.displayName || accountHandle;
+    accountSlug = sanitizeAccountSlug(accountSlug || derivedAccount.accountSlug);
+
     if (!mediaUrl) {
       throw new Error('Extractor did not return media URL');
     }
@@ -70,10 +114,14 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     job.candidateUrls = candidateUrls;
     job.imageUrls = imageUrls;
     job.metadata = metadata;
+    job.accountPlatform = accountPlatform || 'unknown';
+    job.accountHandle = accountHandle;
+    job.accountDisplayName = accountDisplayName;
+    job.accountSlug = accountSlug;
     job.progressPct = 50;
     await job.save();
 
-    const targetPath = buildTargetPath(job._id.toString());
+    const targetPath = buildTargetPath(job._id.toString(), accountSlug);
     const downloaded = await downloader(mediaUrl, { targetPath });
     const outputPath = downloaded && typeof downloaded.outputPath === 'string' ? downloaded.outputPath : '';
 
@@ -81,9 +129,23 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       throw new Error('Downloader did not return output path');
     }
 
+    let thumbnailPath = '';
+    const thumbnailUrl = chooseThumbnailUrl(imageUrls, metadata);
+    if (thumbnailUrl) {
+      const thumbnailTargetPath = buildThumbnailPath(job._id.toString(), accountSlug, thumbnailUrl);
+      try {
+        const thumbnailSaved = await downloadDirect(thumbnailUrl, { targetPath: thumbnailTargetPath });
+        thumbnailPath = thumbnailSaved && typeof thumbnailSaved.outputPath === 'string' ? thumbnailSaved.outputPath : '';
+      } catch (_thumbnailError) {
+        thumbnailPath = '';
+      }
+    }
+
     job.status = JOB_STATUSES.COMPLETED;
     job.progressPct = 100;
-    job.outputPath = outputPath;
+    job.outputPath = normalizePathForApi(outputPath);
+    job.thumbnailUrl = thumbnailUrl;
+    job.thumbnailPath = normalizePathForApi(thumbnailPath);
     job.completedAt = new Date();
     job.error = '';
     await job.save();

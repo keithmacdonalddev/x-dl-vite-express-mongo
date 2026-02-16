@@ -1,40 +1,138 @@
 .app {
-  width: min(900px, 92vw);
+  --bg: #f3f5f7;
+  --ink: #102029;
+  --muted: #4d6573;
+  --card: #ffffff;
+  --line: #d4dde3;
+  --accent: #0b6bcb;
+  --accent-strong: #0a4d92;
+  --warm: #ffd18c;
+  width: min(1320px, 96vw);
   margin: 0 auto;
-  padding: 48px 24px;
+  padding: 24px 16px 44px;
+  color: var(--ink);
+}
+
+.hero {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 88% 10%, rgba(255, 209, 140, 0.65), transparent 45%),
+    linear-gradient(120deg, #ffffff 20%, #edf4fb 100%);
 }
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
-  margin: 0 0 8px;
-  color: #5f5f76;
+  letter-spacing: 0.11em;
+  font-size: 11px;
+  margin: 0 0 6px;
+  color: #466072;
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.5rem);
-  color: #111124;
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  color: #0d2130;
 }
 
 .subhead {
   margin: 12px 0 0;
-  color: #4c4c61;
+  color: var(--muted);
+  max-width: 78ch;
+}
+
+.layout {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 14px;
+}
+
+.contacts-panel {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+
+.workspace {
+  display: grid;
+  gap: 14px;
 }
 
 .card {
-  margin-top: 28px;
   border-radius: 16px;
-  border: 1px solid #d8d8e8;
-  background: #fff;
-  padding: 20px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(15, 40, 65, 0.06);
 }
 
 .card h2 {
   margin: 0 0 12px;
-  font-size: 1.05rem;
+  font-size: 1.08rem;
+}
+
+.contacts-header,
+.jobs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.contacts-header p,
+.jobs-header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.contacts-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.contact-chip {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: #172c38;
+  padding: 9px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.contact-chip img {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: #e3eaee;
+}
+
+.contact-chip span {
+  display: block;
+  font-weight: 700;
+}
+
+.contact-chip small {
+  display: block;
+  color: var(--muted);
+}
+
+.contact-chip.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: #eef6ff;
 }
 
 .job-form {
@@ -42,27 +140,38 @@ h1 {
   gap: 10px;
 }
 
-.job-form input {
-  border: 1px solid #cac9dd;
+.job-form input,
+.manual-retry-form input {
+  border: 1px solid #c4d0d8;
   border-radius: 10px;
   padding: 10px 12px;
   font: inherit;
 }
 
-.job-form button {
+.job-form button,
+.manual-retry-form button,
+.assets-list button {
   width: fit-content;
   border: 0;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
-  background: #2f4ecb;
+  background: var(--accent);
   cursor: pointer;
 }
 
-.job-form button:disabled {
-  opacity: 0.65;
+.job-form button:hover,
+.manual-retry-form button:hover,
+.assets-list button:hover {
+  background: var(--accent-strong);
+}
+
+.job-form button:disabled,
+.manual-retry-form button:disabled,
+.assets-list button:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -71,18 +180,33 @@ h1 {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .job-row {
-  border: 1px solid #e2e0ef;
-  border-radius: 12px;
+  border: 1px solid #d8e0e6;
+  border-radius: 14px;
   padding: 12px;
-  background: #fcfcff;
+  background: #fbfdff;
+}
+
+.job-top {
+  display: grid;
+  grid-template-columns: 1fr 112px;
+  gap: 12px;
+}
+
+.job-thumb {
+  width: 112px;
+  height: 112px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #dbe5ee;
 }
 
 .job-row p {
   margin: 6px 0;
+  overflow-wrap: anywhere;
 }
 
 .job-row details {
@@ -91,7 +215,7 @@ h1 {
 
 .job-row summary {
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .assets-list {
@@ -103,7 +227,7 @@ h1 {
 }
 
 .assets-list li {
-  border: 1px solid #e2e0ef;
+  border: 1px solid #dce3ea;
   border-radius: 10px;
   padding: 8px;
   background: #fff;
@@ -114,55 +238,28 @@ h1 {
   word-break: break-all;
 }
 
-.assets-list button {
-  width: fit-content;
-  border: 0;
-  border-radius: 10px;
-  padding: 6px 10px;
-  font: inherit;
-  font-weight: 600;
-  color: #fff;
-  background: #30508d;
-  cursor: pointer;
-}
-
-.assets-list button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
 .manual-retry-form {
   display: grid;
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed #d5d3e4;
-}
-
-.manual-retry-form input {
-  border: 1px solid #cac9dd;
-  border-radius: 10px;
-  padding: 8px 10px;
-  font: inherit;
-}
-
-.manual-retry-form button {
-  width: fit-content;
-  border: 0;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font: inherit;
-  font-weight: 600;
-  color: #fff;
-  background: #5d2f95;
-  cursor: pointer;
-}
-
-.manual-retry-form button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+  border-top: 1px dashed #d7e2e9;
 }
 
 .error {
   color: #a01f1f;
+}
+
+@media (max-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .contacts-panel {
+    position: static;
+  }
+
+  .contacts-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
 }

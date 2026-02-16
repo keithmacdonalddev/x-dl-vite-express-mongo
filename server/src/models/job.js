@@ -38,6 +38,26 @@ const jobSchema = new mongoose.Schema(
       default: SOURCE_TYPES.UNKNOWN,
       required: true,
     },
+    accountPlatform: {
+      type: String,
+      default: 'unknown',
+      trim: true,
+    },
+    accountHandle: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    accountDisplayName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    accountSlug: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     extractedUrl: {
       type: String,
       default: '',
@@ -54,6 +74,16 @@ const jobSchema = new mongoose.Schema(
     metadata: {
       type: Object,
       default: {},
+    },
+    thumbnailUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    thumbnailPath: {
+      type: String,
+      default: '',
+      trim: true,
     },
     outputPath: {
       type: String,

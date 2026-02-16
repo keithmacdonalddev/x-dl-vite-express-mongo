@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('node:path');
 const { jobsRouter } = require('./routes/jobs');
 const {
   createCorsOptions,
@@ -14,6 +15,7 @@ const app = express();
 app.use(cors(createCorsOptions()));
 app.use(jsonBodyParser());
 app.use(morgan('dev'));
+app.use('/downloads', express.static(path.resolve(process.cwd(), 'downloads')));
 
 app.get('/api/health', (_req, res) => {
   res.json({

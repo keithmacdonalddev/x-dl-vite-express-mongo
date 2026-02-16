@@ -236,6 +236,7 @@ async function readPostMetadata(page) {
     title: '',
     description: '',
     author: '',
+    thumbnailUrl: '',
     canonicalUrl: '',
     pageUrl: '',
   };
@@ -255,6 +256,7 @@ async function readPostMetadata(page) {
     ['description', 'meta[name="description"]'],
     ['description', 'meta[property="og:description"]'],
     ['title', 'meta[property="og:title"]'],
+    ['thumbnailUrl', 'meta[property="og:image"]'],
     ['canonicalUrl', 'link[rel="canonical"]'],
   ];
 
@@ -278,6 +280,18 @@ async function readPostMetadata(page) {
     }
   } catch {
     // ignore selector failures
+  }
+
+  if (!metadata.author && metadata.pageUrl) {
+    try {
+      const parsed = new URL(metadata.pageUrl);
+      const first = parsed.pathname.split('/').filter(Boolean)[0] || '';
+      if (first.startsWith('@')) {
+        metadata.author = first;
+      }
+    } catch {
+      // ignore parsing failures
+    }
   }
 
   return metadata;
