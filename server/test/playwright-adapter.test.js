@@ -106,6 +106,42 @@ test('createPlaywrightPageFactory surfaces auth challenge states clearly', async
   );
 });
 
+test('createPlaywrightPageFactory does not treat TikTok login copy as auth wall', async () => {
+  const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
+
+  const fakeChromium = {
+    launchPersistentContext: async () => ({
+      newPage: async () => ({
+        on() {},
+        off() {},
+        async goto() {},
+        async waitForTimeout() {},
+        async title() {
+          return 'TikTok';
+        },
+        async content() {
+          return '<body>Log in to follow creators, like videos, and view comments.</body>';
+        },
+        url() {
+          return 'https://www.tiktok.com/@user/video/7606119826259512584';
+        },
+        async close() {},
+      }),
+      async close() {},
+    }),
+  };
+
+  const pageFactory = createPlaywrightPageFactory({
+    chromium: fakeChromium,
+    userDataDir: '.tmp-tests',
+    settleMs: 0,
+  });
+
+  const page = await pageFactory();
+  await page.goto('https://www.tiktok.com/@user/video/7606119826259512584');
+  await page.close();
+});
+
 test('createPlaywrightPageFactory relaunches context when cached context is closed', async () => {
   const { createPlaywrightPageFactory } = require('../src/services/playwright-adapter');
 

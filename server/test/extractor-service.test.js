@@ -45,3 +45,25 @@ test('extractFromTweet throws for invalid post URL input', async () => {
     /invalid post url/i
   );
 });
+
+test('extractFromTweet keeps page open when access challenge is detected', async () => {
+  const { extractFromTweet } = require('../src/services/extractor-service');
+
+  let closed = false;
+  const fakeFactory = async () => ({
+    goto: async () => {
+      throw new Error('BOT_CHALLENGE: manual interaction required');
+    },
+    collectMediaUrls: async () => [],
+    close: async () => {
+      closed = true;
+    },
+  });
+
+  await assert.rejects(
+    async () => extractFromTweet('https://www.tiktok.com/@u/video/7606119826259512584', { pageFactory: fakeFactory }),
+    /BOT_CHALLENGE/i
+  );
+
+  assert.equal(closed, false);
+});

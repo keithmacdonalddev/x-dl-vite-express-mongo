@@ -5,6 +5,7 @@ const TIKTOK_MEDIA_PATH_PATTERN = /\/(video\/tos\/|aweme\/v1\/play\/)/i;
 const VIDEO_CONTENT_TYPE_PATTERN = /^(video\/|application\/(vnd\.apple\.mpegurl|x-mpegurl))/i;
 const AUTH_REQUIRED_PATTERN = /(log in|login|sign in|authenticate|session expired)/i;
 const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|unusual traffic|challenge)/i;
+const X_AUTH_HOSTS = new Set(['x.com', 'twitter.com']);
 
 let persistentContextPromise = null;
 
@@ -63,13 +64,24 @@ function getAdapterConfig(input = {}) {
 
 function assessAccessState({ title, content, finalUrl }) {
   const sample = `${title || ''}\n${content || ''}\n${finalUrl || ''}`;
+  let hostname = '';
 
-  if (AUTH_REQUIRED_PATTERN.test(sample)) {
-    return 'AUTH_REQUIRED';
+  try {
+    hostname = new URL(finalUrl || '').hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    hostname = '';
   }
+
   if (BOT_CHALLENGE_PATTERN.test(sample)) {
     return 'BOT_CHALLENGE';
   }
+
+  // X/Twitter extraction usually requires login for restricted posts.
+  // TikTok pages often contain non-blocking "log in" UI text even when public media is accessible.
+  if (X_AUTH_HOSTS.has(hostname) && AUTH_REQUIRED_PATTERN.test(sample)) {
+    return 'AUTH_REQUIRED';
+  }
+
   return '';
 }
 

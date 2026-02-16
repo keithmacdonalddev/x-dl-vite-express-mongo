@@ -1,6 +1,11 @@
 const { SOURCE_TYPES } = require('../constants/job-status');
 const { isSupportedPostUrl } = require('../utils/validation');
 
+function isAccessChallengeError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:AUTH_REQUIRED|BOT_CHALLENGE)/i.test(message);
+}
+
 function isHlsCandidate(url) {
   if (typeof url !== 'string') {
     return false;
@@ -66,6 +71,7 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
   }
 
   const page = await pageFactory();
+  let shouldClosePage = true;
 
   try {
     if (typeof page.goto === 'function') {
@@ -83,8 +89,14 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
       mediaUrl,
       sourceType,
     };
+  } catch (error) {
+    if (isAccessChallengeError(error)) {
+      // Keep the browser tab open for manual challenge/login completion.
+      shouldClosePage = false;
+    }
+    throw error;
   } finally {
-    if (page && typeof page.close === 'function') {
+    if (shouldClosePage && page && typeof page.close === 'function') {
       await page.close();
     }
   }
