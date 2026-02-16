@@ -2,11 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const { jobsRouter } = require('./routes/jobs');
+const {
+  createCorsOptions,
+  jsonBodyParser,
+  enforceTweetUrlLength,
+  handleRequestLimitErrors,
+} = require('./middleware/request-limits');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(cors(createCorsOptions()));
+app.use(jsonBodyParser());
 app.use(morgan('dev'));
 
 app.get('/api/health', (_req, res) => {
@@ -17,6 +23,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.use('/api/jobs', jobsRouter);
+app.use('/api/jobs', enforceTweetUrlLength, jobsRouter);
+app.use(handleRequestLimitErrors);
 
 module.exports = { app };
