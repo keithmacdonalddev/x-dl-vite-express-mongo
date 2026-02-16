@@ -1,133 +1,23 @@
 import { useMemo, useState } from 'react'
 import { createJob, createManualRetryJob } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
+import {
+  buildContacts,
+  deriveHandleFromUrl,
+  formatTimestamp,
+  parseQualityLabel,
+  toAssetHref,
+} from '../lib/contacts'
 
-function formatTimestamp(value) {
-  if (!value) {
-    return 'n/a'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return 'n/a'
-  }
-  return date.toLocaleString()
-}
-
-function toAssetHref(value) {
-  if (!value || typeof value !== 'string') {
-    return ''
-  }
-  if (/^https?:\/\//i.test(value)) {
-    return value
-  }
-  const normalized = value.replace(/\\/g, '/').replace(/^\/+/, '')
-  return `/${normalized}`
-}
-
-function deriveHandleFromUrl(value) {
-  try {
-    const parsed = new URL(value)
-    const parts = parsed.pathname.split('/').filter(Boolean)
-    if (parts.length === 0) {
-      return ''
-    }
-    if (parts[0].startsWith('@')) {
-      return parts[0]
-    }
-    return `@${parts[0]}`
-  } catch {
-    return ''
-  }
-}
-
-function makeContactSlug(job) {
-  if (typeof job.accountSlug === 'string' && job.accountSlug.trim()) {
-    return job.accountSlug.trim().toLowerCase()
-  }
-  const fallback = (job.accountHandle || deriveHandleFromUrl(job.tweetUrl || '') || 'unknown').replace(/^@/, '')
-  return fallback.trim().toLowerCase() || 'unknown'
-}
-
-function buildContacts(jobs) {
-  const map = new Map()
-
-  for (const job of jobs) {
-    const slug = makeContactSlug(job)
-    const current = map.get(slug) || {
-      slug,
-      platform: job.accountPlatform || 'unknown',
-      handle: job.accountHandle || deriveHandleFromUrl(job.tweetUrl || ''),
-      displayName: job.accountDisplayName || '',
-      totalJobs: 0,
-      completedJobs: 0,
-      latestAt: '',
-      latestThumbnail: '',
-    }
-
-    current.totalJobs += 1
-    if (job.status === 'completed') {
-      current.completedJobs += 1
-    }
-
-    const createdAt = job.createdAt || ''
-    if (!current.latestAt || (createdAt && new Date(createdAt) > new Date(current.latestAt))) {
-      current.latestAt = createdAt
-      current.latestThumbnail = job.thumbnailPath || (Array.isArray(job.imageUrls) ? job.imageUrls[0] || '' : '')
-      current.platform = job.accountPlatform || current.platform
-      current.handle = job.accountHandle || current.handle
-      current.displayName = job.accountDisplayName || current.displayName
-    }
-
-    map.set(slug, current)
-  }
-
-  return Array.from(map.values()).sort((a, b) => {
-    const aTime = a.latestAt ? new Date(a.latestAt).getTime() : 0
-    const bTime = b.latestAt ? new Date(b.latestAt).getTime() : 0
-    return bTime - aTime
-  })
-}
-
-function parseQualityLabel(url, index) {
-  try {
-    const parsed = new URL(url)
-    const br = parsed.searchParams.get('br')
-    const bt = parsed.searchParams.get('bt')
-    const size = parsed.pathname.match(/(\d{2,5})x(\d{2,5})/)
-    const parts = [`Option ${index + 1}`]
-    if (size) {
-      parts.push(`${size[1]}x${size[2]}`)
-    }
-    if (br) {
-      parts.push(`br ${br}`)
-    }
-    if (bt) {
-      parts.push(`bt ${bt}`)
-    }
-    parts.push(parsed.hostname)
-    return parts.join(' | ')
-  } catch {
-    return `Option ${index + 1}`
-  }
-}
-
-export function JobsPage() {
+export function JobsPage({ onOpenContact }) {
   const [postUrl, setPostUrl] = useState('')
   const [manualMediaByJobId, setManualMediaByJobId] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [manualSubmittingJobId, setManualSubmittingJobId] = useState('')
   const [submitError, setSubmitError] = useState('')
-  const [selectedContactSlug, setSelectedContactSlug] = useState('all')
   const { jobs, isLoading, error: pollError, refresh } = useJobsPolling({ intervalMs: 3000 })
 
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
-
-  const visibleJobs = useMemo(() => {
-    if (selectedContactSlug === 'all') {
-      return jobs
-    }
-    return jobs.filter((job) => makeContactSlug(job) === selectedContactSlug)
-  }, [jobs, selectedContactSlug])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -207,27 +97,23 @@ export function JobsPage() {
             <p>{contacts.length} tracked</p>
           </div>
 
-          <button
-            type="button"
-            className={`contact-chip ${selectedContactSlug === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedContactSlug('all')}
-          >
-            All contacts
-          </button>
-
           <ul className="contacts-list">
             {contacts.map((contact) => (
               <li key={contact.slug}>
                 <button
                   type="button"
-                  className={`contact-chip ${selectedContactSlug === contact.slug ? 'active' : ''}`}
-                  onClick={() => setSelectedContactSlug(contact.slug)}
+                  className="contact-chip"
+                  onClick={() => {
+                    if (typeof onOpenContact === 'function') {
+                      onOpenContact(contact.slug)
+                    }
+                  }}
                 >
                   {contact.latestThumbnail && (
                     <img src={toAssetHref(contact.latestThumbnail)} alt={contact.handle || contact.slug} />
                   )}
                   <span>{contact.displayName || contact.handle || `@${contact.slug}`}</span>
-                  <small>{contact.completedJobs} downloads</small>
+                  <small>{contact.completedJobs} downloads | view profile</small>
                 </button>
               </li>
             ))}
@@ -256,15 +142,15 @@ export function JobsPage() {
 
           <section className="card">
             <div className="jobs-header">
-              <h2>Jobs</h2>
-              <p>{visibleJobs.length} shown</p>
+              <h2>Jobs Timeline</h2>
+              <p>{jobs.length} total</p>
             </div>
 
             {isLoading && <p>Loading jobs...</p>}
-            {!isLoading && visibleJobs.length === 0 && <p>No jobs yet.</p>}
-            {!isLoading && visibleJobs.length > 0 && (
+            {!isLoading && jobs.length === 0 && <p>No jobs yet.</p>}
+            {!isLoading && jobs.length > 0 && (
               <ul className="jobs-list">
-                {visibleJobs.map((job) => (
+                {jobs.map((job) => (
                   <li key={job._id} className="job-row">
                     <div className="job-top">
                       <div>
@@ -273,7 +159,7 @@ export function JobsPage() {
                         </p>
                         <p>
                           <strong>Account:</strong>{' '}
-                          {job.accountDisplayName || job.accountHandle || deriveHandleFromUrl(job.tweetUrl)}
+                          {job.accountDisplayName || job.accountHandle || deriveHandleFromUrl(job.tweetUrl || '')}
                         </p>
                         <p>
                           <strong>URL:</strong> {job.tweetUrl}

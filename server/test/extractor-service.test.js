@@ -36,6 +36,10 @@ test('extractFromTweet returns direct media URL payload shape', async () => {
   assert.ok(data.candidateUrls.length >= 2);
   assert.deepEqual(data.imageUrls, ['https://p16-sign-va.tiktokcdn.com/image1.jpg']);
   assert.equal(data.metadata.title, 'Some post title');
+  assert.equal(data.metadata.selectedMediaUrl, data.mediaUrl);
+  assert.equal(data.metadata.selectedMediaType, 'direct');
+  assert.ok(Array.isArray(data.metadata.candidateSummaries));
+  assert.ok(data.metadata.candidateSummaries.length >= 2);
   assert.equal(closed, true);
 });
 
@@ -71,6 +75,19 @@ test('pickMediaUrl prefers higher resolution direct URL when present', () => {
   const picked = pickMediaUrl([lowRes, highRes]);
   assert.equal(picked.sourceType, 'direct');
   assert.equal(picked.mediaUrl, highRes);
+});
+
+test('pickMediaUrl prefers non-watermarked higher-fps candidate with same bitrate', () => {
+  const { pickMediaUrl } = require('../src/services/extractor-service');
+
+  const watermarked =
+    'https://v19-webapp-prime.tiktok.com/video/tos/alisg/path/?mime_type=video_mp4&br=2470&bt=1235&fps=30&watermark=1';
+  const cleanHighFps =
+    'https://v19-webapp-prime.tiktok.com/video/tos/alisg/path/?mime_type=video_mp4&br=2470&bt=1235&fps=60';
+
+  const picked = pickMediaUrl([watermarked, cleanHighFps]);
+  assert.equal(picked.sourceType, 'direct');
+  assert.equal(picked.mediaUrl, cleanHighFps);
 });
 
 test('extractFromTweet throws for invalid post URL input', async () => {

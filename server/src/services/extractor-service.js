@@ -43,6 +43,23 @@ function toPositiveInt(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function getResolutionFromSearchParams(searchParams) {
+  const width =
+    toPositiveInt(searchParams.get('vw')) ||
+    toPositiveInt(searchParams.get('width')) ||
+    toPositiveInt(searchParams.get('video_width'));
+  const height =
+    toPositiveInt(searchParams.get('vh')) ||
+    toPositiveInt(searchParams.get('height')) ||
+    toPositiveInt(searchParams.get('video_height'));
+
+  if (!width || !height) {
+    return { width: 0, height: 0 };
+  }
+
+  return { width, height };
+}
+
 function getResolutionAreaFromPath(pathname) {
   if (typeof pathname !== 'string') {
     return 0;
@@ -62,28 +79,75 @@ function getResolutionAreaFromPath(pathname) {
   return width * height;
 }
 
-function getDirectQualityScore(url) {
+function inferCodecFromPath(pathname) {
+  const pathValue = String(pathname || '').toLowerCase();
+  if (pathValue.includes('/avc1/')) {
+    return 'avc1';
+  }
+  if (pathValue.includes('/h265/') || pathValue.includes('/hevc/')) {
+    return 'h265';
+  }
+  if (pathValue.includes('/vp9/')) {
+    return 'vp9';
+  }
+  return '';
+}
+
+function getMediaCandidateFacts(url) {
   const fallback = {
-    nonWatermark: 1,
+    host: '',
+    isDirect: false,
+    isHls: false,
+    width: 0,
+    height: 0,
     area: 0,
     br: 0,
     bt: 0,
+    fps: 0,
+    hasWatermark: false,
+    mimeType: '',
+    codec: '',
   };
 
   try {
     const parsed = new URL(url);
+    const { width, height } = getResolutionFromSearchParams(parsed.searchParams);
+    const areaFromParams = width && height ? width * height : 0;
+    const area = areaFromParams || getResolutionAreaFromPath(parsed.pathname);
     const watermarkParam = parsed.searchParams.get('watermark') || parsed.searchParams.get('is_watermark') || '';
-    const hasWatermark = watermarkParam === '1' || /watermark/i.test(parsed.pathname) || /watermark/i.test(parsed.search);
+    const mimeType = (parsed.searchParams.get('mime_type') || '').toLowerCase();
 
     return {
-      nonWatermark: hasWatermark ? 0 : 1,
-      area: getResolutionAreaFromPath(parsed.pathname),
+      host: parsed.hostname,
+      isDirect: isDirectVideoCandidate(url),
+      isHls: isHlsCandidate(url),
+      width,
+      height,
+      area,
       br: toPositiveInt(parsed.searchParams.get('br')),
       bt: toPositiveInt(parsed.searchParams.get('bt')),
+      fps: toPositiveInt(parsed.searchParams.get('fps')),
+      hasWatermark: watermarkParam === '1' || /watermark/i.test(parsed.pathname) || /watermark/i.test(parsed.search),
+      mimeType,
+      codec: inferCodecFromPath(parsed.pathname),
     };
   } catch {
     return fallback;
   }
+}
+
+function getDirectQualityScore(url) {
+  const facts = getMediaCandidateFacts(url);
+
+  return {
+    nonWatermark: facts.hasWatermark ? 0 : 1,
+    area: facts.area,
+    br: facts.br,
+    bt: facts.bt,
+    fps: facts.fps,
+    codecPreference: facts.codec === 'avc1' ? 2 : facts.codec ? 1 : 0,
+    mimePreference: facts.mimeType === 'video_mp4' ? 2 : facts.mimeType.startsWith('video_') ? 1 : 0,
+  };
 }
 
 function compareDirectQuality(leftUrl, rightUrl) {
@@ -102,6 +166,15 @@ function compareDirectQuality(leftUrl, rightUrl) {
   if (left.bt !== right.bt) {
     return right.bt - left.bt;
   }
+  if (left.fps !== right.fps) {
+    return right.fps - left.fps;
+  }
+  if (left.codecPreference !== right.codecPreference) {
+    return right.codecPreference - left.codecPreference;
+  }
+  if (left.mimePreference !== right.mimePreference) {
+    return right.mimePreference - left.mimePreference;
+  }
   return 0;
 }
 
@@ -114,6 +187,22 @@ function pickBestDirectMediaUrl(urls) {
   return candidates.sort(compareDirectQuality)[0];
 }
 
+function compareHlsQuality(leftUrl, rightUrl) {
+  const left = getMediaCandidateFacts(leftUrl);
+  const right = getMediaCandidateFacts(rightUrl);
+
+  if (left.area !== right.area) {
+    return right.area - left.area;
+  }
+  if (left.br !== right.br) {
+    return right.br - left.br;
+  }
+  if (left.bt !== right.bt) {
+    return right.bt - left.bt;
+  }
+  return 0;
+}
+
 function listCandidateMediaUrls(urls) {
   if (!Array.isArray(urls) || urls.length === 0) {
     return [];
@@ -123,7 +212,7 @@ function listCandidateMediaUrls(urls) {
     .filter((url) => isDirectVideoCandidate(url))
     .sort(compareDirectQuality);
 
-  const hlsCandidates = urls.filter((url) => isHlsCandidate(url));
+  const hlsCandidates = urls.filter((url) => isHlsCandidate(url)).sort(compareHlsQuality);
 
   const combined = [...directCandidates, ...hlsCandidates];
   return Array.from(new Set(combined));
@@ -188,12 +277,26 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
       throw new Error('No media URL extracted from post');
     }
 
+    const selectedFacts = getMediaCandidateFacts(mediaUrl);
+    const candidateSummaries = sanitizeUrlArray(candidateUrls).map((candidateUrl) => ({
+      url: candidateUrl,
+      ...getMediaCandidateFacts(candidateUrl),
+    }));
+    const safeMetadata = metadata && typeof metadata === 'object' ? metadata : {};
+
     return {
       mediaUrl,
       sourceType,
       candidateUrls: sanitizeUrlArray(candidateUrls),
       imageUrls: sanitizeUrlArray(imageUrls),
-      metadata: metadata && typeof metadata === 'object' ? metadata : {},
+      metadata: {
+        ...safeMetadata,
+        selectedMediaUrl: mediaUrl,
+        selectedMediaType: sourceType,
+        selectedMedia: selectedFacts,
+        candidateCount: candidateSummaries.length,
+        candidateSummaries,
+      },
     };
   } catch (error) {
     if (isAccessChallengeError(error)) {
@@ -212,4 +315,5 @@ module.exports = {
   extractFromTweet,
   pickMediaUrl,
   listCandidateMediaUrls,
+  getMediaCandidateFacts,
 };

@@ -239,6 +239,15 @@ async function readPostMetadata(page) {
     thumbnailUrl: '',
     canonicalUrl: '',
     pageUrl: '',
+    siteName: '',
+    locale: '',
+    publishedAt: '',
+    videoWidth: 0,
+    videoHeight: 0,
+    durationSeconds: 0,
+    keywords: '',
+    twitterCreator: '',
+    twitterSite: '',
   };
 
   const [title, pageUrl] = await Promise.all([
@@ -258,6 +267,13 @@ async function readPostMetadata(page) {
     ['title', 'meta[property="og:title"]'],
     ['thumbnailUrl', 'meta[property="og:image"]'],
     ['canonicalUrl', 'link[rel="canonical"]'],
+    ['siteName', 'meta[property="og:site_name"]'],
+    ['locale', 'meta[property="og:locale"]'],
+    ['publishedAt', 'meta[property="article:published_time"]'],
+    ['publishedAt', 'meta[property="og:article:published_time"]'],
+    ['keywords', 'meta[name="keywords"]'],
+    ['twitterCreator', 'meta[name="twitter:creator"]'],
+    ['twitterSite', 'meta[name="twitter:site"]'],
   ];
 
   for (const [field, selector] of selectors) {
@@ -267,6 +283,27 @@ async function readPostMetadata(page) {
       const value = await locator.getAttribute(attr);
       if (value && !metadata[field]) {
         metadata[field] = value.trim();
+      }
+    } catch {
+      // ignore selector failures
+    }
+  }
+
+  const numericSelectors = [
+    ['videoWidth', 'meta[property="og:video:width"]'],
+    ['videoHeight', 'meta[property="og:video:height"]'],
+    ['durationSeconds', 'meta[property="og:video:duration"]'],
+    ['durationSeconds', 'meta[name="twitter:player:duration"]'],
+    ['durationSeconds', 'meta[property="video:duration"]'],
+  ];
+
+  for (const [field, selector] of numericSelectors) {
+    try {
+      const locator = page.locator(selector).first();
+      const value = await locator.getAttribute('content');
+      const parsed = Number.parseInt(value || '', 10);
+      if (Number.isFinite(parsed) && parsed > 0 && !metadata[field]) {
+        metadata[field] = parsed;
       }
     } catch {
       // ignore selector failures

@@ -59,3 +59,27 @@ it('submits manual retry media URL for failed jobs', async () => {
     expect(jobsApi.createManualRetryJob).toHaveBeenCalledWith('failed1', 'https://video.twimg.com/x.mp4')
   })
 })
+
+it('opens contact profile from contacts panel', async () => {
+  jobsApi.listJobs.mockResolvedValue({
+    ok: true,
+    jobs: [
+      {
+        _id: 'done1',
+        tweetUrl: 'https://www.tiktok.com/@sample_user/video/7606119826259512584',
+        status: 'completed',
+        accountHandle: '@sample_user',
+        accountSlug: 'sample_user',
+        createdAt: '2026-02-16T10:00:00.000Z',
+      },
+    ],
+  })
+
+  const onOpenContact = vi.fn()
+
+  render(<JobsPage onOpenContact={onOpenContact} />)
+  const button = await screen.findByRole('button', { name: /sample_user/i })
+  fireEvent.click(button)
+
+  expect(onOpenContact).toHaveBeenCalledWith('sample_user')
+})
