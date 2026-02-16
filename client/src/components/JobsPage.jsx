@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createJob } from '../api/jobsApi'
+import { createJob, createManualRetryJob } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
 
 function formatTimestamp(value) {
@@ -15,7 +15,9 @@ function formatTimestamp(value) {
 
 export function JobsPage() {
   const [tweetUrl, setTweetUrl] = useState('')
+  const [manualMediaByJobId, setManualMediaByJobId] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [manualSubmittingJobId, setManualSubmittingJobId] = useState('')
   const [submitError, setSubmitError] = useState('')
   const { jobs, isLoading, error: pollError, refresh } = useJobsPolling({ intervalMs: 3000 })
 
@@ -35,6 +37,29 @@ export function JobsPage() {
       setSubmitError(err instanceof Error ? err.message : String(err))
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleManualRetry(event, jobId) {
+    event.preventDefault()
+    const mediaUrl = (manualMediaByJobId[jobId] || '').trim()
+    if (!mediaUrl) {
+      return
+    }
+
+    setManualSubmittingJobId(jobId)
+    setSubmitError('')
+    try {
+      await createManualRetryJob(jobId, mediaUrl)
+      setManualMediaByJobId((current) => ({
+        ...current,
+        [jobId]: '',
+      }))
+      await refresh()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setManualSubmittingJobId('')
     }
   }
 
@@ -84,6 +109,27 @@ export function JobsPage() {
                 <p>
                   <strong>Created:</strong> {formatTimestamp(job.createdAt)}
                 </p>
+                {job.status === 'failed' && (
+                  <form className="manual-retry-form" onSubmit={(event) => handleManualRetry(event, job._id)}>
+                    <label htmlFor={`manualMedia-${job._id}`}>Manual media URL</label>
+                    <input
+                      id={`manualMedia-${job._id}`}
+                      type="url"
+                      placeholder="https://video.twimg.com/.../video.mp4"
+                      value={manualMediaByJobId[job._id] || ''}
+                      onChange={(event) =>
+                        setManualMediaByJobId((current) => ({
+                          ...current,
+                          [job._id]: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <button type="submit" disabled={manualSubmittingJobId === job._id}>
+                      {manualSubmittingJobId === job._id ? 'Retrying...' : 'Retry with media URL'}
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>

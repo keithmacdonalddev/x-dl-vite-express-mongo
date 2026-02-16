@@ -23,6 +23,20 @@ function isTweetUrl(input) {
   }
 }
 
+function isHttpUrl(input) {
+  if (typeof input !== 'string' || !input.trim()) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(input);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   isTweetUrl,
+  isHttpUrl,
 };

@@ -76,3 +76,31 @@ test('processing failure marks job as failed with error', async () => {
   assert.match(updated.error, /extractor crashed/i);
   assert.ok(updated.failedAt);
 });
+
+test('processing job with prefilled extractedUrl skips extractor and completes download', async () => {
+  const { processOneCycle } = require('../src/worker/process-job');
+
+  await Job.create({
+    tweetUrl: 'https://x.com/u/status/1111111111',
+    status: JOB_STATUSES.QUEUED,
+    extractedUrl: 'https://video.twimg.com/ext_tw_video/111/pu/vid/1280x720/video.mp4',
+    sourceType: 'direct',
+  });
+
+  let extractorCalled = false;
+  const fakeExtractor = async () => {
+    extractorCalled = true;
+    throw new Error('extractor should not be called');
+  };
+
+  const fakeDownloader = async () => ({
+    outputPath: 'downloads/111.mp4',
+  });
+
+  const result = await processOneCycle(fakeExtractor, fakeDownloader);
+
+  assert.equal(extractorCalled, false);
+  assert.ok(result);
+  assert.equal(result.status, JOB_STATUSES.COMPLETED);
+  assert.equal(result.outputPath, 'downloads/111.mp4');
+});

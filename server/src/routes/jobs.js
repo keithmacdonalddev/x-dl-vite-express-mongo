@@ -1,9 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { Job } = require('../models/job');
-const { isTweetUrl } = require('../utils/validation');
+const { isTweetUrl, isHttpUrl } = require('../utils/validation');
 const { canTransition } = require('../domain/job-transitions');
-const { JOB_STATUS_VALUES, JOB_STATUSES } = require('../constants/job-status');
+const { JOB_STATUS_VALUES, JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { ERROR_CODES } = require('../lib/error-codes');
 const { logger } = require('../lib/logger');
 
@@ -15,6 +15,19 @@ function sendError(res, status, code, error) {
     code,
     error,
   });
+}
+
+function inferSourceTypeFromMediaUrl(mediaUrl) {
+  if (typeof mediaUrl !== 'string') {
+    return SOURCE_TYPES.UNKNOWN;
+  }
+  if (/\.m3u8(\?.*)?$/i.test(mediaUrl)) {
+    return SOURCE_TYPES.HLS;
+  }
+  if (/\.mp4(\?.*)?$/i.test(mediaUrl)) {
+    return SOURCE_TYPES.DIRECT;
+  }
+  return SOURCE_TYPES.UNKNOWN;
 }
 
 jobsRouter.get('/', async (req, res) => {
@@ -94,6 +107,45 @@ jobsRouter.post('/', async (req, res) => {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('jobs.create.failed', { message, tweetUrl });
     return sendError(res, 500, ERROR_CODES.CREATE_JOB_FAILED, `Failed to create job: ${message}`);
+  }
+});
+
+jobsRouter.post('/:id/manual-retry', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid job id.');
+  }
+
+  const mediaUrl = typeof req.body?.mediaUrl === 'string' ? req.body.mediaUrl.trim() : '';
+  if (!isHttpUrl(mediaUrl)) {
+    return sendError(res, 400, ERROR_CODES.INVALID_MEDIA_URL, 'Invalid media URL.');
+  }
+
+  try {
+    const original = await Job.findById(req.params.id).lean();
+    if (!original) {
+      return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
+    }
+
+    const retryJob = await Job.create({
+      tweetUrl: original.tweetUrl,
+      status: JOB_STATUSES.QUEUED,
+      extractedUrl: mediaUrl,
+      sourceType: inferSourceTypeFromMediaUrl(mediaUrl),
+    });
+
+    return res.status(201).json({
+      ok: true,
+      job: retryJob,
+      fromJobId: original._id.toString(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('jobs.manual_retry.failed', { message, jobId: req.params.id });
+    return sendError(res, 500, ERROR_CODES.MANUAL_RETRY_FAILED, `Failed to create manual retry: ${message}`);
   }
 });
 

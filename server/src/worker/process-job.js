@@ -3,6 +3,7 @@ const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
 const { downloadMedia } = require('../services/downloader-service');
 const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
+const { isHttpUrl } = require('../utils/validation');
 const { claimNextQueuedJob } = require('./queue');
 
 function buildTargetPath(jobId) {
@@ -17,6 +18,19 @@ async function productionExtractor(tweetUrl) {
   });
 }
 
+function inferSourceTypeFromMediaUrl(mediaUrl) {
+  if (typeof mediaUrl !== 'string') {
+    return SOURCE_TYPES.UNKNOWN;
+  }
+  if (/\.m3u8(\?.*)?$/i.test(mediaUrl)) {
+    return SOURCE_TYPES.HLS;
+  }
+  if (/\.mp4(\?.*)?$/i.test(mediaUrl)) {
+    return SOURCE_TYPES.DIRECT;
+  }
+  return SOURCE_TYPES.UNKNOWN;
+}
+
 async function processOneCycle(extractor = productionExtractor, downloader = downloadMedia) {
   const job = await claimNextQueuedJob();
   if (!job) {
@@ -24,15 +38,26 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
   }
 
   try {
-    const extracted = await extractor(job.tweetUrl);
-    const mediaUrl = extracted && typeof extracted.mediaUrl === 'string' ? extracted.mediaUrl : '';
+    let mediaUrl = '';
+    let sourceType = job.sourceType || SOURCE_TYPES.UNKNOWN;
+
+    if (isHttpUrl(job.extractedUrl)) {
+      mediaUrl = job.extractedUrl;
+      if (sourceType === SOURCE_TYPES.UNKNOWN) {
+        sourceType = inferSourceTypeFromMediaUrl(mediaUrl);
+      }
+    } else {
+      const extracted = await extractor(job.tweetUrl);
+      mediaUrl = extracted && typeof extracted.mediaUrl === 'string' ? extracted.mediaUrl : '';
+      sourceType = extracted.sourceType || SOURCE_TYPES.UNKNOWN;
+    }
 
     if (!mediaUrl) {
       throw new Error('Extractor did not return media URL');
     }
 
     job.extractedUrl = mediaUrl;
-    job.sourceType = extracted.sourceType || SOURCE_TYPES.UNKNOWN;
+    job.sourceType = sourceType;
     job.progressPct = 50;
     await job.save();
 
