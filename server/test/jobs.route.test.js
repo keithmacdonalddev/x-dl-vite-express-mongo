@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const { assertSafeTestConnection } = require('./helpers/safe-test-db');
 
 const { app } = require('../src/app');
 
@@ -11,14 +12,18 @@ let mongoServer;
 test.before(async () => {
   mongoServer = await MongoMemoryServer.create();
   await mongoose.connect(mongoServer.getUri(), { dbName: 'xdl_test' });
+  assertSafeTestConnection(mongoose.connection);
 });
 
 test.after(async () => {
   await mongoose.disconnect();
-  await mongoServer.stop();
+  if (mongoServer) {
+    await mongoServer.stop();
+  }
 });
 
 test.beforeEach(async () => {
+  assertSafeTestConnection(mongoose.connection);
   const jobsCollection = mongoose.connection.collections.jobs;
   if (jobsCollection) {
     await jobsCollection.deleteMany({});
