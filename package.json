@@ -8,6 +8,9 @@
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",
     "build": "npm run build --prefix client",
+    "test": "npm run test --prefix server && npm run test --prefix client",
+    "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1",
+    "verify": "npm run test && npm run build --prefix client && npm run lint --prefix client && npm run check",
     "start": "npm run start --prefix server",
     "lint": "npm run lint --prefix client"
   },

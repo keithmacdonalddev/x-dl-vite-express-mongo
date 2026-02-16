@@ -1,14 +1,21 @@
 # x-dl Vite + Express + Mongo
 
-JavaScript-only scaffold for the x-dl rewrite.
+Localhost rewrite of x-dl with a browser-based jobs dashboard and an Express worker pipeline.
 
-## Stack
+## Architecture
 
-- Client: Vite + React (`client/`)
-- API: Express + Mongoose (`server/`)
-- Database: MongoDB Atlas (via `MONGODB_URI`)
+- `client/`: Vite + React dashboard for creating and monitoring jobs
+- `server/`: Express + Mongoose API and background queue processor
+- `docs/`: implementation plans and testing matrix
+- `scripts/`: PowerShell helpers for dev and release checks
 
-## Quick start
+## Prerequisites
+
+- Node.js 20+
+- MongoDB Atlas connection string
+- `ffmpeg` installed and available on `PATH` (for HLS workflow)
+
+## Setup
 
 1. Install dependencies:
 
@@ -24,23 +31,35 @@ npm install --prefix server
 copy server\\.env.example server\\.env
 ```
 
-3. Put your Atlas connection string in `server/.env`.
+3. Set `MONGODB_URI` inside `server/.env`.
 
-4. Start both client and server:
+## Run Locally
+
+- Start both apps:
 
 ```bash
 npm run dev
 ```
 
-5. Open `http://localhost:5173`.
+- Or with PowerShell helper:
 
-The client calls `GET /api/health` through a Vite proxy to `http://localhost:4000`.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
+```
 
-## Scripts
+- Open `http://localhost:5173`.
 
-- `npm run dev` - run API and client together
-- `npm run dev:server` - run API only
-- `npm run dev:client` - run client only
-- `npm run build` - build client
-- `npm run start` - start API in non-watch mode
+## Script Reference
 
+- `npm run dev`: run server and client together
+- `npm run dev:server`: run API only
+- `npm run dev:client`: run client only
+- `npm run test`: run server + client automated tests
+- `npm run build`: build client
+- `npm run lint`: lint client
+- `npm run check`: validate release checklist files and required scripts
+- `npm run verify`: test + build + lint + release checklist
+
+## Verification Matrix
+
+See `docs/testing-matrix.md` for automated and manual verification steps.
