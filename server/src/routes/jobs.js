@@ -4,15 +4,22 @@ const { Job } = require('../models/job');
 const { isTweetUrl } = require('../utils/validation');
 const { canTransition } = require('../domain/job-transitions');
 const { JOB_STATUS_VALUES, JOB_STATUSES } = require('../constants/job-status');
+const { ERROR_CODES } = require('../lib/error-codes');
+const { logger } = require('../lib/logger');
 
 const jobsRouter = express.Router();
 
+function sendError(res, status, code, error) {
+  return res.status(status).json({
+    ok: false,
+    code,
+    error,
+  });
+}
+
 jobsRouter.get('/', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({
-      ok: false,
-      error: 'Database not connected.',
-    });
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
   const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
@@ -27,35 +34,24 @@ jobsRouter.get('/', async (req, res) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return res.status(500).json({
-      ok: false,
-      error: `Failed to list jobs: ${message}`,
-    });
+    logger.error('jobs.list.failed', { message });
+    return sendError(res, 500, ERROR_CODES.LIST_JOBS_FAILED, `Failed to list jobs: ${message}`);
   }
 });
 
 jobsRouter.get('/:id', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({
-      ok: false,
-      error: 'Database not connected.',
-    });
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(400).json({
-      ok: false,
-      error: 'Invalid job id.',
-    });
+    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid job id.');
   }
 
   try {
     const job = await Job.findById(req.params.id).lean();
     if (!job) {
-      return res.status(404).json({
-        ok: false,
-        error: 'Job not found.',
-      });
+      return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
     }
     return res.json({
       ok: true,
@@ -63,10 +59,8 @@ jobsRouter.get('/:id', async (req, res) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return res.status(500).json({
-      ok: false,
-      error: `Failed to load job: ${message}`,
-    });
+    logger.error('jobs.detail.failed', { message, jobId: req.params.id });
+    return sendError(res, 500, ERROR_CODES.LOAD_JOB_FAILED, `Failed to load job: ${message}`);
   }
 });
 
@@ -74,17 +68,16 @@ jobsRouter.post('/', async (req, res) => {
   const tweetUrl = typeof req.body?.tweetUrl === 'string' ? req.body.tweetUrl.trim() : '';
 
   if (!isTweetUrl(tweetUrl)) {
-    return res.status(400).json({
-      ok: false,
-      error: 'Invalid tweetUrl. Expected format: https://x.com/<user>/status/<id>',
-    });
+    return sendError(
+      res,
+      400,
+      ERROR_CODES.INVALID_TWEET_URL,
+      'Invalid tweetUrl. Expected format: https://x.com/<user>/status/<id>'
+    );
   }
 
   if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({
-      ok: false,
-      error: 'Database not connected.',
-    });
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
   try {
@@ -99,50 +92,43 @@ jobsRouter.post('/', async (req, res) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return res.status(500).json({
-      ok: false,
-      error: `Failed to create job: ${message}`,
-    });
+    logger.error('jobs.create.failed', { message, tweetUrl });
+    return sendError(res, 500, ERROR_CODES.CREATE_JOB_FAILED, `Failed to create job: ${message}`);
   }
 });
 
 jobsRouter.patch('/:id/status', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({
-      ok: false,
-      error: 'Database not connected.',
-    });
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(400).json({
-      ok: false,
-      error: 'Invalid job id.',
-    });
+    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid job id.');
   }
 
   const nextStatus = typeof req.body?.status === 'string' ? req.body.status.trim().toLowerCase() : '';
   if (!JOB_STATUS_VALUES.includes(nextStatus)) {
-    return res.status(400).json({
-      ok: false,
-      error: `Invalid status. Allowed: ${JOB_STATUS_VALUES.join(', ')}`,
-    });
+    return sendError(
+      res,
+      400,
+      ERROR_CODES.INVALID_STATUS,
+      `Invalid status. Allowed: ${JOB_STATUS_VALUES.join(', ')}`
+    );
   }
 
   try {
     const job = await Job.findById(req.params.id);
     if (!job) {
-      return res.status(404).json({
-        ok: false,
-        error: 'Job not found.',
-      });
+      return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
     }
 
     if (!canTransition(job.status, nextStatus)) {
-      return res.status(409).json({
-        ok: false,
-        error: `Invalid status transition: ${job.status} -> ${nextStatus}`,
-      });
+      return sendError(
+        res,
+        409,
+        ERROR_CODES.INVALID_STATUS_TRANSITION,
+        `Invalid status transition: ${job.status} -> ${nextStatus}`
+      );
     }
 
     job.status = nextStatus;
@@ -164,10 +150,8 @@ jobsRouter.patch('/:id/status', async (req, res) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return res.status(500).json({
-      ok: false,
-      error: `Failed to update status: ${message}`,
-    });
+    logger.error('jobs.status.update.failed', { message, jobId: req.params.id });
+    return sendError(res, 500, ERROR_CODES.UPDATE_STATUS_FAILED, `Failed to update status: ${message}`);
   }
 });
 
