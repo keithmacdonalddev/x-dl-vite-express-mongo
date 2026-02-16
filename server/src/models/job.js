@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
-
-const JOB_STATUSES = ['queued', 'running', 'completed', 'failed'];
+const {
+  JOB_STATUSES,
+  JOB_STATUS_VALUES,
+  SOURCE_TYPES,
+  SOURCE_TYPE_VALUES,
+} = require('../constants/job-status');
 
 const jobSchema = new mongoose.Schema(
   {
@@ -11,8 +15,27 @@ const jobSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: JOB_STATUSES,
-      default: 'queued',
+      enum: JOB_STATUS_VALUES,
+      default: JOB_STATUSES.QUEUED,
+      required: true,
+    },
+    progressPct: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
+      required: true,
+    },
+    attemptCount: {
+      type: Number,
+      min: 0,
+      default: 0,
+      required: true,
+    },
+    sourceType: {
+      type: String,
+      enum: SOURCE_TYPE_VALUES,
+      default: SOURCE_TYPES.UNKNOWN,
       required: true,
     },
     extractedUrl: {
@@ -30,6 +53,18 @@ const jobSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    startedAt: {
+      type: Date,
+      default: null,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    failedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -37,9 +72,11 @@ const jobSchema = new mongoose.Schema(
   }
 );
 
+jobSchema.index({ status: 1, createdAt: 1 });
+
 const Job = mongoose.models.Job || mongoose.model('Job', jobSchema);
 
 module.exports = {
   Job,
-  JOB_STATUSES,
+  JOB_STATUSES: JOB_STATUS_VALUES,
 };
