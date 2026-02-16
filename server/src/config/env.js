@@ -1,7 +1,7 @@
 function getServerConfig(input = process.env) {
   return {
     port: Number(input.PORT || 4000),
-    mongoUri: input.MONGODB_URI || '',
+    mongoUri: input.MONGODB_URI || input.MONGO_URI || '',
   };
 }
 

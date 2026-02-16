@@ -16,6 +16,8 @@ server/.env.*
 !server/.env.example
 downloads/
 tmp/
+.playwright-profile/
+server/.playwright-profile/
 
 # Logs
 *.log

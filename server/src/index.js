@@ -1,3 +1,5 @@
+const path = require('node:path');
+const dns = require('node:dns');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { app } = require('./app');
@@ -7,13 +9,34 @@ const { processOneCycle } = require('./worker/process-job');
 const { recoverStaleJobs } = require('./worker/recovery');
 const { closePersistentContext } = require('./services/playwright-adapter');
 
-dotenv.config();
+dotenv.config({
+  path: path.resolve(__dirname, '../.env'),
+});
 
 const config = getServerConfig();
 let serverHandle = null;
 let isShuttingDown = false;
 
+function applyDnsOverrideFromEnv(env = process.env) {
+  const configured = typeof env.MONGODB_DNS_SERVERS === 'string' ? env.MONGODB_DNS_SERVERS.trim() : '';
+  if (!configured) {
+    return;
+  }
+
+  const servers = configured
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (servers.length > 0) {
+    dns.setServers(servers);
+    console.log(`MongoDB DNS override enabled: ${servers.join(', ')}`);
+  }
+}
+
 async function start() {
+  applyDnsOverrideFromEnv();
+
   if (config.mongoUri) {
     try {
       await mongoose.connect(config.mongoUri);
