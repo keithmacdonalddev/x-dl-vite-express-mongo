@@ -95,6 +95,70 @@
   background: #e9f4ff;
 }
 
+/* --- Tab bar --- */
+
+.activity-tab-bar {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid var(--line, #d4dde3);
+  padding: 0 16px;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.activity-tab {
+  flex: 1;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted, #4d6573);
+  padding: 10px 8px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.activity-tab:hover {
+  color: var(--ink, #102029);
+}
+
+.activity-tab.is-active {
+  font-weight: 700;
+  color: var(--accent, #0b6bcb);
+  border-bottom-color: var(--accent, #0b6bcb);
+}
+
+.activity-tab-badge {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.activity-tab-badge.is-active-badge {
+  background: var(--accent, #0b6bcb);
+  color: #fff;
+}
+
+.activity-tab-badge.is-history-badge {
+  background: #e2e8ef;
+  color: #35566b;
+}
+
+/* --- Panel content --- */
+
 .activity-panel-content {
   flex: 1;
   overflow-y: auto;
@@ -109,13 +173,13 @@
   min-height: 0;
 }
 
-.activity-section:first-child:last-child {
+.activity-section-full {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.activity-section:first-child:last-child .activity-job-group:last-child {
+.activity-section-full .activity-job-group:last-child {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -181,6 +245,88 @@
   color: var(--ink);
 }
 
+/* --- Copy button --- */
+
+.activity-copy-btn {
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  color: var(--muted, #4d6573);
+  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 140ms ease, color 140ms ease;
+  line-height: 1;
+}
+
+.activity-copy-btn:hover {
+  background: #e9f4ff;
+  color: var(--accent, #0b6bcb);
+}
+
+/* In the label bar, push collapse button to the right */
+.activity-job-label .activity-copy-btn {
+  margin-left: auto;
+}
+
+.activity-job-label .activity-copy-btn + .activity-collapse-btn {
+  margin-left: 0;
+}
+
+/* --- Summary row with copy button --- */
+
+.activity-job-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.activity-job-summary-row .activity-job-summary {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.activity-job-summary-row .activity-copy-btn {
+  flex-shrink: 0;
+}
+
+.activity-job-summary-row.is-failed .activity-copy-btn {
+  color: #8f2f2f;
+}
+
+.activity-job-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d5e0ea;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font: inherit;
+  font-size: 12px;
+  color: #2c4f67;
+  text-align: left;
+  cursor: pointer;
+}
+
+.activity-job-summary:hover {
+  background: #f4f9ff;
+}
+
+.activity-job-summary.is-failed {
+  border-color: #deb2b2;
+  color: #8f2f2f;
+}
+
 .activity-event-list {
   list-style: none;
   margin: 0;
@@ -212,32 +358,6 @@
   font-size: 13px;
 }
 
-.activity-job-summary {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #d5e0ea;
-  border-radius: 10px;
-  background: #fff;
-  padding: 8px 10px;
-  margin-bottom: 6px;
-  font: inherit;
-  font-size: 12px;
-  color: #2c4f67;
-  text-align: left;
-  cursor: pointer;
-}
-
-.activity-job-summary:hover {
-  background: #f4f9ff;
-}
-
-.activity-job-summary.is-failed {
-  border-color: #deb2b2;
-  color: #8f2f2f;
-}
-
 .activity-empty {
   font-size: 13px;
   color: var(--muted);
@@ -258,5 +378,13 @@
 @media (prefers-reduced-motion: reduce) {
   .activity-pulse {
     animation: none !important;
+  }
+
+  .activity-tab {
+    transition: none !important;
+  }
+
+  .activity-copy-btn {
+    transition: none !important;
   }
 }
