@@ -112,6 +112,29 @@ svg text{font-family:'Segoe UI',system-ui,sans-serif}
 @keyframes td-flow-particle{0%{stroke-dashoffset:20}100%{stroke-dashoffset:0}}
 .td-flow-line{animation:td-flow-particle 1.5s linear infinite}
 
+/* ── View 7: File Map (visual tree) ─── */
+#filemap-container{position:relative;overflow:hidden;cursor:grab;border-radius:var(--radius)}
+#filemap-container.grabbing{cursor:grabbing}
+#filemap-svg{display:block;transform-origin:0 0}
+.fm-node{cursor:pointer}
+.fm-node rect{transition:filter 200ms ease,stroke-width 200ms ease,stroke-opacity 200ms ease}
+.fm-node:hover rect{filter:brightness(1.3);stroke-width:2.5}
+.fm-folder-label{fill:var(--text-bright);font-size:11.5px;font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.fm-file-label{fill:var(--text);font-size:10px;font-weight:500;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.fm-badge{fill:var(--text-dim);font-size:8.5px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.fm-connector{fill:none;stroke:#334155;stroke-width:1.2;transition:stroke 200ms ease,stroke-opacity 200ms ease}
+.fm-connector.highlighted{stroke:#f8fafc;stroke-width:2}
+.fm-dimmed{opacity:0.08;transition:opacity 300ms ease}
+.fm-highlighted{opacity:1;transition:opacity 300ms ease}
+.fm-folder-icon{font-size:13px;pointer-events:none}
+.fm-file-icon{font-size:11px;pointer-events:none}
+.fm-root-glow{filter:drop-shadow(0 0 12px rgba(59,130,246,0.4))}
+.fm-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.fm-toolbar button{background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:0.8rem;font-weight:600;transition:background var(--transition),border-color var(--transition)}
+.fm-toolbar button:hover{background:var(--bg3);border-color:var(--bg4)}
+.fm-toolbar button.active{background:var(--bg3);border-color:#3b82f6;color:var(--text-bright)}
+@keyframes fm-appear{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
 /* ── View 6: File Tree ──────────────── */
 .tree-panel{overflow-y:auto}
 .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
@@ -159,6 +182,7 @@ svg text{font-family:'Segoe UI',system-ui,sans-serif}
 
 <div class="tabs" id="tabs">
   <div class="tab active" data-view="topdown"><span class="tab-icon">&#8595;</span> Top-Down</div>
+  <div class="tab" data-view="filemap"><span class="tab-icon">&#128450;</span> File Map</div>
   <div class="tab" data-view="sunburst"><span class="tab-icon">&#9788;</span> Sunburst</div>
   <div class="tab" data-view="bubbles"><span class="tab-icon">&#9679;</span> Bubble Map</div>
   <div class="tab" data-view="flow"><span class="tab-icon">&#8594;</span> Dependency Flow</div>
@@ -175,7 +199,19 @@ svg text{font-family:'Segoe UI',system-ui,sans-serif}
     <div id="topdown-container"></div>
   </div>
 
-  <!-- View 1: Sunburst -->
+  <!-- View 1: File Map -->
+  <div class="view" id="view-filemap">
+    <div class="view-subtitle">Visual directory tree flowing top-to-bottom. Click folders to expand/collapse. Scroll to zoom, drag to pan. Click a module in the legend to isolate.</div>
+    <div id="filemap-legend" class="legend-strip"></div>
+    <div class="fm-toolbar">
+      <button onclick="fmExpandAll()">Expand All</button>
+      <button onclick="fmCollapseAll()">Collapse All</button>
+      <button onclick="fmResetView()">Reset View</button>
+    </div>
+    <div id="filemap-container"></div>
+  </div>
+
+  <!-- View 2: Sunburst -->
   <div class="view" id="view-sunburst">
     <div class="view-subtitle">Concentric rings show hierarchy -- center is the project root, outer rings are individual files. Click a segment to zoom in.</div>
     <div id="sunburst-legend" class="legend-strip"></div>
@@ -526,6 +562,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 function renderView(v) {
   switch(v) {
     case 'topdown': renderTopDown(); break;
+    case 'filemap': renderFileMap(); break;
     case 'sunburst': renderSunburst(); break;
     case 'bubbles': renderBubbles(); break;
     case 'flow': renderFlow(); break;
@@ -964,7 +1001,436 @@ function renderTopDown() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// VIEW 1: SUNBURST
+// VIEW 1: FILE MAP (Visual Directory Tree)
+// ══════════════════════════════════════════════════════════════
+
+const fmExpanded = new Set(['x-dl-vite-express-mongo','x-dl-vite-express-mongo/client','x-dl-vite-express-mongo/server','x-dl-vite-express-mongo/client/src','x-dl-vite-express-mongo/server/src']);
+let fmHighlightMod = null;
+let fmSvg = null, fmContainer = null, fmScale = 1, fmPanX = 0, fmPanY = 0;
+
+function fmExpandAll() {
+  (function walk(n, path) {
+    const id = path ? path+'/'+n.name : n.name;
+    if (isFolder(n)) { fmExpanded.add(id); n.children.forEach(c => walk(c, id)); }
+  })(DATA, '');
+  renderFileMapTree();
+}
+function fmCollapseAll() {
+  fmExpanded.clear();
+  fmExpanded.add('x-dl-vite-express-mongo');
+  renderFileMapTree();
+}
+function fmResetView() {
+  if (!fmContainer || !fmSvg) return;
+  const contW = fmContainer.clientWidth, contH = fmContainer.clientHeight;
+  const svgW = parseFloat(fmSvg.getAttribute('width')), svgH = parseFloat(fmSvg.getAttribute('height'));
+  fmScale = Math.min(contW / svgW, contH / svgH, 1) * 0.92;
+  fmPanX = (contW - svgW * fmScale) / 2;
+  fmPanY = 20;
+  fmApplyTransform();
+}
+
+function fmApplyTransform() {
+  if (fmSvg) fmSvg.style.transform = `translate(${fmPanX}px,${fmPanY}px) scale(${fmScale})`;
+}
+
+function renderFileMap() {
+  buildLegendStrip('filemap-legend');
+
+  // Wire legend chips for module highlighting
+  document.querySelectorAll('#filemap-legend .legend-chip').forEach(chip => {
+    chip.onclick = () => {
+      const mod = chip.dataset.mod;
+      if (fmHighlightMod === mod) {
+        fmHighlightMod = null;
+        chip.classList.remove('active');
+      } else {
+        document.querySelectorAll('#filemap-legend .legend-chip').forEach(c => c.classList.remove('active'));
+        fmHighlightMod = mod;
+        chip.classList.add('active');
+      }
+      renderFileMapTree();
+    };
+  });
+
+  fmContainer = document.getElementById('filemap-container');
+  const contW = Math.min(1340, window.innerWidth - 60);
+  const contH = Math.max(600, window.innerHeight - 260);
+  fmContainer.style.width = contW + 'px';
+  fmContainer.style.height = contH + 'px';
+  fmContainer.style.margin = '0 auto';
+  fmContainer.innerHTML = '';
+
+  // Pan & zoom setup
+  let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+
+  fmContainer.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = fmContainer.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const oldScale = fmScale;
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    fmScale = Math.max(0.1, Math.min(3, fmScale * factor));
+    fmPanX = mx - (mx - fmPanX) * (fmScale / oldScale);
+    fmPanY = my - (my - fmPanY) * (fmScale / oldScale);
+    fmApplyTransform();
+  }, {passive:false});
+
+  fmContainer.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+    panStartX = fmPanX; panStartY = fmPanY;
+    fmContainer.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    fmPanX = panStartX + (e.clientX - dragStartX);
+    fmPanY = panStartY + (e.clientY - dragStartY);
+    fmApplyTransform();
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; fmContainer.classList.remove('grabbing'); }
+  });
+
+  renderFileMapTree();
+}
+
+function renderFileMapTree() {
+  if (!fmContainer) return;
+
+  // ── Layout constants ──
+  const FOLDER_W = 140, FOLDER_H = 36;
+  const FILE_W = 120, FILE_H = 28;
+  const H_GAP = 18;   // horizontal gap between sibling nodes
+  const V_GAP = 60;   // vertical gap between levels
+  const ROOT_H = 44;
+
+  // ── Layout algorithm: assign width to each node, then x,y positions ──
+  // Width = sum of children widths + gaps, or node own width
+  function measureNode(node, path) {
+    const id = path ? path + '/' + node.name : node.name;
+    const folder = isFolder(node);
+    const expanded = folder && fmExpanded.has(id);
+    const nodeW = folder ? FOLDER_W : FILE_W;
+    const entry = { node, id, folder, expanded, nodeW, children: [], totalW: nodeW };
+
+    if (expanded && node.children) {
+      let childEntries = [];
+      for (const c of node.children) {
+        childEntries.push(measureNode(c, id));
+      }
+      entry.children = childEntries;
+      if (childEntries.length > 0) {
+        const childrenW = childEntries.reduce((s, c) => s + c.totalW, 0) + (childEntries.length - 1) * H_GAP;
+        entry.totalW = Math.max(nodeW, childrenW);
+      }
+    }
+    return entry;
+  }
+
+  function positionNode(entry, x, y) {
+    // Center this node's box at the top of its allocated width
+    entry.x = x + entry.totalW / 2;
+    entry.y = y;
+    entry.boxX = entry.x - entry.nodeW / 2;
+    entry.boxY = y;
+    entry.boxH = entry.folder ? FOLDER_H : FILE_H;
+
+    if (entry.expanded && entry.children.length > 0) {
+      const childrenTotalW = entry.children.reduce((s, c) => s + c.totalW, 0) + (entry.children.length - 1) * H_GAP;
+      let cx = x + (entry.totalW - childrenTotalW) / 2;
+      const childY = y + entry.boxH + V_GAP;
+      for (const child of entry.children) {
+        positionNode(child, cx, childY);
+        cx += child.totalW + H_GAP;
+      }
+    }
+  }
+
+  const root = measureNode(DATA, '');
+  positionNode(root, 0, 20);
+
+  // Determine SVG dimensions
+  let maxX = 0, maxY = 0;
+  function findBounds(entry) {
+    const right = entry.boxX + entry.nodeW;
+    const bottom = entry.boxY + entry.boxH;
+    if (right > maxX) maxX = right;
+    if (bottom > maxY) maxY = bottom;
+    if (entry.children) entry.children.forEach(findBounds);
+  }
+  findBounds(root);
+  const svgW = maxX + 40;
+  const svgH = maxY + 40;
+
+  // Create SVG
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('id', 'filemap-svg');
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', svgH);
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+
+  fmSvg = svg;
+
+  // Defs for glow filters
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const glowFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+  glowFilter.setAttribute('id', 'fm-glow');
+  glowFilter.setAttribute('x', '-30%'); glowFilter.setAttribute('y', '-30%');
+  glowFilter.setAttribute('width', '160%'); glowFilter.setAttribute('height', '160%');
+  const feGauss = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+  feGauss.setAttribute('stdDeviation', '4');
+  feGauss.setAttribute('result', 'glow');
+  glowFilter.appendChild(feGauss);
+  const feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+  const fmn1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+  fmn1.setAttribute('in', 'glow');
+  feMerge.appendChild(fmn1);
+  const fmn2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+  fmn2.setAttribute('in', 'SourceGraphic');
+  feMerge.appendChild(fmn2);
+  glowFilter.appendChild(feMerge);
+  defs.appendChild(glowFilter);
+  svg.appendChild(defs);
+
+  // Collect all drawn elements for highlighting
+  const allNodeEls = [];
+  const allConnEls = [];
+
+  // ── Draw connectors ──
+  function drawConnectors(entry) {
+    if (!entry.expanded || entry.children.length === 0) return;
+    const parentCx = entry.x;
+    const parentBottom = entry.boxY + entry.boxH;
+    const midY = parentBottom + V_GAP * 0.38;
+
+    for (const child of entry.children) {
+      const childCx = child.x;
+      const childTop = child.boxY;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      // Org-chart style: down from parent, horizontal, down to child
+      const d = `M ${parentCx} ${parentBottom} L ${parentCx} ${midY} L ${childCx} ${midY} L ${childCx} ${childTop}`;
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'fm-connector');
+      path.dataset.parentId = entry.id;
+      path.dataset.childId = child.id;
+
+      // Color the connector based on child module
+      const childMod = child.node.module && MODULES[child.node.module];
+      if (childMod) {
+        path.setAttribute('stroke', hexToRgba(childMod.color, 0.35));
+      }
+
+      svg.appendChild(path);
+      allConnEls.push(path);
+
+      drawConnectors(child);
+    }
+  }
+  drawConnectors(root);
+
+  // ── Draw nodes ──
+  function drawNode(entry, depth) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'fm-node');
+    g.dataset.id = entry.id;
+    g.dataset.module = entry.node.module || '';
+
+    const mod = entry.node.module && MODULES[entry.node.module];
+    const color = mod ? mod.color : (depth === 0 ? '#3b82f6' : '#64748b');
+    const isRoot = depth === 0;
+
+    // Check if dimmed by module filter
+    const modDimmed = fmHighlightMod && !entry.folder && entry.node.module !== fmHighlightMod;
+    const folderDimmedByMod = fmHighlightMod && entry.folder && !fmNodeContainsModule(entry, fmHighlightMod);
+
+    if (modDimmed || folderDimmedByMod) {
+      g.classList.add('fm-dimmed');
+    }
+
+    // Background rect
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', entry.boxX);
+    rect.setAttribute('y', entry.boxY);
+    rect.setAttribute('width', entry.nodeW);
+    rect.setAttribute('height', entry.boxH);
+    rect.setAttribute('rx', entry.folder ? '10' : '8');
+
+    if (isRoot) {
+      rect.setAttribute('fill', 'rgba(59,130,246,0.2)');
+      rect.setAttribute('stroke', '#3b82f6');
+      rect.setAttribute('stroke-width', '2');
+      g.setAttribute('filter', 'url(#fm-glow)');
+    } else if (entry.folder) {
+      rect.setAttribute('fill', hexToRgba(color, 0.18));
+      rect.setAttribute('stroke', hexToRgba(color, 0.6));
+      rect.setAttribute('stroke-width', '1.5');
+    } else {
+      rect.setAttribute('fill', hexToRgba(color, 0.1));
+      rect.setAttribute('stroke', hexToRgba(color, 0.4));
+      rect.setAttribute('stroke-width', '1');
+    }
+    g.appendChild(rect);
+
+    // Color accent bar at top for folders
+    if (entry.folder && !isRoot) {
+      const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bar.setAttribute('x', entry.boxX + 1);
+      bar.setAttribute('y', entry.boxY);
+      bar.setAttribute('width', entry.nodeW - 2);
+      bar.setAttribute('height', '3');
+      bar.setAttribute('rx', '1.5');
+      bar.setAttribute('fill', color);
+      bar.setAttribute('opacity', '0.7');
+      g.appendChild(bar);
+    }
+
+    // Color dot for files
+    if (!entry.folder && mod) {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', entry.boxX + 10);
+      dot.setAttribute('cy', entry.boxY + entry.boxH / 2);
+      dot.setAttribute('r', '4');
+      dot.setAttribute('fill', color);
+      dot.setAttribute('opacity', '0.8');
+      g.appendChild(dot);
+    }
+
+    // Label
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const labelX = entry.folder ? entry.x : entry.x + (mod ? 4 : 0);
+    label.setAttribute('x', labelX);
+    label.setAttribute('y', entry.boxY + entry.boxH / 2 + (entry.folder && !isRoot ? -3 : 0));
+    label.setAttribute('class', entry.folder ? 'fm-folder-label' : 'fm-file-label');
+    if (isRoot) { label.setAttribute('font-size', '13'); }
+    const maxChars = Math.floor(entry.nodeW / (entry.folder ? 8 : 7.5));
+    const displayName = entry.node.name.length > maxChars ? entry.node.name.slice(0, maxChars - 1) + '..' : entry.node.name;
+    label.textContent = displayName;
+    g.appendChild(label);
+
+    // Child count badge for folders
+    if (entry.folder) {
+      const fc = countFiles(entry.node);
+      const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      badge.setAttribute('x', entry.x);
+      badge.setAttribute('y', entry.boxY + entry.boxH / 2 + (isRoot ? 14 : 10));
+      badge.setAttribute('class', 'fm-badge');
+      badge.setAttribute('fill', isRoot ? '#94a3b8' : hexToRgba(color, 0.7));
+      badge.textContent = fc + ' file' + (fc !== 1 ? 's' : '');
+      g.appendChild(badge);
+
+      // Collapsed indicator
+      if (!entry.expanded && isFolder(entry.node) && entry.node.children && entry.node.children.length > 0) {
+        const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        indicator.setAttribute('x', entry.boxX + entry.nodeW - 14);
+        indicator.setAttribute('y', entry.boxY + entry.boxH / 2 + 1);
+        indicator.setAttribute('text-anchor', 'middle');
+        indicator.setAttribute('fill', color);
+        indicator.setAttribute('font-size', '14');
+        indicator.setAttribute('font-weight', '700');
+        indicator.setAttribute('pointer-events', 'none');
+        indicator.textContent = '+';
+        g.appendChild(indicator);
+      }
+    }
+
+    // Interactions
+    g.addEventListener('mouseenter', (ev) => {
+      const modLabel = mod ? mod.label : (isRoot ? 'Project Root' : '');
+      const desc = entry.node.desc || (entry.folder ? countFiles(entry.node) + ' files' : '');
+      showTip(ev, entry.node.name, modLabel, desc, color);
+
+      // Highlight path to root
+      if (!fmHighlightMod) {
+        const pathIds = new Set();
+        const parts = entry.id.split('/');
+        for (let i = 1; i <= parts.length; i++) {
+          pathIds.add(parts.slice(0, i).join('/'));
+        }
+        document.querySelectorAll('#filemap-svg .fm-node').forEach(el => {
+          if (!pathIds.has(el.dataset.id) && el.dataset.id !== entry.id) {
+            el.style.opacity = '0.2';
+          } else {
+            el.style.opacity = '1';
+          }
+        });
+        allConnEls.forEach(conn => {
+          const pId = conn.dataset.parentId;
+          const cId = conn.dataset.childId;
+          if (pathIds.has(pId) && pathIds.has(cId)) {
+            conn.setAttribute('stroke', '#f8fafc');
+            conn.setAttribute('stroke-width', '2');
+            conn.setAttribute('stroke-opacity', '1');
+          } else {
+            conn.style.opacity = '0.15';
+          }
+        });
+      }
+    });
+
+    g.addEventListener('mouseleave', () => {
+      hideTip();
+      if (!fmHighlightMod) {
+        document.querySelectorAll('#filemap-svg .fm-node').forEach(el => {
+          el.style.opacity = '';
+        });
+        allConnEls.forEach(conn => {
+          const childMod2 = conn.dataset.childId && document.querySelector(`#filemap-svg .fm-node[data-id="${CSS.escape(conn.dataset.childId)}"]`);
+          const cm = childMod2 ? childMod2.dataset.module : '';
+          const cmMod = cm && MODULES[cm];
+          conn.setAttribute('stroke', cmMod ? hexToRgba(cmMod.color, 0.35) : '#334155');
+          conn.setAttribute('stroke-width', '1.2');
+          conn.style.opacity = '';
+        });
+      }
+    });
+
+    // Click to toggle folder
+    if (entry.folder) {
+      g.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (fmExpanded.has(entry.id)) {
+          fmExpanded.delete(entry.id);
+        } else {
+          fmExpanded.add(entry.id);
+        }
+        // Preserve pan/zoom
+        renderFileMapTree();
+      });
+    }
+
+    svg.appendChild(g);
+    allNodeEls.push(g);
+
+    // Recurse
+    if (entry.expanded && entry.children.length > 0) {
+      entry.children.forEach(c => drawNode(c, depth + 1));
+    }
+  }
+  drawNode(root, 0);
+
+  // Replace SVG in container (keep pan/zoom state)
+  const existingSvg = fmContainer.querySelector('svg');
+  if (existingSvg) {
+    fmContainer.replaceChild(svg, existingSvg);
+  } else {
+    fmContainer.appendChild(svg);
+    // Initial fit
+    fmResetView();
+    return;
+  }
+  fmApplyTransform();
+}
+
+function fmNodeContainsModule(entry, mod) {
+  if (entry.node.module === mod) return true;
+  if (entry.children) return entry.children.some(c => fmNodeContainsModule(c, mod));
+  return false;
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIEW 2: SUNBURST
 // ══════════════════════════════════════════════════════════════
 
 function renderSunburst() {
@@ -1869,7 +2335,7 @@ window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     // Re-render the active SVG view
-    if (currentView !== 'tree' && currentView !== 'matrix') {
+    if (currentView !== 'tree' && currentView !== 'matrix' && currentView !== 'filemap') {
       rendered[currentView] = false;
       renderView(currentView);
       rendered[currentView] = true;
