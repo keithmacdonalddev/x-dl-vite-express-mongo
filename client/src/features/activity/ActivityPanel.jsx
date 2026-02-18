@@ -90,10 +90,32 @@ function CopyJobButton({ group }) {
   )
 }
 
-function JobGroup({ group }) {
+function ArchiveButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="activity-archive-btn"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      title="Move to history"
+      aria-label="Move to history"
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="12" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M2 5v6.5a1.5 1.5 0 001.5 1.5h7a1.5 1.5 0 001.5-1.5V5" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M5.5 8.5h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    </button>
+  )
+}
+
+function JobGroup({ group, isSticky, onArchive }) {
   const [expanded, setExpanded] = useState(false)
   const scrollRef = useRef(null)
   const isActive = group.status === 'active'
+  const showAsActive = isActive || isSticky
 
   useEffect(() => {
     if (isActive && scrollRef.current) {
@@ -103,7 +125,7 @@ function JobGroup({ group }) {
 
   const label = group.handle ? `@${group.handle}` : group.jobId.slice(0, 8)
 
-  if (!isActive && !expanded) {
+  if (!showAsActive && !expanded) {
     const terminal = group.terminalEntry
     const t = terminal ? translateEvent(terminal) : null
     const summaryIcon = group.status === 'completed' ? '\u2713' : '\u2717'
@@ -127,13 +149,20 @@ function JobGroup({ group }) {
     )
   }
 
+  const stickyClass = isSticky ? `is-sticky is-sticky-${group.status}` : ''
+
   return (
-    <div className={`activity-job-group ${isActive ? 'is-active' : ''}`}>
+    <div className={`activity-job-group ${isActive ? 'is-active' : ''} ${stickyClass}`}>
       <div className="activity-job-label">
         {isActive && <span className="activity-pulse" />}
+        {isSticky && (
+          <span className={`activity-done-dot ${group.status === 'failed' ? 'is-failed' : ''}`} />
+        )}
         <strong>{label}</strong>
+        {isSticky && <span className="activity-sticky-status">{group.status === 'completed' ? 'Done' : 'Failed'}</span>}
         <CopyJobButton group={group} />
-        {!isActive && (
+        {isSticky && <ArchiveButton onClick={onArchive} />}
+        {!showAsActive && (
           <button type="button" className="activity-collapse-btn" onClick={() => setExpanded(false)}>
             Collapse
           </button>
@@ -159,11 +188,81 @@ export function ActivityPanel({ telemetryEvents, isOpen, onToggle }) {
 
   const { groups } = useMemo(() => groupEventsByJob(telemetryEvents), [telemetryEvents])
 
-  const activeGroups = useMemo(() => groups.filter((g) => g.status === 'active'), [groups])
+  // Track which finished jobs should stay "sticky" in the Active tab
+  const [stickyJobIds, setStickyJobIds] = useState(() => new Set())
+  // Track known active jobIds so we can detect when a NEW one appears
+  const knownActiveRef = useRef(new Set())
+
+  // Identify truly active and finished groups from event data
+  const trueActiveGroups = useMemo(() => groups.filter((g) => g.status === 'active'), [groups])
+  const trueFinishedGroups = useMemo(() => groups.filter((g) => g.status !== 'active'), [groups])
+
+  // When a job transitions to finished, add it to sticky set
+  // When a NEW active job appears, flush all sticky jobs to history
+  useEffect(() => {
+    const currentActiveIds = new Set(trueActiveGroups.map((g) => g.jobId))
+    const currentFinishedIds = new Set(trueFinishedGroups.map((g) => g.jobId))
+
+    setStickyJobIds((prev) => {
+      const next = new Set(prev)
+
+      // Add newly finished jobs to sticky (they were known active before)
+      for (const id of currentFinishedIds) {
+        if (knownActiveRef.current.has(id) && !next.has(id)) {
+          next.add(id)
+        }
+      }
+
+      // If a brand new active job appears, flush all sticky jobs
+      let hasNewActive = false
+      for (const id of currentActiveIds) {
+        if (!knownActiveRef.current.has(id)) {
+          hasNewActive = true
+          break
+        }
+      }
+      if (hasNewActive && next.size > 0) {
+        next.clear()
+      }
+
+      // Update known active set
+      knownActiveRef.current = currentActiveIds
+
+      // Clean out sticky entries for jobs that no longer exist in events
+      for (const id of next) {
+        if (!currentFinishedIds.has(id)) {
+          next.delete(id)
+        }
+      }
+
+      // Only update state if something changed
+      if (next.size === prev.size && [...next].every((id) => prev.has(id))) {
+        return prev
+      }
+      return next
+    })
+  }, [trueActiveGroups, trueFinishedGroups])
+
+  const archiveJob = (jobId) => {
+    setStickyJobIds((prev) => {
+      const next = new Set(prev)
+      next.delete(jobId)
+      return next
+    })
+  }
+
+  // Active tab shows: truly active + sticky finished
+  const activeGroups = useMemo(() => {
+    const sticky = trueFinishedGroups.filter((g) => stickyJobIds.has(g.jobId))
+    return [...trueActiveGroups, ...sticky]
+  }, [trueActiveGroups, trueFinishedGroups, stickyJobIds])
+
+  // History tab shows: finished jobs NOT in sticky set
   const finishedGroups = useMemo(
-    () => groups.filter((g) => g.status !== 'active').reverse(),
-    [groups]
+    () => trueFinishedGroups.filter((g) => !stickyJobIds.has(g.jobId)).reverse(),
+    [trueFinishedGroups, stickyJobIds]
   )
+
   const activeCount = activeGroups.length
   const finishedCount = finishedGroups.length
 
@@ -259,7 +358,12 @@ export function ActivityPanel({ telemetryEvents, isOpen, onToggle }) {
                     {activeGroups.length > 0 ? (
                       <div className="activity-section activity-section-full">
                         {activeGroups.map((group) => (
-                          <JobGroup key={group.jobId} group={group} />
+                          <JobGroup
+                            key={group.jobId}
+                            group={group}
+                            isSticky={stickyJobIds.has(group.jobId)}
+                            onArchive={() => archiveJob(group.jobId)}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -273,7 +377,7 @@ export function ActivityPanel({ telemetryEvents, isOpen, onToggle }) {
                     {finishedGroups.length > 0 ? (
                       <div className="activity-section activity-section-full">
                         {finishedGroups.map((group) => (
-                          <JobGroup key={group.jobId} group={group} />
+                          <JobGroup key={group.jobId} group={group} isSticky={false} onArchive={() => {}} />
                         ))}
                       </div>
                     ) : (

@@ -245,6 +245,71 @@
   color: var(--ink);
 }
 
+/* --- Sticky finished jobs in Active tab --- */
+
+.activity-job-group.is-sticky {
+  border-color: #c4d8c4;
+  background: #fafcfa;
+  opacity: 0.92;
+}
+
+.activity-job-group.is-sticky.is-sticky-failed {
+  border-color: #deb2b2;
+  background: #fdfafa;
+}
+
+.activity-job-group.is-sticky.is-sticky-completed {
+  border-color: #b8d4b8;
+}
+
+.activity-done-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #41a466;
+  flex-shrink: 0;
+}
+
+.activity-done-dot.is-failed {
+  background: #b62b2b;
+}
+
+.activity-sticky-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: #41a466;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.activity-job-group.is-sticky-failed .activity-sticky-status {
+  color: #b62b2b;
+}
+
+/* --- Archive button --- */
+
+.activity-archive-btn {
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  color: var(--muted, #4d6573);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 140ms ease, color 140ms ease;
+  line-height: 1;
+}
+
+.activity-archive-btn:hover {
+  background: #e9f4ff;
+  color: var(--accent, #0b6bcb);
+}
+
 /* --- Copy button --- */
 
 .activity-copy-btn {
@@ -385,6 +450,10 @@
   }
 
   .activity-copy-btn {
+    transition: none !important;
+  }
+
+  .activity-archive-btn {
     transition: none !important;
   }
 }
