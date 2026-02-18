@@ -65,10 +65,14 @@ Confirms HTTP server is up and MongoDB is connected.
 ### Worker liveness
 ```
 GET /api/worker/health
-→ { ok: true, alive: true, lastHeartbeat: "<ISO timestamp>" }
+→ { ok: true, lastHeartbeatAt: "<ISO timestamp>", ageMs: 5000, staleAfterMs: 120000 }
 ```
-Returns the timestamp of the worker's most recent heartbeat write (30s cadence).
-If `lastHeartbeat` is more than 90s ago, the worker is likely stalled or dead.
+Returns the age of the worker's most recent heartbeat write (30s cadence).
+`ok: false` when `ageMs > 120000` (120s stale threshold) or when no heartbeat has
+been recorded yet:
+```
+→ { ok: false, error: "No heartbeat recorded", lastHeartbeatAt: null, ageMs: null, staleAfterMs: 120000 }
+```
 
 ### Telemetry stream
 ```
@@ -90,7 +94,7 @@ To revert to combined mode:
 - [ ] Both processes share the same `MONGODB_URI`
 - [ ] `ROLE=api` process has `PORT` set
 - [ ] `ROLE=worker` process has Playwright deps available (Chromium, ffmpeg)
-- [ ] Worker heartbeat endpoint returns `alive: true` within 60s of startup
+- [ ] Worker heartbeat endpoint returns `ok: true` within 60s of startup
 - [ ] Submit a test job and verify it reaches `completed` or `failed` within expected time
 - [ ] Telemetry stream shows worker events flowing to API
 
