@@ -3,19 +3,17 @@ const dns = require('node:dns');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { app } = require('./app');
-const { getServerConfig } = require('./config/env');
+const { getServerConfig, chooseRuntime } = require('./config/env');
 const { startQueueWorker, stopQueueWorker } = require('./worker/queue');
 const { processOneCycle } = require('./worker/process-job');
 const { recoverStaleJobs } = require('./worker/recovery');
 const { closePersistentContext } = require('./services/playwright-adapter');
+const { startApiRuntime } = require('./runtime/start-api-runtime');
+const { startWorkerRuntime } = require('./runtime/start-worker-runtime');
 
 dotenv.config({
   path: path.resolve(__dirname, '../.env'),
 });
-
-const config = getServerConfig();
-let serverHandle = null;
-let isShuttingDown = false;
 
 function applyDnsOverrideFromEnv(env = process.env) {
   const configured = typeof env.MONGODB_DNS_SERVERS === 'string' ? env.MONGODB_DNS_SERVERS.trim() : '';
@@ -34,7 +32,29 @@ function applyDnsOverrideFromEnv(env = process.env) {
   }
 }
 
-async function start() {
+// When ROLE is explicitly set, use the split runtime for that role.
+// When ROLE is not set, run the monolithic mode (API + worker in same process)
+// for full backwards compatibility with existing deploys.
+const explicitRole = process.env.ROLE ? chooseRuntime() : null;
+
+if (explicitRole === 'api') {
+  startApiRuntime({ applyDnsOverride: applyDnsOverrideFromEnv }).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to start API: ${message}`);
+    process.exit(1);
+  });
+} else if (explicitRole === 'worker') {
+  startWorkerRuntime({ applyDnsOverride: applyDnsOverrideFromEnv }).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to start worker: ${message}`);
+    process.exit(1);
+  });
+} else {
+  // Monolithic mode: API + worker in same process (default, backwards-compatible)
+  const config = getServerConfig();
+  let serverHandle = null;
+  let isShuttingDown = false;
+
   applyDnsOverrideFromEnv();
 
   serverHandle = app.listen(config.port, () => {
@@ -42,7 +62,6 @@ async function start() {
   });
 
   if (config.mongoUri) {
-    // Do not block HTTP startup on a slow/unreachable MongoDB handshake.
     mongoose
       .connect(config.mongoUri)
       .then(async () => {
@@ -66,64 +85,52 @@ async function start() {
       await processOneCycle();
     },
   });
-}
 
-start().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Failed to start API: ${message}`);
-  process.exit(1);
-});
+  async function shutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
 
-async function shutdown(signal) {
-  if (isShuttingDown) {
-    return;
-  }
-  isShuttingDown = true;
+    if (signal) {
+      console.log(`Received ${signal}; shutting down...`);
+    }
 
-  if (signal) {
-    console.log(`Received ${signal}; shutting down...`);
-  }
+    stopQueueWorker();
 
-  stopQueueWorker();
+    if (serverHandle) {
+      await new Promise((resolve) => {
+        serverHandle.close(() => resolve());
+      });
+    }
 
-  if (serverHandle) {
-    await new Promise((resolve) => {
-      serverHandle.close(() => resolve());
-    });
-  }
-
-  try {
-    await closePersistentContext();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to close Playwright context: ${message}`);
-  }
-
-  if (mongoose.connection.readyState === 1) {
-    await mongoose.disconnect();
-  }
-}
-
-process.on('SIGINT', () => {
-  shutdown('SIGINT')
-    .then(() => {
-      process.exit(0);
-    })
-    .catch((error) => {
+    try {
+      await closePersistentContext();
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`Shutdown failed: ${message}`);
-      process.exit(1);
-    });
-});
+      console.error(`Failed to close Playwright context: ${message}`);
+    }
 
-process.on('SIGTERM', () => {
-  shutdown('SIGTERM')
-    .then(() => {
-      process.exit(0);
-    })
-    .catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`Shutdown failed: ${message}`);
-      process.exit(1);
-    });
-});
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.disconnect();
+    }
+  }
+
+  process.on('SIGINT', () => {
+    shutdown('SIGINT')
+      .then(() => process.exit(0))
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Shutdown failed: ${message}`);
+        process.exit(1);
+      });
+  });
+
+  process.on('SIGTERM', () => {
+    shutdown('SIGTERM')
+      .then(() => process.exit(0))
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Shutdown failed: ${message}`);
+        process.exit(1);
+      });
+  });
+}
