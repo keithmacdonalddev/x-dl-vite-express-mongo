@@ -5,6 +5,22 @@ const maxHistory = Number.parseInt(process.env.TELEMETRY_HISTORY_LIMIT || '4000'
 const history = [];
 let nextId = 0;
 
+/**
+ * HTTP-request telemetry events (generated every 3s by client polling) flood
+ * the fixed-size ring buffer and evict meaningful job-lifecycle events.
+ *
+ * These noise events are NEVER stored in the ring buffer.  They are still
+ * emitted via the EventEmitter so live SSE subscribers can see them in
+ * real-time, but they will not appear in history queries.  This guarantees
+ * that job events survive in the buffer indefinitely (up to maxHistory
+ * meaningful events).
+ */
+const NOISE_EVENT_PREFIX = 'http.request.';
+
+function isNoiseEvent(eventName) {
+  return typeof eventName === 'string' && eventName.startsWith(NOISE_EVENT_PREFIX);
+}
+
 function normalizeLimit(rawLimit) {
   const parsed = Number.parseInt(rawLimit || '', 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -27,7 +43,11 @@ function publishTelemetry(event, meta = {}) {
     event: typeof event === 'string' ? event : 'unknown',
     ...meta,
   };
-  pushHistory(payload);
+  // Only store meaningful events in the ring buffer.
+  // Noise events (http.request.*) are emitted for live SSE but never persisted.
+  if (!isNoiseEvent(payload.event)) {
+    pushHistory(payload);
+  }
   emitter.emit('event', payload);
   return payload;
 }
@@ -39,20 +59,8 @@ function subscribeTelemetry(listener) {
   };
 }
 
-/**
- * HTTP-request telemetry events (generated every 3s by client polling) can
- * drown out meaningful job-lifecycle events in the fixed-size ring buffer.
- * When `excludeNoise` is true, these events are filtered out before the
- * limit is applied, so callers always get meaningful events.
- */
-const NOISE_EVENT_PREFIX = 'http.request.';
-
-function isNoiseEvent(entry) {
-  return typeof entry.event === 'string' && entry.event.startsWith(NOISE_EVENT_PREFIX);
-}
-
 function matchesFilters(entry, filters = {}) {
-  if (filters.excludeNoise && isNoiseEvent(entry)) {
+  if (filters.excludeNoise && isNoiseEvent(entry.event)) {
     return false;
   }
   if (filters.jobId && entry.jobId !== filters.jobId) {
