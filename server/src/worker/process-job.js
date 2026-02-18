@@ -135,7 +135,7 @@ function validateDownloadedFile(downloaded, outputPath, mediaUrl, logContext) {
     );
   }
 
-  if (bytes > 0 && bytes < MIN_VIDEO_BYTES) {
+  if (bytes < MIN_VIDEO_BYTES) {
     logger.error('worker.job.download.suspiciously_small', {
       ...logContext,
       bytes,
@@ -144,7 +144,7 @@ function validateDownloadedFile(downloaded, outputPath, mediaUrl, logContext) {
       mediaUrl,
     });
     return new Error(
-      `Downloaded file is only ${bytes} bytes — likely not a valid video. The media URL may have expired or returned an error page.`
+      `Download is only ${bytes === 0 ? '0 KB' : `${bytes} bytes`} — likely not a valid video. The media URL may have expired or returned an error page.`
     );
   }
 
