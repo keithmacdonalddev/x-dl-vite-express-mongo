@@ -43,7 +43,7 @@ function buildDownloadHeaders(mediaUrl) {
 function getSignedUrlExpiryMs(mediaUrl) {
   try {
     const parsed = new URL(mediaUrl);
-    const expireRaw = parsed.searchParams.get('expire') || parsed.searchParams.get('x-expires') || '';
+    const expireRaw = parsed.searchParams.get('expire') || parsed.searchParams.get('x-expires') || parsed.searchParams.get('X-Expires') || '';
     const parsedSeconds = Number.parseInt(expireRaw, 10);
     if (!Number.isFinite(parsedSeconds) || parsedSeconds <= 0) {
       return 0;
@@ -391,6 +391,7 @@ async function downloadMedia(
 
 module.exports = {
   isAuthBlockedStatus,
+  isSignedUrlExpired,
   chooseDownloadMode,
   downloadDirect,
   downloadDirectWithPlaywrightSession,

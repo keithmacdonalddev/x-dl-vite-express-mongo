@@ -2,7 +2,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
-const { downloadMedia, downloadDirect, downloadDirectWithPlaywrightSession } = require('../services/downloader-service');
+const { downloadMedia, downloadDirect, downloadDirectWithPlaywrightSession, isSignedUrlExpired } = require('../services/downloader-service');
 const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
 const {
   deriveAccountProfile,
@@ -180,7 +180,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     let accountDisplayName = typeof job.accountDisplayName === 'string' ? job.accountDisplayName : '';
     let accountSlug = typeof job.accountSlug === 'string' ? job.accountSlug : '';
 
-    if (isHttpUrl(job.extractedUrl)) {
+    if (isHttpUrl(job.extractedUrl) && !isSignedUrlExpired(job.extractedUrl)) {
       logger.info('worker.job.extraction.reused', {
         jobId,
         traceId,
