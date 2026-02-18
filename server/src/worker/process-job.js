@@ -359,7 +359,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     const validationError = validateDownloadedFile(downloaded, outputPath, downloadUrl, { jobId, traceId });
 
     if (validationError) {
-      logger.info('worker.job.download.validation_failed', {
+      logger.error('worker.job.download.validation_failed', {
         jobId,
         traceId,
         reason: validationError.message,
@@ -405,7 +405,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
             bytes: downloaded && Number.isFinite(downloaded.bytes) ? downloaded.bytes : -1,
           });
         } else {
-          logger.info('worker.job.download.validation_retry.auth_still_invalid', {
+          logger.error('worker.job.download.validation_retry.auth_still_invalid', {
             jobId,
             traceId,
             reason: authValidationError.message,
@@ -419,7 +419,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
         }
       } catch (authErr) {
         const authMessage = authErr instanceof Error ? authErr.message : String(authErr);
-        logger.info('worker.job.download.validation_retry.auth_failed', {
+        logger.error('worker.job.download.validation_retry.auth_failed', {
           jobId,
           traceId,
           message: authMessage,
