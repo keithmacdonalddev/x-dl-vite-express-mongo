@@ -9,6 +9,18 @@ const TERMINAL_EVENTS = new Set([
   'worker.job.failed',
 ])
 
+function formatShortTimestamp(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
+  const isToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  if (isToday) {
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  }
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
 function groupEventsByJob(events) {
   const groups = new Map()
   const noJobEvents = []
@@ -133,6 +145,10 @@ function JobGroup({ group, isSticky, onArchive }) {
       ? `${label} \u2014 ${t.text}`
       : `${label} \u2014 ${group.status}`
 
+    // Use terminal event timestamp (when job finished), fallback to last event
+    const finishedTs = terminal?.ts || group.events[group.events.length - 1]?.ts
+    const timeLabel = formatShortTimestamp(finishedTs)
+
     return (
       <div className={`activity-job-summary-row ${group.status === 'failed' ? 'is-failed' : ''}`}>
         <button
@@ -142,7 +158,10 @@ function JobGroup({ group, isSticky, onArchive }) {
           title="Click to expand"
         >
           <span className="activity-icon">{summaryIcon}</span>
-          <span>{summaryText}</span>
+          <span className="activity-summary-content">
+            {timeLabel && <span className="activity-summary-ts">{timeLabel}</span>}
+            <span>{summaryText}</span>
+          </span>
         </button>
         <CopyJobButton group={group} />
       </div>
