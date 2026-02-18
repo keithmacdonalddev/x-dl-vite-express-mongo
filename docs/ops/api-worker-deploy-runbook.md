@@ -8,9 +8,11 @@ the target split configuration once Tasks 2–5 are merged.
 
 | Mode | `ROLE` env var | What starts |
 |------|----------------|-------------|
-| Combined (default) | unset or `combined` | Express API + queue worker in one process |
+| Combined (default) | unset | Express API + queue worker in one process |
 | API only | `api` | Express HTTP server only — no queue polling |
 | Worker only | `worker` | Queue worker only — no HTTP server |
+
+> **Note:** There is no `ROLE=combined` value. Combined mode is selected by leaving `ROLE` unset (or absent from the environment). Setting `ROLE` to any unrecognised string falls back to combined mode.
 
 ## Startup Commands
 
@@ -24,18 +26,30 @@ node server/src/index.js
 
 ### API process only
 ```bash
-ROLE=api node server/src/index.js
+# Using the dedicated entrypoint (recommended):
+node server/src/start-api.js
+# Or via npm script (from root):
+npm run start:api --prefix server
 ```
 
 ### Worker process only
 ```bash
-ROLE=worker node server/src/index.js
+# Using the dedicated entrypoint (recommended):
+node server/src/start-worker.js
+# Or via npm script (from root):
+npm run start:worker --prefix server
 ```
 
-### With nodemon (development)
+### Both together (split mode, with client — development)
 ```bash
-ROLE=api nodemon server/src/index.js
-ROLE=worker nodemon server/src/index.js
+# Starts API, worker, and Vite client concurrently:
+npm run dev:split
+```
+
+### With nodemon (development, split)
+```bash
+npm run dev:api --prefix server   # API only
+npm run dev:worker --prefix server  # Worker only
 ```
 
 ## Environment Variables
@@ -44,8 +58,8 @@ ROLE=worker nodemon server/src/index.js
 |----------|----------|-------------|
 | `MONGODB_URI` | yes | MongoDB connection string (both processes) |
 | `PORT` | API only | Express port (default 4000) |
-| `ROLE` | no | `api`, `worker`, or unset (combined) |
-| `TELEMETRY_SINK` | worker | `mongodb` to write telemetry to DB for API process to relay |
+| `ROLE` | no | `api` or `worker`; leave unset for combined mode |
+| `TELEMETRY_SINK` | worker + api (split mode) | `mongo` (alias: `mongodb`) — writes telemetry events to MongoDB so the API process can relay them over SSE. **Required on both processes** when running split. |
 | `ENABLE_X` | both | X platform flag |
 | `ENABLE_TIKTOK` | both | TikTok platform flag |
 | `PLAYWRIGHT_USER_DATA_DIR` | worker | Persistent browser profile path |
@@ -58,9 +72,10 @@ ROLE=worker nodemon server/src/index.js
 ### API health
 ```
 GET /api/health
-→ { ok: true, status: "ok" }
+→ { ok: true, service: "x-dl-api", timestamp: "<ISO 8601 timestamp>" }
 ```
-Confirms HTTP server is up and MongoDB is connected.
+Confirms HTTP server is up. The `timestamp` field reflects the current server time.
+MongoDB connectivity is confirmed separately — a healthy response does not guarantee DB access.
 
 ### Worker liveness
 ```
@@ -85,7 +100,7 @@ is not processing.
 ## Rollback
 
 To revert to combined mode:
-1. Unset `ROLE` env var (or set `ROLE=combined`).
+1. Unset `ROLE` env var (remove it entirely — do NOT set it to `combined`).
 2. Restart the process.
 3. Both API and worker start in the same process — no coordination needed.
 
@@ -94,6 +109,7 @@ To revert to combined mode:
 - [ ] Both processes share the same `MONGODB_URI`
 - [ ] `ROLE=api` process has `PORT` set
 - [ ] `ROLE=worker` process has Playwright deps available (Chromium, ffmpeg)
+- [ ] `TELEMETRY_SINK=mongo` set on **both** API and worker processes (required for cross-process SSE visibility)
 - [ ] Worker heartbeat endpoint returns `ok: true` within 60s of startup
 - [ ] Submit a test job and verify it reaches `completed` or `failed` within expected time
 - [ ] Telemetry stream shows worker events flowing to API
@@ -104,7 +120,7 @@ To revert to combined mode:
 |---------|--------------|-----|
 | Jobs stuck in `queued` | Worker not running | Start `ROLE=worker` process |
 | `GET /api/worker/health` → 404 | Worker heartbeat not deployed yet | Check Task 5 is merged |
-| Telemetry stream empty | `TELEMETRY_SINK=mongodb` not set on worker | Add env var and restart |
+| Telemetry stream empty | `TELEMETRY_SINK` not set on worker and/or API | Set `TELEMETRY_SINK=mongo` on **both** processes and restart |
 | API returns 500 on job create | MongoDB not connected | Check `MONGODB_URI` on API process |
 | Playwright timeouts | Worker needs `PLAYWRIGHT_USER_DATA_DIR` with auth session | Run `npm run auth:bootstrap` |
 

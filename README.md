@@ -150,8 +150,9 @@ Related env:
 
 ## Script Reference
 
-- `npm run dev`: run server and client together
-- `npm run dev:server`: run API only
+- `npm run dev`: run API + worker combined and client together (development default)
+- `npm run dev:split`: run API, worker, and client as three separate processes (split-runtime mode)
+- `npm run dev:server`: run combined API+worker only (no client)
 - `npm run dev:client`: run client only
 - `npm run test`: run server + client automated tests
 - `npm run build`: build client
