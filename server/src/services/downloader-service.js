@@ -113,6 +113,19 @@ async function downloadDirectWithPlaywrightSession(
   const bytes = Buffer.isBuffer(body) ? body.byteLength : 0;
   const responseHeaders = typeof response.headers === 'function' ? response.headers() : {};
   const responseContentType = (responseHeaders['content-type'] || '').split(';')[0].trim();
+  if (bytes > 0 && bytes < 10000) {
+    try {
+      const preview = body.toString('utf8', 0, Math.min(body.byteLength, 500));
+      logger.error('downloader.direct.auth.small_file_preview', {
+        ...contextMeta,
+        mediaUrl,
+        targetPath,
+        bytes,
+        contentType: responseContentType,
+        preview,
+      });
+    } catch { /* ignore */ }
+  }
   logger.info('downloader.direct.auth.completed', {
     ...contextMeta,
     mediaUrl,
@@ -237,6 +250,19 @@ async function downloadDirect(
   await pipeline(Readable.fromWeb(response.body), output);
   const fileStat = await fs.promises.stat(targetPath);
   const bytes = Number.isFinite(fileStat.size) ? fileStat.size : 0;
+  if (bytes > 0 && bytes < 10000) {
+    try {
+      const preview = await fs.promises.readFile(targetPath, 'utf8');
+      logger.error('downloader.direct.small_file_preview', {
+        ...contextMeta,
+        mediaUrl,
+        targetPath,
+        bytes,
+        contentType: responseContentType,
+        preview: preview.substring(0, 500),
+      });
+    } catch { /* ignore read errors */ }
+  }
   logger.info('downloader.direct.completed', {
     ...contextMeta,
     mediaUrl,

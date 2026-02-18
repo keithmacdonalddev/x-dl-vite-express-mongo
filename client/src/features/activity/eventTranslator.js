@@ -133,6 +133,8 @@ const translations = {
   'downloader.direct.auth_fallback': () => ({ text: 'Got 403 \u2014 retrying with browser session...', icon: '\u26a0' }),
   'downloader.direct.auth_fallback.failed': (m) => ({ text: `Browser fallback failed: ${m.message || '?'}`, icon: '\u2717' }),
   'downloader.direct.failed': (m) => ({ text: `Direct download failed: ${m.message || '?'}`, icon: '\u2717' }),
+  'downloader.direct.small_file_preview': (m) => ({ text: `Response body preview (${m.bytes || '?'} bytes): ${(m.preview || '').substring(0, 200)}`, icon: '\u26a0' }),
+  'downloader.direct.auth.small_file_preview': (m) => ({ text: `Auth response preview (${m.bytes || '?'} bytes): ${(m.preview || '').substring(0, 200)}`, icon: '\u26a0' }),
   'downloader.direct.completed': (m) => {
     const parts = ['Video downloaded']
     if (m.bytes) parts.push(fmtBytes(m.bytes))
