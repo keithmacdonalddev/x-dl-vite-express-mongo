@@ -5,149 +5,229 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Media Vault — Module Map</title>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{
-    --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;--bg4:#475569;
-    --text:#e2e8f0;--text-dim:#94a3b8;--text-bright:#f8fafc;
-    --border:#334155;--hover:#1e293b;
-    --radius:8px;--radius-sm:4px;
-    --transition:220ms ease;
-    /* module colors */
-    --c-app-shell:#3b82f6;--c-intake:#10b981;--c-dashboard:#f59e0b;
-    --c-activity:#8b5cf6;--c-shared-comp:#ec4899;--c-data-layer:#06b6d4;
-    --c-client-plat:#14b8a6;--c-api-routes:#f97316;--c-services:#ef4444;
-    --c-worker:#6366f1;--c-plat-reg:#14b8a6;--c-models:#eab308;
-    --c-middleware:#64748b;--c-config:#78716c;--c-infra:#f43f5e;
-    --c-utils:#84cc16;--c-root:#9ca3af;
-  }
-  html{font-size:14px}
-  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;line-height:1.5}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;--bg4:#475569;
+  --text:#e2e8f0;--text-dim:#94a3b8;--text-bright:#f8fafc;
+  --border:#334155;--hover:#1e293b;
+  --radius:8px;--radius-sm:4px;
+  --transition:220ms ease;
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;line-height:1.5;overflow-x:hidden}
 
-  /* layout */
-  .app{display:grid;grid-template-columns:1fr 280px;grid-template-rows:auto 1fr;gap:0;min-height:100vh;max-width:1400px;margin:0 auto}
-  .header{grid-column:1/-1;padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-  .header h1{font-size:1.5rem;font-weight:700;color:var(--text-bright);display:flex;align-items:center;gap:10px}
-  .header h1 .icon{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:grid;place-items:center;font-size:14px}
-  .tree-panel{padding:20px 24px 40px;overflow-y:auto;max-height:calc(100vh - 80px)}
-  .legend-panel{border-left:1px solid var(--border);padding:20px 16px;overflow-y:auto;max-height:calc(100vh - 80px);position:sticky;top:0;align-self:start}
+/* ── Header ─────────────────────────── */
+.header{padding:20px 28px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;max-width:1400px;margin:0 auto}
+.header h1{font-size:1.4rem;font-weight:700;color:var(--text-bright);display:flex;align-items:center;gap:10px}
+.header h1 .icon{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:grid;place-items:center;font-size:14px;color:#fff;font-weight:700}
+.stats{display:flex;gap:12px;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column;align-items:center;padding:4px 14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
+.stat-val{font-size:1.15rem;font-weight:700;color:var(--text-bright)}
+.stat-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim)}
 
-  /* stats bar */
-  .stats{display:flex;gap:20px;flex-wrap:wrap}
-  .stat{display:flex;flex-direction:column;align-items:center;padding:4px 14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
-  .stat-val{font-size:1.25rem;font-weight:700;color:var(--text-bright)}
-  .stat-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim)}
+/* ── Tabs ───────────────────────────── */
+.tabs{display:flex;gap:4px;padding:14px 28px 0;max-width:1400px;margin:0 auto;flex-wrap:wrap}
+.tab{background:var(--bg2);color:var(--text-dim);border:1px solid var(--border);padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all var(--transition);display:flex;align-items:center;gap:6px;user-select:none;border-bottom:2px solid transparent}
+.tab:hover{background:var(--bg3);color:var(--text)}
+.tab.active{background:var(--bg);color:var(--text-bright);border-color:var(--bg4);border-bottom-color:var(--bg);position:relative;z-index:2}
+.tab .tab-icon{font-size:1rem}
 
-  /* toolbar */
-  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-  .toolbar button{background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:0.8rem;font-weight:600;transition:background var(--transition),border-color var(--transition)}
-  .toolbar button:hover{background:var(--bg3);border-color:var(--bg4)}
-  .search-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:0.85rem;width:220px;outline:none;transition:border-color var(--transition)}
-  .search-box:focus{border-color:#3b82f6}
-  .search-box::placeholder{color:var(--bg4)}
+/* ── View container ─────────────────── */
+.view-wrap{max-width:1400px;margin:0 auto;border-top:1px solid var(--bg4);min-height:calc(100vh - 140px);position:relative}
+.view{display:none;padding:20px 28px 40px;animation:fadeIn 300ms ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.view-subtitle{font-size:0.82rem;color:var(--text-dim);margin-bottom:16px;font-style:italic}
 
-  /* tree */
-  .tree{user-select:none}
-  .tree ul{list-style:none;padding-left:20px}
-  .tree>ul{padding-left:0}
-  .tree-node{margin:1px 0}
-  .tree-row{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:var(--radius-sm);cursor:default;position:relative;transition:background var(--transition)}
-  .tree-row:hover{background:var(--bg2)}
-  .tree-row.is-folder{cursor:pointer}
-  .tree-row.search-match{background:rgba(59,130,246,0.18);outline:1px solid rgba(59,130,246,0.35);border-radius:var(--radius-sm)}
-  .tree-row.search-dim{opacity:0.28}
+/* ── Legend strip ───────────────────── */
+.legend-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding:10px 14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
+.legend-strip-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--bg4);font-weight:700;width:100%;margin-bottom:4px}
+.legend-chip{display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);cursor:pointer;padding:2px 8px;border-radius:20px;transition:all var(--transition);border:1px solid transparent}
+.legend-chip:hover{background:rgba(255,255,255,0.06);color:var(--text)}
+.legend-chip.active{border-color:currentColor;color:var(--text-bright);background:rgba(255,255,255,0.08)}
+.legend-chip .lc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
-  /* expand chevron */
-  .chevron{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-dim);transition:transform var(--transition);flex-shrink:0}
-  .chevron.open{transform:rotate(90deg)}
-  .chevron.hidden{visibility:hidden}
+/* ── Tooltip ────────────────────────── */
+.tooltip{position:fixed;background:#1e293b;border:1px solid #475569;color:var(--text);padding:10px 14px;border-radius:var(--radius);font-size:0.78rem;max-width:360px;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.5);opacity:0;transition:opacity 120ms ease}
+.tooltip.visible{opacity:1}
+.tooltip .tt-file{font-weight:700;color:var(--text-bright);margin-bottom:2px}
+.tooltip .tt-module{font-size:0.7rem;display:flex;align-items:center;gap:4px;margin-bottom:4px}
+.tooltip .tt-desc{color:var(--text-dim);line-height:1.4}
 
-  /* icons */
-  .node-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+/* ── SVG common ─────────────────────── */
+svg text{font-family:'Segoe UI',system-ui,sans-serif}
 
-  /* module dot */
-  .mod-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor}
+/* ── View 1: Sunburst ──────────────── */
+#sunburst-svg{display:block;margin:0 auto}
+.sunburst-label{pointer-events:none;fill:var(--text-bright);font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:middle}
 
-  /* labels */
-  .node-label{font-size:0.85rem;white-space:nowrap}
-  .node-label.is-folder{font-weight:600;color:var(--text-bright)}
-  .node-desc{font-size:0.72rem;color:var(--text-dim);margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+/* ── View 2: Bubble Map ─────────────── */
+#bubble-svg{display:block;margin:0 auto}
 
-  /* children container for animation */
-  .children-wrap{overflow:hidden;transition:max-height 300ms ease,opacity 200ms ease}
-  .children-wrap.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+/* ── View 3: Flow Diagram ───────────── */
+#flow-svg{display:block;margin:0 auto}
+.flow-node{cursor:pointer}
+.flow-node rect{transition:filter 180ms ease}
+.flow-node:hover rect{filter:brightness(1.3)}
+.flow-label{fill:var(--text-bright);font-size:11px;font-weight:600;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.flow-sublabel{fill:var(--text-dim);font-size:9px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
 
-  /* tooltip */
-  .tooltip{position:fixed;background:#1e293b;border:1px solid #475569;color:var(--text);padding:8px 12px;border-radius:var(--radius);font-size:0.78rem;max-width:340px;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.4);opacity:0;transition:opacity 120ms ease}
-  .tooltip.visible{opacity:1}
-  .tooltip .tt-file{font-weight:700;color:var(--text-bright);margin-bottom:2px}
-  .tooltip .tt-module{font-size:0.7rem;display:flex;align-items:center;gap:4px;margin-bottom:4px}
-  .tooltip .tt-desc{color:var(--text-dim);line-height:1.4}
+/* ── View 4: Grid Matrix ───────────── */
+.matrix-table{width:100%;border-collapse:collapse;font-size:0.78rem}
+.matrix-table th{padding:8px 10px;text-align:left;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-size:0.68rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1}
+.matrix-table th.col-header{text-align:center;min-width:90px}
+.matrix-table td{padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4)}
+.matrix-table tr:hover td{background:rgba(255,255,255,0.02)}
+.matrix-mod{display:flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+.matrix-mod .mm-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.matrix-cell{text-align:center}
+.matrix-pip{display:inline-block;width:22px;height:22px;border-radius:5px;cursor:pointer;transition:transform 120ms ease,filter 120ms ease}
+.matrix-pip:hover{transform:scale(1.3);filter:brightness(1.3)}
+.matrix-pip.empty{background:rgba(255,255,255,0.03);cursor:default}
+.matrix-pip.empty:hover{transform:none;filter:none}
+.matrix-files-popup{position:fixed;background:#1e293b;border:1px solid #475569;border-radius:var(--radius);padding:12px 16px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.5);max-width:320px;font-size:0.78rem;display:none}
+.matrix-files-popup.visible{display:block}
+.matrix-files-popup h4{color:var(--text-bright);font-size:0.82rem;margin-bottom:6px}
+.matrix-files-popup ul{list-style:none;padding:0}
+.matrix-files-popup li{color:var(--text-dim);padding:2px 0}
+.matrix-files-popup li::before{content:'> ';color:var(--bg4)}
 
-  /* legend */
-  .legend-panel h2{font-size:0.85rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:14px;font-weight:600}
-  .legend-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;transition:background var(--transition);margin-bottom:2px}
-  .legend-item:hover{background:var(--bg2)}
-  .legend-item.active{background:rgba(59,130,246,0.12)}
-  .legend-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 5px currentColor}
-  .legend-name{font-size:0.8rem;font-weight:600;flex:1}
-  .legend-count{font-size:0.7rem;color:var(--text-dim);background:var(--bg3);padding:1px 6px;border-radius:10px;font-weight:600}
-  .legend-section{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
-  .legend-section:first-child{margin-top:0;padding-top:0;border-top:none}
-  .legend-section-title{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--bg4);margin-bottom:6px;font-weight:700}
+/* ── View 5: Architecture Layers ───── */
+#layers-svg{display:block;margin:0 auto}
 
-  /* responsive */
-  @media(max-width:860px){
-    .app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
-    .legend-panel{border-left:none;border-top:1px solid var(--border);max-height:none;position:static;order:2;display:flex;flex-wrap:wrap;gap:4px;padding:12px 16px}
-    .legend-panel h2{width:100%}
-    .legend-section{margin-top:8px;padding-top:8px}
-    .tree-panel{order:3}
-    .node-desc{max-width:200px}
-  }
+/* ── View 6: File Tree ──────────────── */
+.tree-panel{overflow-y:auto}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.toolbar button{background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:0.8rem;font-weight:600;transition:background var(--transition),border-color var(--transition)}
+.toolbar button:hover{background:var(--bg3);border-color:var(--bg4)}
+.search-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:0.85rem;width:220px;outline:none;transition:border-color var(--transition)}
+.search-box:focus{border-color:#3b82f6}
+.search-box::placeholder{color:var(--bg4)}
+.tree{user-select:none}
+.tree ul{list-style:none;padding-left:20px}
+.tree>ul{padding-left:0}
+.tree-node{margin:1px 0}
+.tree-row{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:var(--radius-sm);cursor:default;position:relative;transition:background var(--transition)}
+.tree-row:hover{background:var(--bg2)}
+.tree-row.is-folder{cursor:pointer}
+.tree-row.search-match{background:rgba(59,130,246,0.18);outline:1px solid rgba(59,130,246,0.35)}
+.tree-row.search-dim{opacity:0.28}
+.chevron{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-dim);transition:transform var(--transition);flex-shrink:0}
+.chevron.open{transform:rotate(90deg)}
+.chevron.hidden{visibility:hidden}
+.node-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.mod-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor}
+.node-label{font-size:0.85rem;white-space:nowrap}
+.node-label.is-folder{font-weight:600;color:var(--text-bright)}
+.node-desc{font-size:0.72rem;color:var(--text-dim);margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+.children-wrap{overflow:hidden;transition:max-height 300ms ease,opacity 200ms ease}
+.children-wrap.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+
+/* ── Responsive ─────────────────────── */
+@media(max-width:900px){
+  .tabs{padding:10px 16px 0;gap:3px}
+  .tab{padding:6px 10px;font-size:0.75rem}
+  .tab .tab-icon{display:none}
+  .view{padding:16px}
+  .header{padding:16px}
+}
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="header">
-    <h1><span class="icon">M</span> Media Vault — Module Map</h1>
-    <div class="stats" id="stats"></div>
-  </div>
-  <div class="tree-panel">
-    <div class="toolbar">
-      <button onclick="expandAll()">Expand All</button>
-      <button onclick="collapseAll()">Collapse All</button>
-      <input class="search-box" id="searchBox" type="text" placeholder="Search files..." oninput="onSearch(this.value)">
-      <button onclick="clearSearch()">Clear</button>
-    </div>
-    <div class="tree" id="tree"></div>
-  </div>
-  <div class="legend-panel" id="legend"></div>
+
+<div class="header">
+  <h1><span class="icon">M</span> Media Vault — Module Map</h1>
+  <div class="stats" id="stats"></div>
 </div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-view="sunburst"><span class="tab-icon">&#9788;</span> Sunburst</div>
+  <div class="tab" data-view="bubbles"><span class="tab-icon">&#9679;</span> Bubble Map</div>
+  <div class="tab" data-view="flow"><span class="tab-icon">&#8594;</span> Dependency Flow</div>
+  <div class="tab" data-view="matrix"><span class="tab-icon">&#9638;</span> Grid Matrix</div>
+  <div class="tab" data-view="layers"><span class="tab-icon">&#9776;</span> Architecture Layers</div>
+  <div class="tab" data-view="tree"><span class="tab-icon">&#9700;</span> File Tree</div>
+</div>
+
+<div class="view-wrap">
+  <!-- View 1: Sunburst -->
+  <div class="view active" id="view-sunburst">
+    <div class="view-subtitle">Concentric rings show hierarchy — center is the project root, outer rings are individual files. Click a segment to zoom in.</div>
+    <div id="sunburst-legend" class="legend-strip"></div>
+    <div id="sunburst-container"></div>
+  </div>
+
+  <!-- View 2: Bubbles -->
+  <div class="view" id="view-bubbles">
+    <div class="view-subtitle">Circle size shows module scale. Client on the left, Server on the right. Hover for details.</div>
+    <div id="bubble-legend" class="legend-strip"></div>
+    <div id="bubble-container"></div>
+  </div>
+
+  <!-- View 3: Flow -->
+  <div class="view" id="view-flow">
+    <div class="view-subtitle">Follow data from user input (left) through API and processing layers (right). Lines show how modules communicate.</div>
+    <div id="flow-legend" class="legend-strip"></div>
+    <div id="flow-container"></div>
+  </div>
+
+  <!-- View 4: Matrix -->
+  <div class="view" id="view-matrix">
+    <div class="view-subtitle">Each row is a module, each column is a concern area. Colored cells show where a module touches that concern. Click a cell to see files.</div>
+    <div id="matrix-container"></div>
+  </div>
+
+  <!-- View 5: Layers -->
+  <div class="view" id="view-layers">
+    <div class="view-subtitle">Classic architecture diagram — UI on top, infrastructure on the bottom. Arrows show communication between layers.</div>
+    <div id="layers-legend" class="legend-strip"></div>
+    <div id="layers-container"></div>
+  </div>
+
+  <!-- View 6: Tree -->
+  <div class="view" id="view-tree">
+    <div class="view-subtitle">Collapsible file tree with module color-coding. Search or filter by module.</div>
+    <div id="tree-legend" class="legend-strip"></div>
+    <div class="tree-panel">
+      <div class="toolbar">
+        <button onclick="treeExpandAll()">Expand All</button>
+        <button onclick="treeCollapseAll()">Collapse All</button>
+        <input class="search-box" id="searchBox" type="text" placeholder="Search files..." oninput="onTreeSearch(this.value)">
+        <button onclick="clearTreeSearch()">Clear</button>
+      </div>
+      <div class="tree" id="tree"></div>
+    </div>
+  </div>
+</div>
+
 <div class="tooltip" id="tooltip"></div>
+<div class="matrix-files-popup" id="matrixPopup"></div>
 
 <script>
-// ── Module definitions ────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════
+
 const MODULES = {
-  'root':          { label:'Root / Docs',         color:'#9ca3af', side:'root' },
-  'app-shell':     { label:'App Shell',           color:'#3b82f6', side:'client' },
-  'intake':        { label:'Intake',              color:'#10b981', side:'client' },
-  'dashboard':     { label:'Dashboard',           color:'#f59e0b', side:'client' },
-  'activity':      { label:'Activity',            color:'#8b5cf6', side:'client' },
-  'shared-comp':   { label:'Shared Components',   color:'#ec4899', side:'client' },
-  'data-layer':    { label:'Data Layer',          color:'#06b6d4', side:'client' },
-  'client-plat':   { label:'Client Platforms',    color:'#14b8a6', side:'client' },
-  'api-routes':    { label:'API Routes',          color:'#f97316', side:'server' },
-  'services':      { label:'Services',            color:'#ef4444', side:'server' },
-  'worker':        { label:'Worker / Queue',      color:'#6366f1', side:'server' },
-  'plat-reg':      { label:'Platform Registry',   color:'#14b8a6', side:'server' },
-  'models':        { label:'Data Models',         color:'#eab308', side:'server' },
-  'middleware':     { label:'Middleware',          color:'#64748b', side:'server' },
-  'config':        { label:'Configuration',       color:'#78716c', side:'server' },
-  'infra':         { label:'Infrastructure',      color:'#f43f5e', side:'server' },
-  'utils':         { label:'Utilities',           color:'#84cc16', side:'server' },
+  'root':        { label:'Root / Docs',       color:'#9ca3af', side:'root' },
+  'app-shell':   { label:'App Shell',         color:'#3b82f6', side:'client' },
+  'intake':      { label:'Intake',            color:'#10b981', side:'client' },
+  'dashboard':   { label:'Dashboard',         color:'#f59e0b', side:'client' },
+  'activity':    { label:'Activity',          color:'#8b5cf6', side:'client' },
+  'shared-comp': { label:'Shared Components', color:'#ec4899', side:'client' },
+  'data-layer':  { label:'Data Layer',        color:'#06b6d4', side:'client' },
+  'client-plat': { label:'Client Platforms',  color:'#14b8a6', side:'client' },
+  'api-routes':  { label:'API Routes',        color:'#f97316', side:'server' },
+  'services':    { label:'Services',          color:'#ef4444', side:'server' },
+  'worker':      { label:'Worker / Queue',    color:'#6366f1', side:'server' },
+  'plat-reg':    { label:'Platform Registry', color:'#14b8a6', side:'server' },
+  'models':      { label:'Data Models',       color:'#eab308', side:'server' },
+  'middleware':   { label:'Middleware',        color:'#64748b', side:'server' },
+  'config':      { label:'Configuration',     color:'#78716c', side:'server' },
+  'infra':       { label:'Infrastructure',    color:'#f43f5e', side:'server' },
+  'utils':       { label:'Utilities',         color:'#84cc16', side:'server' },
 };
 
-// ── File tree data ────────────────────────────────────────
 const DATA = {
   name:'x-dl-vite-express-mongo', module:'root', children:[
     { name:'package.json', module:'root', desc:'Root orchestration scripts: dev, build, test, verify' },
@@ -235,19 +315,19 @@ const DATA = {
           { name:'job-status.js', module:'models', desc:'JOB_STATUSES and SOURCE_TYPES enum constants' },
         ]},
         { name:'domain', module:'models', children:[
-          { name:'job-transitions.js', module:'models', desc:'Valid state transition map (queued, running, completed, failed, canceled)' },
+          { name:'job-transitions.js', module:'models', desc:'Valid state transition map' },
         ]},
         { name:'middleware', module:'middleware', children:[
           { name:'request-limits.js', module:'middleware', desc:'CORS config, JSON body parser, URL length enforcement' },
         ]},
         { name:'config', module:'config', children:[
           { name:'env.js', module:'config', desc:'getServerConfig() — port, mongoUri from environment' },
-          { name:'platform-capabilities.js', module:'config', desc:'Runtime enable/disable per platform (ENABLE_X, ENABLE_TIKTOK)' },
+          { name:'platform-capabilities.js', module:'config', desc:'Runtime enable/disable per platform' },
         ]},
         { name:'lib', module:'infra', children:[
           { name:'logger.js', module:'infra', desc:'Structured logger that publishes to telemetry ring buffer' },
           { name:'telemetry.js', module:'infra', desc:'In-memory ring buffer + SSE pub/sub for real-time events' },
-          { name:'error-codes.js', module:'infra', desc:'Standardized error code constants (INVALID_URL, NOT_FOUND, etc.)' },
+          { name:'error-codes.js', module:'infra', desc:'Standardized error code constants' },
         ]},
         { name:'utils', module:'utils', children:[
           { name:'validation.js', module:'utils', desc:'URL validation, isTweetUrl(), getPostUrlInfo()' },
@@ -258,252 +338,1090 @@ const DATA = {
   ]
 };
 
-// ── State ─────────────────────────────────────────────────
-const expandedSet = new Set();
-let searchTerm = '';
-let activeModule = null; // legend filter
+// Connections for flow diagram
+const CONNECTIONS = [
+  { from:'intake',      to:'api-routes',  label:'POST /api/jobs' },
+  { from:'api-routes',  to:'models',      label:'Mongoose CRUD' },
+  { from:'api-routes',  to:'worker',      label:'Job claim via DB' },
+  { from:'worker',      to:'services',    label:'Extract + Download' },
+  { from:'services',    to:'infra',       label:'Logger, Telemetry' },
+  { from:'data-layer',  to:'api-routes',  label:'GET polling' },
+  { from:'dashboard',   to:'data-layer',  label:'useJobsPolling' },
+  { from:'activity',    to:'infra',       label:'SSE telemetry' },
+  { from:'middleware',   to:'api-routes',  label:'Request processing' },
+  { from:'config',      to:'services',    label:'Env vars, capabilities' },
+  { from:'plat-reg',    to:'services',    label:'Platform logic' },
+  { from:'utils',       to:'api-routes',  label:'Validation' },
+  { from:'shared-comp', to:'dashboard',   label:'Page composition' },
+  { from:'app-shell',   to:'shared-comp', label:'Routing' },
+];
 
-// ── Helpers ───────────────────────────────────────────────
-function nodeId(path) { return path.join('/'); }
-function isFolder(node) { return Array.isArray(node.children); }
+// Concern matrix assignments
+const CONCERNS = ['UI', 'API', 'Data', 'Processing', 'Infrastructure', 'Config'];
+const MODULE_CONCERNS = {
+  'root':        [false, false, false, false, false, true],
+  'app-shell':   [true,  false, false, false, false, true],
+  'intake':      [true,  true,  false, false, false, false],
+  'dashboard':   [true,  false, true,  false, false, false],
+  'activity':    [true,  false, false, false, true,  false],
+  'shared-comp': [true,  false, false, false, false, false],
+  'data-layer':  [false, true,  true,  false, false, false],
+  'client-plat': [false, false, false, false, false, true],
+  'api-routes':  [false, true,  true,  false, false, false],
+  'services':    [false, false, false, true,  false, false],
+  'worker':      [false, false, true,  true,  false, false],
+  'plat-reg':    [false, false, false, true,  false, true],
+  'models':      [false, false, true,  false, false, false],
+  'middleware':   [false, true,  false, false, true,  false],
+  'config':      [false, false, false, false, false, true],
+  'infra':       [false, false, false, false, true,  false],
+  'utils':       [false, false, false, true,  false, false],
+};
 
-function countFiles(node) {
-  if (!isFolder(node)) return 1;
-  return node.children.reduce((s, c) => s + countFiles(c), 0);
+// Layer assignments for architecture view
+const LAYER_DEFS = [
+  { label:'Client UI',        y:0, modules:['app-shell','intake','dashboard','activity','shared-comp','client-plat'] },
+  { label:'Data / API Bridge', y:1, modules:['data-layer','middleware'] },
+  { label:'API Routes',       y:2, modules:['api-routes'] },
+  { label:'Business Logic',   y:3, modules:['worker','services','plat-reg'] },
+  { label:'Data & Infra',     y:4, modules:['models','infra','config','utils'] },
+];
+
+// ══════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════
+
+function esc(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''}
+function isFolder(n){return Array.isArray(n.children)}
+function countFiles(n){if(!isFolder(n))return 1;return n.children.reduce((s,c)=>s+countFiles(c),0)}
+function countByModule(n,acc={}){if(!isFolder(n)&&n.module)acc[n.module]=(acc[n.module]||0)+1;if(n.children)n.children.forEach(c=>countByModule(c,acc));return acc}
+
+function collectFiles(node, path='') {
+  const results = [];
+  const p = path ? path+'/'+node.name : node.name;
+  if (!isFolder(node) && node.module) results.push({ path:p, module:node.module, desc:node.desc||'' });
+  if (node.children) node.children.forEach(c => results.push(...collectFiles(c, p)));
+  return results;
+}
+const ALL_FILES = collectFiles(DATA);
+
+function hexToRgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
-function countByModule(node, acc = {}) {
-  if (!isFolder(node) && node.module) {
-    acc[node.module] = (acc[node.module] || 0) + 1;
+// ── Tooltip ──────────────────────────
+const tip = document.getElementById('tooltip');
+function showTip(e, file, mod, desc, color) {
+  tip.innerHTML = `<div class="tt-file">${esc(file)}</div>`
+    + (mod ? `<div class="tt-module"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${esc(mod)}</div>` : '')
+    + (desc ? `<div class="tt-desc">${esc(desc)}</div>` : '');
+  tip.classList.add('visible');
+  posTip(e);
+}
+function showTipAt(x,y,file,mod,desc,color){
+  tip.innerHTML = `<div class="tt-file">${esc(file)}</div>`
+    + (mod ? `<div class="tt-module"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${esc(mod)}</div>` : '')
+    + (desc ? `<div class="tt-desc">${esc(desc)}</div>` : '');
+  tip.classList.add('visible');
+  let tx = x+14, ty = y+14;
+  const r = tip.getBoundingClientRect();
+  if(tx+r.width>window.innerWidth-8)tx=x-r.width-10;
+  if(ty+r.height>window.innerHeight-8)ty=y-r.height-10;
+  tip.style.left=tx+'px';tip.style.top=ty+'px';
+}
+function hideTip(){tip.classList.remove('visible')}
+document.addEventListener('mousemove', e => { if(tip.classList.contains('visible')) posTip(e) });
+function posTip(e){
+  let x=e.clientX+14,y=e.clientY+14;
+  const r=tip.getBoundingClientRect();
+  if(x+r.width>window.innerWidth-8)x=e.clientX-r.width-10;
+  if(y+r.height>window.innerHeight-8)y=e.clientY-r.height-10;
+  tip.style.left=x+'px';tip.style.top=y+'px';
+}
+
+// ── Legend strip builder ─────────────
+function buildLegendStrip(containerId, filterFn) {
+  const el = document.getElementById(containerId);
+  let html = '<div class="legend-strip-title">Modules (click to highlight)</div>';
+  for (const [k, m] of Object.entries(MODULES)) {
+    html += `<div class="legend-chip" data-mod="${k}" onclick="toggleLegendChip(this,'${containerId}')">`;
+    html += `<span class="lc-dot" style="background:${m.color}"></span>${esc(m.label)}</div>`;
   }
-  if (node.children) node.children.forEach(c => countByModule(c, acc));
-  return acc;
+  el.innerHTML = html;
+}
+let legendFilter = {};
+function toggleLegendChip(chip, containerId) {
+  const mod = chip.dataset.mod;
+  if (legendFilter[containerId] === mod) {
+    legendFilter[containerId] = null;
+    chip.classList.remove('active');
+  } else {
+    document.querySelectorAll(`#${containerId} .legend-chip`).forEach(c=>c.classList.remove('active'));
+    legendFilter[containerId] = mod;
+    chip.classList.add('active');
+  }
 }
 
-function matchesSearch(node, term) {
-  if (!term) return true;
-  const t = term.toLowerCase();
-  if (node.name.toLowerCase().includes(t)) return true;
-  if (node.desc && node.desc.toLowerCase().includes(t)) return true;
-  if (node.module && MODULES[node.module] && MODULES[node.module].label.toLowerCase().includes(t)) return true;
-  return false;
+// ── Stats ────────────────────────────
+function renderStats() {
+  const total = countFiles(DATA);
+  const c = DATA.children.find(c=>c.name==='client');
+  const s = DATA.children.find(c=>c.name==='server');
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><span class="stat-val">${total}</span><span class="stat-label">Files</span></div>`
+    +`<div class="stat"><span class="stat-val">${Object.keys(MODULES).length}</span><span class="stat-label">Modules</span></div>`
+    +`<div class="stat"><span class="stat-val">${c?countFiles(c):0}</span><span class="stat-label">Client</span></div>`
+    +`<div class="stat"><span class="stat-val">${s?countFiles(s):0}</span><span class="stat-label">Server</span></div>`;
 }
 
-function subtreeMatches(node, term) {
-  if (matchesSearch(node, term)) return true;
-  if (node.children) return node.children.some(c => subtreeMatches(c, term));
-  return false;
+// ══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════
+
+let currentView = 'sunburst';
+const rendered = {};
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const view = tab.dataset.view;
+    if (view === currentView) return;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+view).classList.add('active');
+    currentView = view;
+    if (!rendered[view]) {
+      renderView(view);
+      rendered[view] = true;
+    }
+  });
+});
+
+function renderView(v) {
+  switch(v) {
+    case 'sunburst': renderSunburst(); break;
+    case 'bubbles': renderBubbles(); break;
+    case 'flow': renderFlow(); break;
+    case 'matrix': renderMatrix(); break;
+    case 'layers': renderLayers(); break;
+    case 'tree': renderFileTree(); break;
+  }
 }
 
-// ── Render tree ───────────────────────────────────────────
-function renderNode(node, path = []) {
-  const id = nodeId([...path, node.name]);
+// ══════════════════════════════════════════════════════════════
+// VIEW 1: SUNBURST
+// ══════════════════════════════════════════════════════════════
+
+function renderSunburst() {
+  buildLegendStrip('sunburst-legend');
+  const container = document.getElementById('sunburst-container');
+  const W = Math.min(800, window.innerWidth - 80);
+  const H = W;
+  const cx = W/2, cy = H/2;
+  const maxR = W/2 - 30;
+
+  // Build ring data: ring 0 = root, ring 1 = client/server, ring 2 = module groups, ring 3 = files
+  // We'll flatten the tree into arcs
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('id','sunburst-svg');
+  svg.setAttribute('width',W);
+  svg.setAttribute('height',H);
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  container.innerHTML = '';
+  container.appendChild(svg);
+
+  // Compute hierarchical arcs
+  function buildArcs(node, depth, startAngle, endAngle, parentModule) {
+    const arcs = [];
+    const mod = node.module || parentModule;
+    const files = countFiles(node);
+
+    if (depth > 0) {
+      arcs.push({
+        depth, startAngle, endAngle,
+        module: mod,
+        name: node.name,
+        desc: node.desc || '',
+        isFolder: isFolder(node),
+        files
+      });
+    }
+
+    if (isFolder(node) && depth < 4) {
+      const totalFiles = files;
+      let angle = startAngle;
+      for (const child of node.children) {
+        const cf = countFiles(child);
+        const sweep = (endAngle - startAngle) * (cf / totalFiles);
+        arcs.push(...buildArcs(child, depth+1, angle, angle+sweep, mod));
+        angle += sweep;
+      }
+    }
+    return arcs;
+  }
+
+  const allArcs = buildArcs(DATA, 0, 0, Math.PI*2, 'root');
+  const maxDepth = Math.max(...allArcs.map(a=>a.depth), 1);
+  const ringWidth = maxR / (maxDepth + 0.5);
+  const innerPad = ringWidth * 0.4;
+
+  // Draw arcs
+  for (const arc of allArcs) {
+    const r1 = innerPad + (arc.depth - 1) * ringWidth + 2;
+    const r2 = innerPad + arc.depth * ringWidth - 2;
+    const color = arc.module && MODULES[arc.module] ? MODULES[arc.module].color : '#475569';
+    const opacity = arc.depth === 1 ? 0.9 : arc.depth === 2 ? 0.75 : arc.depth === 3 ? 0.6 : 0.45;
+
+    if (arc.endAngle - arc.startAngle < 0.005) continue; // skip tiny arcs
+
+    const path = describeArc(cx, cy, r1, r2, arc.startAngle, arc.endAngle);
+    const el = document.createElementNS('http://www.w3.org/2000/svg','path');
+    el.setAttribute('d', path);
+    el.setAttribute('fill', color);
+    el.setAttribute('fill-opacity', opacity);
+    el.setAttribute('stroke', '#0f172a');
+    el.setAttribute('stroke-width', '1');
+    el.style.cursor = 'pointer';
+    el.style.transition = 'fill-opacity 150ms ease';
+
+    const modInfo = arc.module && MODULES[arc.module] ? MODULES[arc.module] : null;
+    el.addEventListener('mouseenter', (e) => {
+      el.setAttribute('fill-opacity', Math.min(1, opacity + 0.25));
+      showTip(e, arc.name, modInfo ? modInfo.label : '', arc.desc || `${arc.files} file(s)`, color);
+    });
+    el.addEventListener('mouseleave', () => {
+      el.setAttribute('fill-opacity', opacity);
+      hideTip();
+    });
+    svg.appendChild(el);
+
+    // Label for larger arcs
+    if (arc.endAngle - arc.startAngle > 0.15 && arc.depth <= 3) {
+      const midAngle = (arc.startAngle + arc.endAngle) / 2;
+      const midR = (r1 + r2) / 2;
+      const lx = cx + midR * Math.cos(midAngle - Math.PI/2);
+      const ly = cy + midR * Math.sin(midAngle - Math.PI/2);
+      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x', lx);
+      txt.setAttribute('y', ly);
+      txt.setAttribute('class', 'sunburst-label');
+      txt.setAttribute('font-size', arc.depth <= 2 ? '11' : '9');
+
+      // Rotate text along the arc
+      let rot = (midAngle * 180 / Math.PI) - 90;
+      if (rot > 90 && rot < 270) rot += 180;
+      txt.setAttribute('transform', `rotate(${rot},${lx},${ly})`);
+
+      const display = arc.name.length > 14 ? arc.name.slice(0,12)+'..' : arc.name;
+      txt.textContent = display;
+      svg.appendChild(txt);
+    }
+  }
+
+  // Center label
+  const centerText = document.createElementNS('http://www.w3.org/2000/svg','text');
+  centerText.setAttribute('x', cx);
+  centerText.setAttribute('y', cy - 8);
+  centerText.setAttribute('text-anchor', 'middle');
+  centerText.setAttribute('fill', '#f8fafc');
+  centerText.setAttribute('font-size', '14');
+  centerText.setAttribute('font-weight', '700');
+  centerText.textContent = 'Media Vault';
+  svg.appendChild(centerText);
+
+  const centerSub = document.createElementNS('http://www.w3.org/2000/svg','text');
+  centerSub.setAttribute('x', cx);
+  centerSub.setAttribute('y', cy + 10);
+  centerSub.setAttribute('text-anchor', 'middle');
+  centerSub.setAttribute('fill', '#94a3b8');
+  centerSub.setAttribute('font-size', '10');
+  centerSub.textContent = countFiles(DATA) + ' files';
+  svg.appendChild(centerSub);
+}
+
+function describeArc(cx, cy, r1, r2, startAngle, endAngle) {
+  // Convert from radians (0 = top, clockwise)
+  const sa = startAngle - Math.PI/2;
+  const ea = endAngle - Math.PI/2;
+  const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+
+  const x1o = cx + r2 * Math.cos(sa);
+  const y1o = cy + r2 * Math.sin(sa);
+  const x2o = cx + r2 * Math.cos(ea);
+  const y2o = cy + r2 * Math.sin(ea);
+  const x1i = cx + r1 * Math.cos(ea);
+  const y1i = cy + r1 * Math.sin(ea);
+  const x2i = cx + r1 * Math.cos(sa);
+  const y2i = cy + r1 * Math.sin(sa);
+
+  return `M ${x1o} ${y1o} A ${r2} ${r2} 0 ${largeArc} 1 ${x2o} ${y2o} L ${x1i} ${y1i} A ${r1} ${r1} 0 ${largeArc} 0 ${x2i} ${y2i} Z`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIEW 2: BUBBLE MAP
+// ══════════════════════════════════════════════════════════════
+
+function renderBubbles() {
+  buildLegendStrip('bubble-legend');
+  const container = document.getElementById('bubble-container');
+  const W = Math.min(1100, window.innerWidth - 80);
+  const H = 620;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('id','bubble-svg');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  container.innerHTML = '';
+  container.appendChild(svg);
+
+  const counts = countByModule(DATA);
+
+  // Separate client and server modules
+  const clientMods = [], serverMods = [], rootMods = [];
+  for (const [k, m] of Object.entries(MODULES)) {
+    const count = counts[k] || 0;
+    if (count === 0) continue;
+    const entry = { key:k, ...m, count };
+    if (m.side === 'client') clientMods.push(entry);
+    else if (m.side === 'server') serverMods.push(entry);
+    else rootMods.push(entry);
+  }
+
+  // Layout: client cluster on left, server on right
+  const clientCx = W * 0.28, serverCx = W * 0.72;
+  const groupCy = H * 0.5;
+  const maxBubbleR = 80;
+  const maxCount = Math.max(...Object.values(counts));
+
+  function rForCount(c) { return 20 + (c / maxCount) * (maxBubbleR - 20); }
+
+  // Side labels
+  const clientLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+  clientLabel.setAttribute('x', clientCx);
+  clientLabel.setAttribute('y', 30);
+  clientLabel.setAttribute('text-anchor','middle');
+  clientLabel.setAttribute('fill','#64748b');
+  clientLabel.setAttribute('font-size','13');
+  clientLabel.setAttribute('font-weight','700');
+  clientLabel.setAttribute('letter-spacing','0.1em');
+  clientLabel.textContent = 'CLIENT';
+  svg.appendChild(clientLabel);
+
+  const serverLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+  serverLabel.setAttribute('x', serverCx);
+  serverLabel.setAttribute('y', 30);
+  serverLabel.setAttribute('text-anchor','middle');
+  serverLabel.setAttribute('fill','#64748b');
+  serverLabel.setAttribute('font-size','13');
+  serverLabel.setAttribute('font-weight','700');
+  serverLabel.setAttribute('letter-spacing','0.1em');
+  serverLabel.textContent = 'SERVER';
+  svg.appendChild(serverLabel);
+
+  // Divider line
+  const divider = document.createElementNS('http://www.w3.org/2000/svg','line');
+  divider.setAttribute('x1', W/2);
+  divider.setAttribute('y1', 20);
+  divider.setAttribute('x2', W/2);
+  divider.setAttribute('y2', H - 20);
+  divider.setAttribute('stroke', '#334155');
+  divider.setAttribute('stroke-width', '1');
+  divider.setAttribute('stroke-dasharray', '4,4');
+  svg.appendChild(divider);
+
+  function layoutBubbles(mods, centerX) {
+    // Simple circular layout around center
+    const n = mods.length;
+    const layoutR = Math.min(180, H/2 - 80);
+    const positions = [];
+
+    for (let i = 0; i < n; i++) {
+      const angle = (i / n) * Math.PI * 2 - Math.PI/2;
+      const spread = n <= 3 ? layoutR * 0.6 : layoutR;
+      const x = centerX + spread * Math.cos(angle) * (0.7 + 0.3 * (i%2));
+      const y = groupCy + spread * Math.sin(angle) * 0.8;
+      positions.push({ x, y });
+    }
+
+    // Simple force-based overlap reduction (10 iterations)
+    for (let iter = 0; iter < 20; iter++) {
+      for (let i = 0; i < n; i++) {
+        for (let j = i+1; j < n; j++) {
+          const ri = rForCount(mods[i].count);
+          const rj = rForCount(mods[j].count);
+          const dx = positions[j].x - positions[i].x;
+          const dy = positions[j].y - positions[i].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const minDist = ri + rj + 6;
+          if (dist < minDist && dist > 0) {
+            const push = (minDist - dist) / 2;
+            const nx = dx/dist, ny = dy/dist;
+            positions[i].x -= nx * push;
+            positions[i].y -= ny * push;
+            positions[j].x += nx * push;
+            positions[j].y += ny * push;
+          }
+        }
+        // Keep in bounds
+        const r = rForCount(mods[i].count);
+        positions[i].x = Math.max(r+5, Math.min(W-r-5, positions[i].x));
+        positions[i].y = Math.max(r+45, Math.min(H-r-5, positions[i].y));
+      }
+    }
+
+    return positions;
+  }
+
+  function drawBubbles(mods, positions) {
+    for (let i = 0; i < mods.length; i++) {
+      const m = mods[i];
+      const r = rForCount(m.count);
+      const x = positions[i].x;
+      const y = positions[i].y;
+
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.style.cursor = 'pointer';
+
+      // Outer glow
+      const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      glow.setAttribute('cx', x);
+      glow.setAttribute('cy', y);
+      glow.setAttribute('r', r + 3);
+      glow.setAttribute('fill', 'none');
+      glow.setAttribute('stroke', m.color);
+      glow.setAttribute('stroke-opacity', '0.2');
+      glow.setAttribute('stroke-width', '3');
+      g.appendChild(glow);
+
+      // Main bubble
+      const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', r);
+      circle.setAttribute('fill', hexToRgba(m.color, 0.2));
+      circle.setAttribute('stroke', m.color);
+      circle.setAttribute('stroke-width', '2');
+      circle.style.transition = 'fill-opacity 150ms ease';
+      g.appendChild(circle);
+
+      // Label
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x', x);
+      label.setAttribute('y', y - 6);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('fill', '#f8fafc');
+      label.setAttribute('font-size', r > 40 ? '12' : '10');
+      label.setAttribute('font-weight', '700');
+      label.setAttribute('pointer-events', 'none');
+      const displayLabel = m.label.length > 16 ? m.label.slice(0,14)+'..' : m.label;
+      label.textContent = displayLabel;
+      g.appendChild(label);
+
+      // Count
+      const countLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+      countLabel.setAttribute('x', x);
+      countLabel.setAttribute('y', y + 10);
+      countLabel.setAttribute('text-anchor', 'middle');
+      countLabel.setAttribute('fill', m.color);
+      countLabel.setAttribute('font-size', '11');
+      countLabel.setAttribute('font-weight', '600');
+      countLabel.setAttribute('pointer-events', 'none');
+      countLabel.textContent = m.count + ' file' + (m.count !== 1 ? 's' : '');
+      g.appendChild(countLabel);
+
+      // Interaction
+      const files = ALL_FILES.filter(f => f.module === m.key);
+      g.addEventListener('mouseenter', (e) => {
+        circle.setAttribute('fill', hexToRgba(m.color, 0.4));
+        const desc = files.map(f => f.path.split('/').pop()).join(', ');
+        showTip(e, m.label, m.label, desc, m.color);
+      });
+      g.addEventListener('mouseleave', () => {
+        circle.setAttribute('fill', hexToRgba(m.color, 0.2));
+        hideTip();
+      });
+
+      svg.appendChild(g);
+    }
+  }
+
+  // Root bubbles in center
+  if (rootMods.length) {
+    const rootPos = rootMods.map((m,i) => ({ x: W/2, y: H/2 - 20 + i*50 }));
+    drawBubbles(rootMods, rootPos);
+  }
+
+  const clientPos = layoutBubbles(clientMods, clientCx);
+  drawBubbles(clientMods, clientPos);
+
+  const serverPos = layoutBubbles(serverMods, serverCx);
+  drawBubbles(serverMods, serverPos);
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIEW 3: DEPENDENCY FLOW
+// ══════════════════════════════════════════════════════════════
+
+function renderFlow() {
+  buildLegendStrip('flow-legend');
+  const container = document.getElementById('flow-container');
+  const W = Math.min(1200, window.innerWidth - 80);
+  const H = 700;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('id','flow-svg');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  container.innerHTML = '';
+  container.appendChild(svg);
+
+  // Define arrow marker
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+  marker.setAttribute('id','arrowhead');
+  marker.setAttribute('markerWidth','8');
+  marker.setAttribute('markerHeight','6');
+  marker.setAttribute('refX','8');
+  marker.setAttribute('refY','3');
+  marker.setAttribute('orient','auto');
+  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  arrowPath.setAttribute('points','0 0, 8 3, 0 6');
+  arrowPath.setAttribute('fill','#64748b');
+  marker.appendChild(arrowPath);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  // Arrange modules in columns by data flow
+  // Column 0: User-facing client (intake, dashboard, activity, app-shell, shared-comp)
+  // Column 1: Data bridge (data-layer, client-plat)
+  // Column 2: Server boundary (middleware, api-routes)
+  // Column 3: Processing (worker, services, plat-reg)
+  // Column 4: Foundation (models, infra, config, utils)
+
+  const columns = [
+    ['app-shell', 'intake', 'dashboard', 'activity', 'shared-comp'],
+    ['data-layer', 'client-plat'],
+    ['middleware', 'api-routes'],
+    ['worker', 'services', 'plat-reg'],
+    ['models', 'infra', 'config', 'utils'],
+  ];
+
+  const colLabels = ['Client UI', 'Data Bridge', 'API Boundary', 'Processing', 'Foundation'];
+
+  const nodeW = 140, nodeH = 44;
+  const colCount = columns.length;
+  const colSpacing = (W - 60) / colCount;
+  const positions = {};
+
+  // Column labels
+  for (let ci = 0; ci < colCount; ci++) {
+    const x = 30 + ci * colSpacing + colSpacing/2;
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x', x);
+    lbl.setAttribute('y', 22);
+    lbl.setAttribute('text-anchor','middle');
+    lbl.setAttribute('fill','#475569');
+    lbl.setAttribute('font-size','11');
+    lbl.setAttribute('font-weight','700');
+    lbl.setAttribute('letter-spacing','0.08em');
+    lbl.textContent = colLabels[ci].toUpperCase();
+    svg.appendChild(lbl);
+  }
+
+  // Position nodes
+  for (let ci = 0; ci < colCount; ci++) {
+    const col = columns[ci];
+    const x = 30 + ci * colSpacing + (colSpacing - nodeW)/2;
+    const totalH = col.length * (nodeH + 14);
+    const startY = (H - totalH)/2 + 20;
+
+    for (let ri = 0; ri < col.length; ri++) {
+      const modKey = col[ri];
+      const y = startY + ri * (nodeH + 14);
+      positions[modKey] = { x: x + nodeW/2, y: y + nodeH/2, left: x, top: y, right: x + nodeW, bottom: y + nodeH };
+    }
+  }
+
+  // Draw connections first (behind nodes)
+  for (const conn of CONNECTIONS) {
+    const from = positions[conn.from];
+    const to = positions[conn.to];
+    if (!from || !to) continue;
+
+    const fromX = from.right;
+    const fromY = from.y;
+    const toX = to.left;
+    const toY = to.y;
+
+    // Determine if going left or right
+    let sx, sy, ex, ey;
+    if (fromX < toX) {
+      sx = fromX; sy = fromY; ex = toX; ey = toY;
+    } else {
+      // Going backward — use top/bottom
+      sx = from.x; sy = from.bottom;
+      ex = to.x; ey = to.top;
+    }
+
+    const cpOffset = Math.abs(ex - sx) * 0.4;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    let d;
+    if (fromX < toX) {
+      d = `M ${sx} ${sy} C ${sx+cpOffset} ${sy}, ${ex-cpOffset} ${ey}, ${ex} ${ey}`;
+    } else {
+      d = `M ${sx} ${sy} C ${sx} ${sy+40}, ${ex} ${ey-40}, ${ex} ${ey}`;
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#334155');
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('marker-end', 'url(#arrowhead)');
+    path.style.transition = 'stroke 180ms ease';
+
+    // Hover label on connection
+    path.addEventListener('mouseenter', (e) => {
+      path.setAttribute('stroke', '#64748b');
+      path.setAttribute('stroke-width', '2.5');
+      showTip(e, conn.label, '', `${MODULES[conn.from]?.label || conn.from} -> ${MODULES[conn.to]?.label || conn.to}`, '#64748b');
+    });
+    path.addEventListener('mouseleave', () => {
+      path.setAttribute('stroke', '#334155');
+      path.setAttribute('stroke-width', '1.5');
+      hideTip();
+    });
+    path.style.cursor = 'pointer';
+    svg.appendChild(path);
+  }
+
+  // Draw nodes
+  for (const [modKey, pos] of Object.entries(positions)) {
+    const mod = MODULES[modKey];
+    if (!mod) continue;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','flow-node');
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x', pos.left);
+    rect.setAttribute('y', pos.top);
+    rect.setAttribute('width', nodeW);
+    rect.setAttribute('height', nodeH);
+    rect.setAttribute('rx', '8');
+    rect.setAttribute('fill', hexToRgba(mod.color, 0.15));
+    rect.setAttribute('stroke', mod.color);
+    rect.setAttribute('stroke-width', '1.5');
+    g.appendChild(rect);
+
+    // Color bar on left
+    const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bar.setAttribute('x', pos.left);
+    bar.setAttribute('y', pos.top);
+    bar.setAttribute('width', '4');
+    bar.setAttribute('height', nodeH);
+    bar.setAttribute('rx', '2');
+    bar.setAttribute('fill', mod.color);
+    g.appendChild(bar);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.setAttribute('x', pos.x + 2);
+    label.setAttribute('y', pos.y - 2);
+    label.setAttribute('class', 'flow-label');
+    label.setAttribute('font-size', '11');
+    const displayName = mod.label.length > 18 ? mod.label.slice(0,16)+'..' : mod.label;
+    label.textContent = displayName;
+    g.appendChild(label);
+
+    const counts = countByModule(DATA);
+    const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
+    sub.setAttribute('x', pos.x + 2);
+    sub.setAttribute('y', pos.y + 12);
+    sub.setAttribute('class', 'flow-sublabel');
+    sub.textContent = (counts[modKey] || 0) + ' files';
+    g.appendChild(sub);
+
+    // Hover
+    const files = ALL_FILES.filter(f=>f.module===modKey);
+    g.addEventListener('mouseenter', (e) => {
+      const desc = files.map(f=>f.path.split('/').pop()).join(', ');
+      showTip(e, mod.label, mod.label, desc || 'No files', mod.color);
+    });
+    g.addEventListener('mouseleave', () => hideTip());
+
+    svg.appendChild(g);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIEW 4: GRID MATRIX
+// ══════════════════════════════════════════════════════════════
+
+function renderMatrix() {
+  const container = document.getElementById('matrix-container');
+  const popup = document.getElementById('matrixPopup');
+
+  // Build concern-specific file lists
+  const concernFiles = {};
+  for (const [modKey, concerns] of Object.entries(MODULE_CONCERNS)) {
+    const files = ALL_FILES.filter(f => f.module === modKey);
+    concernFiles[modKey] = {};
+    for (let i = 0; i < CONCERNS.length; i++) {
+      if (concerns[i]) concernFiles[modKey][CONCERNS[i]] = files;
+      else concernFiles[modKey][CONCERNS[i]] = [];
+    }
+  }
+
+  let html = '<table class="matrix-table"><thead><tr><th>Module</th><th>Side</th>';
+  for (const c of CONCERNS) html += `<th class="col-header">${c}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (const [modKey, mod] of Object.entries(MODULES)) {
+    const concerns = MODULE_CONCERNS[modKey];
+    if (!concerns) continue;
+
+    html += '<tr>';
+    html += `<td><div class="matrix-mod"><span class="mm-dot" style="background:${mod.color}"></span>${esc(mod.label)}</div></td>`;
+    html += `<td style="color:var(--text-dim);font-size:0.72rem;text-transform:uppercase">${mod.side}</td>`;
+
+    for (let i = 0; i < CONCERNS.length; i++) {
+      const active = concerns[i];
+      if (active) {
+        const files = concernFiles[modKey]?.[CONCERNS[i]] || [];
+        html += `<td class="matrix-cell"><span class="matrix-pip" style="background:${hexToRgba(mod.color,0.5)};border:1px solid ${mod.color}" data-mod="${modKey}" data-concern="${CONCERNS[i]}" data-files='${JSON.stringify(files.map(f=>f.path))}'></span></td>`;
+      } else {
+        html += `<td class="matrix-cell"><span class="matrix-pip empty"></span></td>`;
+      }
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // Cell click to show files
+  container.querySelectorAll('.matrix-pip:not(.empty)').forEach(pip => {
+    pip.addEventListener('click', (e) => {
+      const modKey = pip.dataset.mod;
+      const concern = pip.dataset.concern;
+      const files = JSON.parse(pip.dataset.files || '[]');
+      const mod = MODULES[modKey];
+
+      popup.innerHTML = `<h4 style="color:${mod.color}">${esc(mod.label)} / ${esc(concern)}</h4><ul>${files.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`;
+      popup.classList.add('visible');
+
+      let px = e.clientX + 10, py = e.clientY + 10;
+      if (px + 320 > window.innerWidth) px = e.clientX - 330;
+      if (py + 200 > window.innerHeight) py = e.clientY - 210;
+      popup.style.left = px + 'px';
+      popup.style.top = py + 'px';
+    });
+
+    pip.addEventListener('mouseenter', (e) => {
+      const mod = MODULES[pip.dataset.mod];
+      showTip(e, mod.label, pip.dataset.concern, 'Click to see files', mod.color);
+    });
+    pip.addEventListener('mouseleave', hideTip);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.matrix-pip') && !e.target.closest('.matrix-files-popup')) {
+      popup.classList.remove('visible');
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIEW 5: ARCHITECTURE LAYERS
+// ══════════════════════════════════════════════════════════════
+
+function renderLayers() {
+  buildLegendStrip('layers-legend');
+  const container = document.getElementById('layers-container');
+  const W = Math.min(1100, window.innerWidth - 80);
+  const H = 680;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('id','layers-svg');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  container.innerHTML = '';
+  container.appendChild(svg);
+
+  // Arrow marker
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+  marker.setAttribute('id','layer-arrow');
+  marker.setAttribute('markerWidth','8');
+  marker.setAttribute('markerHeight','6');
+  marker.setAttribute('refX','8');
+  marker.setAttribute('refY','3');
+  marker.setAttribute('orient','auto');
+  const ap = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  ap.setAttribute('points','0 0, 8 3, 0 6');
+  ap.setAttribute('fill','#475569');
+  marker.appendChild(ap);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  const layerH = 100;
+  const layerGap = 22;
+  const layerPadX = 40;
+  const layerW = W - layerPadX * 2;
+  const totalH = LAYER_DEFS.length * layerH + (LAYER_DEFS.length - 1) * layerGap;
+  const startY = (H - totalH) / 2;
+
+  const layerPositions = {};
+
+  for (let li = 0; li < LAYER_DEFS.length; li++) {
+    const layer = LAYER_DEFS[li];
+    const y = startY + li * (layerH + layerGap);
+
+    layerPositions[li] = { y, h: layerH };
+
+    // Layer background
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bg.setAttribute('x', layerPadX);
+    bg.setAttribute('y', y);
+    bg.setAttribute('width', layerW);
+    bg.setAttribute('height', layerH);
+    bg.setAttribute('rx', '10');
+    bg.setAttribute('fill', 'rgba(30,41,59,0.6)');
+    bg.setAttribute('stroke', '#334155');
+    bg.setAttribute('stroke-width', '1');
+    svg.appendChild(bg);
+
+    // Layer label (left side)
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x', layerPadX + 14);
+    lbl.setAttribute('y', y + 18);
+    lbl.setAttribute('fill', '#64748b');
+    lbl.setAttribute('font-size', '10');
+    lbl.setAttribute('font-weight', '700');
+    lbl.setAttribute('letter-spacing', '0.06em');
+    lbl.textContent = layer.label.toUpperCase();
+    svg.appendChild(lbl);
+
+    // Module blocks within layer
+    const mods = layer.modules;
+    const blockH = 50;
+    const blockGap = 12;
+    const totalBlockW = mods.length * 130 + (mods.length - 1) * blockGap;
+    const blockStartX = layerPadX + (layerW - totalBlockW) / 2;
+    const blockY = y + 32;
+
+    for (let mi = 0; mi < mods.length; mi++) {
+      const modKey = mods[mi];
+      const mod = MODULES[modKey];
+      if (!mod) continue;
+
+      const bx = blockStartX + mi * (130 + blockGap);
+      const counts = countByModule(DATA);
+
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.style.cursor = 'pointer';
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x', bx);
+      rect.setAttribute('y', blockY);
+      rect.setAttribute('width', '130');
+      rect.setAttribute('height', blockH);
+      rect.setAttribute('rx', '6');
+      rect.setAttribute('fill', hexToRgba(mod.color, 0.15));
+      rect.setAttribute('stroke', mod.color);
+      rect.setAttribute('stroke-width', '1.5');
+      rect.style.transition = 'fill-opacity 150ms ease';
+      g.appendChild(rect);
+
+      // Color indicator
+      const ind = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      ind.setAttribute('x', bx);
+      ind.setAttribute('y', blockY);
+      ind.setAttribute('width', '130');
+      ind.setAttribute('height', '4');
+      ind.setAttribute('rx', '2');
+      ind.setAttribute('fill', mod.color);
+      g.appendChild(ind);
+
+      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x', bx + 65);
+      txt.setAttribute('y', blockY + 26);
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('fill', '#f8fafc');
+      txt.setAttribute('font-size', '11');
+      txt.setAttribute('font-weight', '600');
+      txt.setAttribute('pointer-events', 'none');
+      const dn = mod.label.length > 16 ? mod.label.slice(0,14)+'..' : mod.label;
+      txt.textContent = dn;
+      g.appendChild(txt);
+
+      const cnt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      cnt.setAttribute('x', bx + 65);
+      cnt.setAttribute('y', blockY + 40);
+      cnt.setAttribute('text-anchor', 'middle');
+      cnt.setAttribute('fill', '#94a3b8');
+      cnt.setAttribute('font-size', '9');
+      cnt.setAttribute('pointer-events', 'none');
+      cnt.textContent = (counts[modKey]||0) + ' files';
+      g.appendChild(cnt);
+
+      const files = ALL_FILES.filter(f=>f.module===modKey);
+      g.addEventListener('mouseenter', (e) => {
+        rect.setAttribute('fill', hexToRgba(mod.color, 0.35));
+        showTip(e, mod.label, mod.label, files.map(f=>f.path.split('/').pop()).join(', '), mod.color);
+      });
+      g.addEventListener('mouseleave', () => {
+        rect.setAttribute('fill', hexToRgba(mod.color, 0.15));
+        hideTip();
+      });
+
+      svg.appendChild(g);
+    }
+  }
+
+  // Draw arrows between adjacent layers
+  for (let li = 0; li < LAYER_DEFS.length - 1; li++) {
+    const y1 = layerPositions[li].y + layerH;
+    const y2 = layerPositions[li+1].y;
+    const midX = W / 2;
+
+    // Draw bidirectional arrow
+    const arrowUp = document.createElementNS('http://www.w3.org/2000/svg','line');
+    arrowUp.setAttribute('x1', midX - 15);
+    arrowUp.setAttribute('y1', y1 + 4);
+    arrowUp.setAttribute('x2', midX - 15);
+    arrowUp.setAttribute('y2', y2 - 4);
+    arrowUp.setAttribute('stroke', '#475569');
+    arrowUp.setAttribute('stroke-width', '1.5');
+    arrowUp.setAttribute('marker-end', 'url(#layer-arrow)');
+    svg.appendChild(arrowUp);
+
+    const arrowDown = document.createElementNS('http://www.w3.org/2000/svg','line');
+    arrowDown.setAttribute('x1', midX + 15);
+    arrowDown.setAttribute('y1', y2 - 4);
+    arrowDown.setAttribute('x2', midX + 15);
+    arrowDown.setAttribute('y2', y1 + 4);
+    arrowDown.setAttribute('stroke', '#475569');
+    arrowDown.setAttribute('stroke-width', '1.5');
+    arrowDown.setAttribute('marker-end', 'url(#layer-arrow)');
+    svg.appendChild(arrowDown);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIEW 6: FILE TREE (improved)
+// ══════════════════════════════════════════════════════════════
+
+const treeExpanded = new Set();
+let treeSearchTerm = '';
+let treeActiveModule = null;
+
+function renderFileTree() {
+  buildLegendStrip('tree-legend');
+
+  // Wire legend chips for tree filtering
+  document.querySelectorAll('#tree-legend .legend-chip').forEach(chip => {
+    chip.onclick = () => {
+      const mod = chip.dataset.mod;
+      if (treeActiveModule === mod) {
+        treeActiveModule = null;
+        chip.classList.remove('active');
+      } else {
+        document.querySelectorAll('#tree-legend .legend-chip').forEach(c=>c.classList.remove('active'));
+        treeActiveModule = mod;
+        chip.classList.add('active');
+        treeExpandAllNodes(DATA);
+      }
+      renderTreeDOM();
+    };
+  });
+
+  treeExpanded.add('x-dl-vite-express-mongo');
+  treeExpanded.add('x-dl-vite-express-mongo/client');
+  treeExpanded.add('x-dl-vite-express-mongo/server');
+  renderTreeDOM();
+}
+
+function renderTreeDOM() {
+  document.getElementById('tree').innerHTML = '<ul>' + renderTreeNode(DATA, []) + '</ul>';
+}
+
+function renderTreeNode(node, path) {
+  const id = [...path, node.name].join('/');
   const folder = isFolder(node);
-  const expanded = expandedSet.has(id);
+  const expanded = treeExpanded.has(id);
   const mod = node.module && MODULES[node.module];
   const color = mod ? mod.color : 'transparent';
-  const isMatch = searchTerm && matchesSearch(node, searchTerm);
-  const inSubtree = searchTerm ? subtreeMatches(node, searchTerm) : true;
-  const dimmed = (searchTerm && !inSubtree) || (activeModule && node.module !== activeModule && !(folder && folderContainsModule(node, activeModule)));
+  const isMatch = treeSearchTerm && treeMatchesSearch(node, treeSearchTerm);
+  const inSubtree = treeSearchTerm ? treeSubtreeMatches(node, treeSearchTerm) : true;
+  const dimmed = (treeSearchTerm && !inSubtree) || (treeActiveModule && node.module !== treeActiveModule && !(folder && treeFolderContainsModule(node, treeActiveModule)));
 
   let cls = 'tree-row';
   if (folder) cls += ' is-folder';
-  if (isMatch && searchTerm) cls += ' search-match';
+  if (isMatch && treeSearchTerm) cls += ' search-match';
   if (dimmed) cls += ' search-dim';
 
-  let html = `<li class="tree-node" data-id="${id}">`;
-  html += `<div class="${cls}" ${folder ? `onclick="toggle('${id}')"` : ''}`;
+  let html = `<li class="tree-node">`;
+  html += `<div class="${cls}" ${folder ? `onclick="treeToggle('${id.replace(/'/g,"\\'")}')"` : ''}`;
   if (!folder && node.desc) {
-    html += ` onmouseenter="showTip(event,'${esc(node.name)}','${esc(mod ? mod.label : '')}','${esc(node.desc)}','${color}')" onmouseleave="hideTip()"`;
+    html += ` onmouseenter="showTip(event,'${esc(node.name)}','${esc(mod?mod.label:'')}','${esc(node.desc)}','${color}')" onmouseleave="hideTip()"`;
   }
   html += `>`;
 
-  // chevron
-  if (folder) {
-    html += `<span class="chevron ${expanded ? 'open' : ''}">&#9654;</span>`;
-  } else {
-    html += `<span class="chevron hidden">&#9654;</span>`;
-  }
+  if (folder) html += `<span class="chevron ${expanded?'open':''}">&#9654;</span>`;
+  else html += `<span class="chevron hidden">&#9654;</span>`;
 
-  // icon
-  html += `<span class="node-icon">${folder ? (expanded ? '&#128194;' : '&#128193;') : '&#128196;'}</span>`;
-
-  // module dot
-  if (node.module && mod) {
-    html += `<span class="mod-dot" style="color:${color};background:${color}"></span>`;
-  }
-
-  // label
-  html += `<span class="node-label ${folder ? 'is-folder' : ''}">${esc(node.name)}</span>`;
-
-  // inline description for files
-  if (!folder && node.desc) {
-    html += `<span class="node-desc">${esc(node.desc)}</span>`;
-  }
-
-  // folder file count
-  if (folder) {
-    const fc = countFiles(node);
-    html += `<span class="node-desc">${fc} file${fc !== 1 ? 's' : ''}</span>`;
-  }
-
+  html += `<span class="node-icon">${folder?(expanded?'&#128194;':'&#128193;'):'&#128196;'}</span>`;
+  if (node.module && mod) html += `<span class="mod-dot" style="color:${color};background:${color}"></span>`;
+  html += `<span class="node-label ${folder?'is-folder':''}">${esc(node.name)}</span>`;
+  if (!folder && node.desc) html += `<span class="node-desc">${esc(node.desc)}</span>`;
+  if (folder) { const fc=countFiles(node); html += `<span class="node-desc">${fc} file${fc!==1?'s':''}</span>`; }
   html += `</div>`;
 
   if (folder) {
-    html += `<div class="children-wrap ${expanded ? '' : 'collapsed'}" style="max-height:${expanded ? '9999px' : '0'}">`;
-    html += `<ul>`;
-    node.children.forEach(c => { html += renderNode(c, [...path, node.name]); });
+    html += `<div class="children-wrap ${expanded?'':'collapsed'}" style="max-height:${expanded?'9999px':'0'}"><ul>`;
+    node.children.forEach(c => { html += renderTreeNode(c, [...path, node.name]); });
     html += `</ul></div>`;
   }
-
   html += `</li>`;
   return html;
 }
 
-function folderContainsModule(node, mod) {
-  if (node.module === mod) return true;
-  if (node.children) return node.children.some(c => folderContainsModule(c, mod));
-  return false;
-}
+function treeToggle(id) { if(treeExpanded.has(id))treeExpanded.delete(id);else treeExpanded.add(id); renderTreeDOM(); }
+function treeExpandAllNodes(n,path=[]) { const id=[...path,n.name].join('/'); if(isFolder(n)){treeExpanded.add(id);n.children.forEach(c=>treeExpandAllNodes(c,[...path,n.name]));} }
+function treeExpandAll() { treeExpandAllNodes(DATA); renderTreeDOM(); }
+function treeCollapseAll() { treeExpanded.clear(); renderTreeDOM(); }
+function onTreeSearch(val) { treeSearchTerm=val.trim(); if(treeSearchTerm)treeExpandMatchingFolders(DATA,[]); renderTreeDOM(); }
+function clearTreeSearch() { treeSearchTerm=''; treeActiveModule=null; document.getElementById('searchBox').value=''; document.querySelectorAll('#tree-legend .legend-chip').forEach(c=>c.classList.remove('active')); renderTreeDOM(); }
+function treeMatchesSearch(n,t) { const l=t.toLowerCase(); return n.name.toLowerCase().includes(l)||(n.desc&&n.desc.toLowerCase().includes(l))||(n.module&&MODULES[n.module]&&MODULES[n.module].label.toLowerCase().includes(l)); }
+function treeSubtreeMatches(n,t) { if(treeMatchesSearch(n,t))return true; if(n.children)return n.children.some(c=>treeSubtreeMatches(c,t)); return false; }
+function treeFolderContainsModule(n,mod) { if(n.module===mod)return true; if(n.children)return n.children.some(c=>treeFolderContainsModule(c,mod)); return false; }
+function treeExpandMatchingFolders(n,path) { const id=[...path,n.name].join('/'); if(isFolder(n)&&treeSubtreeMatches(n,treeSearchTerm)){treeExpanded.add(id);n.children.forEach(c=>treeExpandMatchingFolders(c,[...path,n.name]));} }
 
-function esc(s) { return s ? s.replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''; }
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
 
-function renderTree() {
-  document.getElementById('tree').innerHTML = `<ul>${renderNode(DATA)}</ul>`;
-}
-
-// ── Toggle ────────────────────────────────────────────────
-function toggle(id) {
-  if (expandedSet.has(id)) expandedSet.delete(id); else expandedSet.add(id);
-  renderTree();
-}
-
-function expandAllNodes(node, path = []) {
-  const id = nodeId([...path, node.name]);
-  if (isFolder(node)) {
-    expandedSet.add(id);
-    node.children.forEach(c => expandAllNodes(c, [...path, node.name]));
-  }
-}
-
-function expandAll() { expandAllNodes(DATA); renderTree(); }
-function collapseAll() { expandedSet.clear(); renderTree(); }
-
-// ── Search ────────────────────────────────────────────────
-function onSearch(val) {
-  searchTerm = val.trim();
-  if (searchTerm) {
-    // auto-expand folders that contain matches
-    expandMatchingFolders(DATA, []);
-  }
-  renderTree();
-}
-
-function expandMatchingFolders(node, path) {
-  const id = nodeId([...path, node.name]);
-  if (isFolder(node)) {
-    if (subtreeMatches(node, searchTerm)) {
-      expandedSet.add(id);
-      node.children.forEach(c => expandMatchingFolders(c, [...path, node.name]));
-    }
-  }
-}
-
-function clearSearch() {
-  searchTerm = '';
-  activeModule = null;
-  document.getElementById('searchBox').value = '';
-  document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
-  renderTree();
-}
-
-// ── Tooltip ───────────────────────────────────────────────
-const tip = document.getElementById('tooltip');
-function showTip(e, file, mod, desc, color) {
-  tip.innerHTML = `<div class="tt-file">${file}</div>`
-    + (mod ? `<div class="tt-module"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${mod}</div>` : '')
-    + `<div class="tt-desc">${desc}</div>`;
-  tip.classList.add('visible');
-  positionTip(e);
-}
-function hideTip() { tip.classList.remove('visible'); }
-document.addEventListener('mousemove', e => { if (tip.classList.contains('visible')) positionTip(e); });
-function positionTip(e) {
-  let x = e.clientX + 14, y = e.clientY + 14;
-  const r = tip.getBoundingClientRect();
-  if (x + r.width > window.innerWidth - 8) x = e.clientX - r.width - 10;
-  if (y + r.height > window.innerHeight - 8) y = e.clientY - r.height - 10;
-  tip.style.left = x + 'px'; tip.style.top = y + 'px';
-}
-
-// ── Legend ─────────────────────────────────────────────────
-function renderLegend() {
-  const counts = countByModule(DATA);
-  const sides = { root: [], client: [], server: [] };
-  for (const [k, m] of Object.entries(MODULES)) {
-    sides[m.side].push({ key: k, ...m, count: counts[k] || 0 });
-  }
-
-  let html = '<h2>Modules</h2>';
-
-  const sections = [
-    { title: 'Root', items: sides.root },
-    { title: 'Client', items: sides.client },
-    { title: 'Server', items: sides.server },
-  ];
-
-  for (const sec of sections) {
-    html += `<div class="legend-section"><div class="legend-section-title">${sec.title}</div>`;
-    for (const m of sec.items) {
-      html += `<div class="legend-item" data-mod="${m.key}" onclick="filterByModule('${m.key}')">`;
-      html += `<span class="legend-swatch" style="color:${m.color};background:${m.color}"></span>`;
-      html += `<span class="legend-name">${m.label}</span>`;
-      html += `<span class="legend-count">${m.count}</span>`;
-      html += `</div>`;
-    }
-    html += `</div>`;
-  }
-
-  document.getElementById('legend').innerHTML = html;
-}
-
-function filterByModule(mod) {
-  if (activeModule === mod) {
-    activeModule = null;
-  } else {
-    activeModule = mod;
-  }
-  document.querySelectorAll('.legend-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.mod === activeModule);
-  });
-  // expand all when filtering
-  if (activeModule) expandAllNodes(DATA);
-  renderTree();
-}
-
-// ── Stats ─────────────────────────────────────────────────
-function renderStats() {
-  const total = countFiles(DATA);
-  const clientFiles = DATA.children.find(c => c.name === 'client');
-  const serverFiles = DATA.children.find(c => c.name === 'server');
-  const cCount = clientFiles ? countFiles(clientFiles) : 0;
-  const sCount = serverFiles ? countFiles(serverFiles) : 0;
-  const modCount = Object.keys(MODULES).length;
-
-  document.getElementById('stats').innerHTML =
-    `<div class="stat"><span class="stat-val">${total}</span><span class="stat-label">Files</span></div>`
-    + `<div class="stat"><span class="stat-val">${modCount}</span><span class="stat-label">Modules</span></div>`
-    + `<div class="stat"><span class="stat-val">${cCount}</span><span class="stat-label">Client</span></div>`
-    + `<div class="stat"><span class="stat-val">${sCount}</span><span class="stat-label">Server</span></div>`;
-}
-
-// ── Init ──────────────────────────────────────────────────
-expandedSet.add(nodeId(['x-dl-vite-express-mongo']));
-expandedSet.add(nodeId(['x-dl-vite-express-mongo','client']));
-expandedSet.add(nodeId(['x-dl-vite-express-mongo','server']));
 renderStats();
-renderLegend();
-renderTree();
+renderSunburst();
+rendered['sunburst'] = true;
+
+// Handle window resize for SVG views
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    // Re-render the active SVG view
+    if (currentView !== 'tree' && currentView !== 'matrix') {
+      rendered[currentView] = false;
+      renderView(currentView);
+      rendered[currentView] = true;
+    }
+  }, 250);
+});
 </script>
 </body>
 </html>
