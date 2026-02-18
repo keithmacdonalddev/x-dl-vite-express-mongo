@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Module Map</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;--bg4:#475569;
+    --text:#e2e8f0;--text-dim:#94a3b8;--text-bright:#f8fafc;
+    --border:#334155;--hover:#1e293b;
+    --radius:8px;--radius-sm:4px;
+    --transition:220ms ease;
+    /* module colors */
+    --c-app-shell:#3b82f6;--c-intake:#10b981;--c-dashboard:#f59e0b;
+    --c-activity:#8b5cf6;--c-shared-comp:#ec4899;--c-data-layer:#06b6d4;
+    --c-client-plat:#14b8a6;--c-api-routes:#f97316;--c-services:#ef4444;
+    --c-worker:#6366f1;--c-plat-reg:#14b8a6;--c-models:#eab308;
+    --c-middleware:#64748b;--c-config:#78716c;--c-infra:#f43f5e;
+    --c-utils:#84cc16;--c-root:#9ca3af;
+  }
+  html{font-size:14px}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;line-height:1.5}
+
+  /* layout */
+  .app{display:grid;grid-template-columns:1fr 280px;grid-template-rows:auto 1fr;gap:0;min-height:100vh;max-width:1400px;margin:0 auto}
+  .header{grid-column:1/-1;padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .header h1{font-size:1.5rem;font-weight:700;color:var(--text-bright);display:flex;align-items:center;gap:10px}
+  .header h1 .icon{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:grid;place-items:center;font-size:14px}
+  .tree-panel{padding:20px 24px 40px;overflow-y:auto;max-height:calc(100vh - 80px)}
+  .legend-panel{border-left:1px solid var(--border);padding:20px 16px;overflow-y:auto;max-height:calc(100vh - 80px);position:sticky;top:0;align-self:start}
+
+  /* stats bar */
+  .stats{display:flex;gap:20px;flex-wrap:wrap}
+  .stat{display:flex;flex-direction:column;align-items:center;padding:4px 14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
+  .stat-val{font-size:1.25rem;font-weight:700;color:var(--text-bright)}
+  .stat-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim)}
+
+  /* toolbar */
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .toolbar button{background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:0.8rem;font-weight:600;transition:background var(--transition),border-color var(--transition)}
+  .toolbar button:hover{background:var(--bg3);border-color:var(--bg4)}
+  .search-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:0.85rem;width:220px;outline:none;transition:border-color var(--transition)}
+  .search-box:focus{border-color:#3b82f6}
+  .search-box::placeholder{color:var(--bg4)}
+
+  /* tree */
+  .tree{user-select:none}
+  .tree ul{list-style:none;padding-left:20px}
+  .tree>ul{padding-left:0}
+  .tree-node{margin:1px 0}
+  .tree-row{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:var(--radius-sm);cursor:default;position:relative;transition:background var(--transition)}
+  .tree-row:hover{background:var(--bg2)}
+  .tree-row.is-folder{cursor:pointer}
+  .tree-row.search-match{background:rgba(59,130,246,0.18);outline:1px solid rgba(59,130,246,0.35);border-radius:var(--radius-sm)}
+  .tree-row.search-dim{opacity:0.28}
+
+  /* expand chevron */
+  .chevron{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-dim);transition:transform var(--transition);flex-shrink:0}
+  .chevron.open{transform:rotate(90deg)}
+  .chevron.hidden{visibility:hidden}
+
+  /* icons */
+  .node-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+
+  /* module dot */
+  .mod-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor}
+
+  /* labels */
+  .node-label{font-size:0.85rem;white-space:nowrap}
+  .node-label.is-folder{font-weight:600;color:var(--text-bright)}
+  .node-desc{font-size:0.72rem;color:var(--text-dim);margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+
+  /* children container for animation */
+  .children-wrap{overflow:hidden;transition:max-height 300ms ease,opacity 200ms ease}
+  .children-wrap.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+
+  /* tooltip */
+  .tooltip{position:fixed;background:#1e293b;border:1px solid #475569;color:var(--text);padding:8px 12px;border-radius:var(--radius);font-size:0.78rem;max-width:340px;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.4);opacity:0;transition:opacity 120ms ease}
+  .tooltip.visible{opacity:1}
+  .tooltip .tt-file{font-weight:700;color:var(--text-bright);margin-bottom:2px}
+  .tooltip .tt-module{font-size:0.7rem;display:flex;align-items:center;gap:4px;margin-bottom:4px}
+  .tooltip .tt-desc{color:var(--text-dim);line-height:1.4}
+
+  /* legend */
+  .legend-panel h2{font-size:0.85rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:14px;font-weight:600}
+  .legend-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;transition:background var(--transition);margin-bottom:2px}
+  .legend-item:hover{background:var(--bg2)}
+  .legend-item.active{background:rgba(59,130,246,0.12)}
+  .legend-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 5px currentColor}
+  .legend-name{font-size:0.8rem;font-weight:600;flex:1}
+  .legend-count{font-size:0.7rem;color:var(--text-dim);background:var(--bg3);padding:1px 6px;border-radius:10px;font-weight:600}
+  .legend-section{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+  .legend-section:first-child{margin-top:0;padding-top:0;border-top:none}
+  .legend-section-title{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--bg4);margin-bottom:6px;font-weight:700}
+
+  /* responsive */
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
+    .legend-panel{border-left:none;border-top:1px solid var(--border);max-height:none;position:static;order:2;display:flex;flex-wrap:wrap;gap:4px;padding:12px 16px}
+    .legend-panel h2{width:100%}
+    .legend-section{margin-top:8px;padding-top:8px}
+    .tree-panel{order:3}
+    .node-desc{max-width:200px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1><span class="icon">M</span> Media Vault — Module Map</h1>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="tree-panel">
+    <div class="toolbar">
+      <button onclick="expandAll()">Expand All</button>
+      <button onclick="collapseAll()">Collapse All</button>
+      <input class="search-box" id="searchBox" type="text" placeholder="Search files..." oninput="onSearch(this.value)">
+      <button onclick="clearSearch()">Clear</button>
+    </div>
+    <div class="tree" id="tree"></div>
+  </div>
+  <div class="legend-panel" id="legend"></div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ── Module definitions ────────────────────────────────────
+const MODULES = {
+  'root':          { label:'Root / Docs',         color:'#9ca3af', side:'root' },
+  'app-shell':     { label:'App Shell',           color:'#3b82f6', side:'client' },
+  'intake':        { label:'Intake',              color:'#10b981', side:'client' },
+  'dashboard':     { label:'Dashboard',           color:'#f59e0b', side:'client' },
+  'activity':      { label:'Activity',            color:'#8b5cf6', side:'client' },
+  'shared-comp':   { label:'Shared Components',   color:'#ec4899', side:'client' },
+  'data-layer':    { label:'Data Layer',          color:'#06b6d4', side:'client' },
+  'client-plat':   { label:'Client Platforms',    color:'#14b8a6', side:'client' },
+  'api-routes':    { label:'API Routes',          color:'#f97316', side:'server' },
+  'services':      { label:'Services',            color:'#ef4444', side:'server' },
+  'worker':        { label:'Worker / Queue',      color:'#6366f1', side:'server' },
+  'plat-reg':      { label:'Platform Registry',   color:'#14b8a6', side:'server' },
+  'models':        { label:'Data Models',         color:'#eab308', side:'server' },
+  'middleware':     { label:'Middleware',          color:'#64748b', side:'server' },
+  'config':        { label:'Configuration',       color:'#78716c', side:'server' },
+  'infra':         { label:'Infrastructure',      color:'#f43f5e', side:'server' },
+  'utils':         { label:'Utilities',           color:'#84cc16', side:'server' },
+};
+
+// ── File tree data ────────────────────────────────────────
+const DATA = {
+  name:'x-dl-vite-express-mongo', module:'root', children:[
+    { name:'package.json', module:'root', desc:'Root orchestration scripts: dev, build, test, verify' },
+    { name:'CLAUDE.md', module:'root', desc:'Project documentation — architecture, API, patterns' },
+    { name:'client', module:null, desc:'Client-side application (Vite + React 19)', children:[
+      { name:'package.json', module:'app-shell', desc:'Client dependencies and scripts' },
+      { name:'vite.config.js', module:'app-shell', desc:'Vite config with /api proxy to :4000' },
+      { name:'src', module:null, children:[
+        { name:'App.jsx', module:'app-shell', desc:'Hash router: dashboard + contact profile views, main layout' },
+        { name:'App.css', module:'app-shell', desc:'Global styles, CSS custom properties, responsive breakpoints' },
+        { name:'features', module:null, children:[
+          { name:'intake', module:'intake', children:[
+            { name:'IntakeForm.jsx', module:'intake', desc:'URL submission form with validation and platform detection' },
+            { name:'useIntake.js', module:'intake', desc:'Intake logic + platform classifier (X, TikTok)' },
+          ]},
+          { name:'dashboard', module:'dashboard', children:[
+            { name:'JobsList.jsx', module:'dashboard', desc:'Job list with multi-select and bulk action toolbar' },
+            { name:'JobRow.jsx', module:'dashboard', desc:'Individual job card — status, thumbnail, actions' },
+            { name:'JobEditForm.jsx', module:'dashboard', desc:'Inline job editing (URL, display name)' },
+            { name:'useJobActions.js', module:'dashboard', desc:'Delete, retry, and bulk-delete action handlers' },
+            { name:'useSelection.js', module:'dashboard', desc:'Multi-select state management for bulk operations' },
+          ]},
+          { name:'activity', module:'activity', children:[
+            { name:'ActivityPanel.jsx', module:'activity', desc:'Real-time telemetry feed via SSE, slide-out panel' },
+            { name:'eventTranslator.js', module:'activity', desc:'Raw telemetry events to human-readable text' },
+          ]},
+        ]},
+        { name:'components', module:'shared-comp', children:[
+          { name:'JobsPage.jsx', module:'shared-comp', desc:'Central dashboard component — orchestrates intake + jobs list' },
+          { name:'ContactProfilePage.jsx', module:'shared-comp', desc:'Per-contact job history view with profile header' },
+          { name:'ConfirmModal.jsx', module:'shared-comp', desc:'Shared confirmation dialog for destructive actions' },
+        ]},
+        { name:'hooks', module:'data-layer', children:[
+          { name:'useJobsPolling.js', module:'data-layer', desc:'3-second polling loop for job list updates' },
+        ]},
+        { name:'api', module:'data-layer', children:[
+          { name:'jobsApi.js', module:'data-layer', desc:'Fetch wrapper for all /api/* calls with error handling' },
+        ]},
+        { name:'platforms', module:'client-plat', children:[
+          { name:'index.js', module:'client-plat', desc:'Client-side platform definitions (X, TikTok hosts)' },
+        ]},
+        { name:'lib', module:'data-layer', children:[
+          { name:'eventTranslator.js', module:'data-layer', desc:'Event translation utilities (shared)' },
+        ]},
+      ]},
+    ]},
+    { name:'server', module:null, desc:'Server-side application (Express 5 + MongoDB)', children:[
+      { name:'package.json', module:'config', desc:'Server dependencies and scripts (CommonJS)' },
+      { name:'.env.example', module:'config', desc:'Environment variable template' },
+      { name:'src', module:null, children:[
+        { name:'index.js', module:'infra', desc:'Entry point: MongoDB connect, HTTP listen, queue start, graceful shutdown' },
+        { name:'app.js', module:'infra', desc:'Express app: middleware stack, route mounting, telemetry SSE, static serving' },
+        { name:'routes', module:'api-routes', children:[
+          { name:'jobs.js', module:'api-routes', desc:'CRUD: list, get, create, update, delete, bulk-delete jobs' },
+          { name:'contacts.js', module:'api-routes', desc:'Contact aggregation routes (grouped from jobs)' },
+          { name:'retry.js', module:'api-routes', desc:'Job retry endpoint — re-queues failed jobs' },
+          { name:'status.js', module:'api-routes', desc:'Job status transition endpoint (atomic state change)' },
+          { name:'helpers', module:'api-routes', children:[
+            { name:'route-utils.js', module:'api-routes', desc:'Shared route helpers: sendError, file deletion, validation' },
+          ]},
+        ]},
+        { name:'services', module:'services', children:[
+          { name:'extractor-service.js', module:'services', desc:'Playwright-based media URL extraction via network interception' },
+          { name:'downloader-service.js', module:'services', desc:'Direct fetch (MP4) + ffmpeg (HLS .m3u8) download' },
+          { name:'playwright-adapter.js', module:'services', desc:'Singleton persistent Chromium context with challenge detection' },
+        ]},
+        { name:'worker', module:'worker', children:[
+          { name:'queue.js', module:'worker', desc:'Queue worker: 1s poll interval, atomic job claim via findOneAndUpdate' },
+          { name:'process-job.js', module:'worker', desc:'Job pipeline: extract media URLs, pick best, download, save' },
+          { name:'recovery.js', module:'worker', desc:'Recover stale running jobs after server restart' },
+        ]},
+        { name:'platforms', module:'plat-reg', children:[
+          { name:'registry.js', module:'plat-reg', desc:'Platform registry with host resolution (X, TikTok)' },
+          { name:'x', module:'plat-reg', children:[
+            { name:'index.js', module:'plat-reg', desc:'X (Twitter) platform definition — URL patterns, extraction config' },
+          ]},
+          { name:'tiktok', module:'plat-reg', children:[
+            { name:'index.js', module:'plat-reg', desc:'TikTok platform definition — URL patterns, extraction config' },
+          ]},
+        ]},
+        { name:'models', module:'models', children:[
+          { name:'job.js', module:'models', desc:'Mongoose Job schema: statuses, paths, metadata, timestamps' },
+        ]},
+        { name:'constants', module:'models', children:[
+          { name:'job-status.js', module:'models', desc:'JOB_STATUSES and SOURCE_TYPES enum constants' },
+        ]},
+        { name:'domain', module:'models', children:[
+          { name:'job-transitions.js', module:'models', desc:'Valid state transition map (queued, running, completed, failed, canceled)' },
+        ]},
+        { name:'middleware', module:'middleware', children:[
+          { name:'request-limits.js', module:'middleware', desc:'CORS config, JSON body parser, URL length enforcement' },
+        ]},
+        { name:'config', module:'config', children:[
+          { name:'env.js', module:'config', desc:'getServerConfig() — port, mongoUri from environment' },
+          { name:'platform-capabilities.js', module:'config', desc:'Runtime enable/disable per platform (ENABLE_X, ENABLE_TIKTOK)' },
+        ]},
+        { name:'lib', module:'infra', children:[
+          { name:'logger.js', module:'infra', desc:'Structured logger that publishes to telemetry ring buffer' },
+          { name:'telemetry.js', module:'infra', desc:'In-memory ring buffer + SSE pub/sub for real-time events' },
+          { name:'error-codes.js', module:'infra', desc:'Standardized error code constants (INVALID_URL, NOT_FOUND, etc.)' },
+        ]},
+        { name:'utils', module:'utils', children:[
+          { name:'validation.js', module:'utils', desc:'URL validation, isTweetUrl(), getPostUrlInfo()' },
+          { name:'account-profile.js', module:'utils', desc:'Account slug derivation, path normalization' },
+        ]},
+      ]},
+    ]},
+  ]
+};
+
+// ── State ─────────────────────────────────────────────────
+const expandedSet = new Set();
+let searchTerm = '';
+let activeModule = null; // legend filter
+
+// ── Helpers ───────────────────────────────────────────────
+function nodeId(path) { return path.join('/'); }
+function isFolder(node) { return Array.isArray(node.children); }
+
+function countFiles(node) {
+  if (!isFolder(node)) return 1;
+  return node.children.reduce((s, c) => s + countFiles(c), 0);
+}
+
+function countByModule(node, acc = {}) {
+  if (!isFolder(node) && node.module) {
+    acc[node.module] = (acc[node.module] || 0) + 1;
+  }
+  if (node.children) node.children.forEach(c => countByModule(c, acc));
+  return acc;
+}
+
+function matchesSearch(node, term) {
+  if (!term) return true;
+  const t = term.toLowerCase();
+  if (node.name.toLowerCase().includes(t)) return true;
+  if (node.desc && node.desc.toLowerCase().includes(t)) return true;
+  if (node.module && MODULES[node.module] && MODULES[node.module].label.toLowerCase().includes(t)) return true;
+  return false;
+}
+
+function subtreeMatches(node, term) {
+  if (matchesSearch(node, term)) return true;
+  if (node.children) return node.children.some(c => subtreeMatches(c, term));
+  return false;
+}
+
+// ── Render tree ───────────────────────────────────────────
+function renderNode(node, path = []) {
+  const id = nodeId([...path, node.name]);
+  const folder = isFolder(node);
+  const expanded = expandedSet.has(id);
+  const mod = node.module && MODULES[node.module];
+  const color = mod ? mod.color : 'transparent';
+  const isMatch = searchTerm && matchesSearch(node, searchTerm);
+  const inSubtree = searchTerm ? subtreeMatches(node, searchTerm) : true;
+  const dimmed = (searchTerm && !inSubtree) || (activeModule && node.module !== activeModule && !(folder && folderContainsModule(node, activeModule)));
+
+  let cls = 'tree-row';
+  if (folder) cls += ' is-folder';
+  if (isMatch && searchTerm) cls += ' search-match';
+  if (dimmed) cls += ' search-dim';
+
+  let html = `<li class="tree-node" data-id="${id}">`;
+  html += `<div class="${cls}" ${folder ? `onclick="toggle('${id}')"` : ''}`;
+  if (!folder && node.desc) {
+    html += ` onmouseenter="showTip(event,'${esc(node.name)}','${esc(mod ? mod.label : '')}','${esc(node.desc)}','${color}')" onmouseleave="hideTip()"`;
+  }
+  html += `>`;
+
+  // chevron
+  if (folder) {
+    html += `<span class="chevron ${expanded ? 'open' : ''}">&#9654;</span>`;
+  } else {
+    html += `<span class="chevron hidden">&#9654;</span>`;
+  }
+
+  // icon
+  html += `<span class="node-icon">${folder ? (expanded ? '&#128194;' : '&#128193;') : '&#128196;'}</span>`;
+
+  // module dot
+  if (node.module && mod) {
+    html += `<span class="mod-dot" style="color:${color};background:${color}"></span>`;
+  }
+
+  // label
+  html += `<span class="node-label ${folder ? 'is-folder' : ''}">${esc(node.name)}</span>`;
+
+  // inline description for files
+  if (!folder && node.desc) {
+    html += `<span class="node-desc">${esc(node.desc)}</span>`;
+  }
+
+  // folder file count
+  if (folder) {
+    const fc = countFiles(node);
+    html += `<span class="node-desc">${fc} file${fc !== 1 ? 's' : ''}</span>`;
+  }
+
+  html += `</div>`;
+
+  if (folder) {
+    html += `<div class="children-wrap ${expanded ? '' : 'collapsed'}" style="max-height:${expanded ? '9999px' : '0'}">`;
+    html += `<ul>`;
+    node.children.forEach(c => { html += renderNode(c, [...path, node.name]); });
+    html += `</ul></div>`;
+  }
+
+  html += `</li>`;
+  return html;
+}
+
+function folderContainsModule(node, mod) {
+  if (node.module === mod) return true;
+  if (node.children) return node.children.some(c => folderContainsModule(c, mod));
+  return false;
+}
+
+function esc(s) { return s ? s.replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''; }
+
+function renderTree() {
+  document.getElementById('tree').innerHTML = `<ul>${renderNode(DATA)}</ul>`;
+}
+
+// ── Toggle ────────────────────────────────────────────────
+function toggle(id) {
+  if (expandedSet.has(id)) expandedSet.delete(id); else expandedSet.add(id);
+  renderTree();
+}
+
+function expandAllNodes(node, path = []) {
+  const id = nodeId([...path, node.name]);
+  if (isFolder(node)) {
+    expandedSet.add(id);
+    node.children.forEach(c => expandAllNodes(c, [...path, node.name]));
+  }
+}
+
+function expandAll() { expandAllNodes(DATA); renderTree(); }
+function collapseAll() { expandedSet.clear(); renderTree(); }
+
+// ── Search ────────────────────────────────────────────────
+function onSearch(val) {
+  searchTerm = val.trim();
+  if (searchTerm) {
+    // auto-expand folders that contain matches
+    expandMatchingFolders(DATA, []);
+  }
+  renderTree();
+}
+
+function expandMatchingFolders(node, path) {
+  const id = nodeId([...path, node.name]);
+  if (isFolder(node)) {
+    if (subtreeMatches(node, searchTerm)) {
+      expandedSet.add(id);
+      node.children.forEach(c => expandMatchingFolders(c, [...path, node.name]));
+    }
+  }
+}
+
+function clearSearch() {
+  searchTerm = '';
+  activeModule = null;
+  document.getElementById('searchBox').value = '';
+  document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
+  renderTree();
+}
+
+// ── Tooltip ───────────────────────────────────────────────
+const tip = document.getElementById('tooltip');
+function showTip(e, file, mod, desc, color) {
+  tip.innerHTML = `<div class="tt-file">${file}</div>`
+    + (mod ? `<div class="tt-module"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${mod}</div>` : '')
+    + `<div class="tt-desc">${desc}</div>`;
+  tip.classList.add('visible');
+  positionTip(e);
+}
+function hideTip() { tip.classList.remove('visible'); }
+document.addEventListener('mousemove', e => { if (tip.classList.contains('visible')) positionTip(e); });
+function positionTip(e) {
+  let x = e.clientX + 14, y = e.clientY + 14;
+  const r = tip.getBoundingClientRect();
+  if (x + r.width > window.innerWidth - 8) x = e.clientX - r.width - 10;
+  if (y + r.height > window.innerHeight - 8) y = e.clientY - r.height - 10;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+
+// ── Legend ─────────────────────────────────────────────────
+function renderLegend() {
+  const counts = countByModule(DATA);
+  const sides = { root: [], client: [], server: [] };
+  for (const [k, m] of Object.entries(MODULES)) {
+    sides[m.side].push({ key: k, ...m, count: counts[k] || 0 });
+  }
+
+  let html = '<h2>Modules</h2>';
+
+  const sections = [
+    { title: 'Root', items: sides.root },
+    { title: 'Client', items: sides.client },
+    { title: 'Server', items: sides.server },
+  ];
+
+  for (const sec of sections) {
+    html += `<div class="legend-section"><div class="legend-section-title">${sec.title}</div>`;
+    for (const m of sec.items) {
+      html += `<div class="legend-item" data-mod="${m.key}" onclick="filterByModule('${m.key}')">`;
+      html += `<span class="legend-swatch" style="color:${m.color};background:${m.color}"></span>`;
+      html += `<span class="legend-name">${m.label}</span>`;
+      html += `<span class="legend-count">${m.count}</span>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  document.getElementById('legend').innerHTML = html;
+}
+
+function filterByModule(mod) {
+  if (activeModule === mod) {
+    activeModule = null;
+  } else {
+    activeModule = mod;
+  }
+  document.querySelectorAll('.legend-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.mod === activeModule);
+  });
+  // expand all when filtering
+  if (activeModule) expandAllNodes(DATA);
+  renderTree();
+}
+
+// ── Stats ─────────────────────────────────────────────────
+function renderStats() {
+  const total = countFiles(DATA);
+  const clientFiles = DATA.children.find(c => c.name === 'client');
+  const serverFiles = DATA.children.find(c => c.name === 'server');
+  const cCount = clientFiles ? countFiles(clientFiles) : 0;
+  const sCount = serverFiles ? countFiles(serverFiles) : 0;
+  const modCount = Object.keys(MODULES).length;
+
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><span class="stat-val">${total}</span><span class="stat-label">Files</span></div>`
+    + `<div class="stat"><span class="stat-val">${modCount}</span><span class="stat-label">Modules</span></div>`
+    + `<div class="stat"><span class="stat-val">${cCount}</span><span class="stat-label">Client</span></div>`
+    + `<div class="stat"><span class="stat-val">${sCount}</span><span class="stat-label">Server</span></div>`;
+}
+
+// ── Init ──────────────────────────────────────────────────
+expandedSet.add(nodeId(['x-dl-vite-express-mongo']));
+expandedSet.add(nodeId(['x-dl-vite-express-mongo','client']));
+expandedSet.add(nodeId(['x-dl-vite-express-mongo','server']));
+renderStats();
+renderLegend();
+renderTree();
+</script>
+</body>
+</html>
