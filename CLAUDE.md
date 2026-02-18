@@ -98,6 +98,7 @@ cd server && npm install
 | `client/src/features/dashboard/useSelection.js` | Multi-select state for bulk ops |
 | `client/src/features/activity/ActivityPanel.jsx` | Real-time telemetry feed (SSE) |
 | `client/src/features/activity/eventTranslator.js` | Raw telemetry → human-readable text |
+| `client/src/lib/contacts.js` | Contact display helpers (slug formatting, avatar generation, grouping utilities) |
 | `client/src/platforms/index.js` | Client-side platform definitions |
 | `client/src/App.css` | Global styles |
 | `client/vite.config.js` | Vite config with `/api` proxy to :4000 |

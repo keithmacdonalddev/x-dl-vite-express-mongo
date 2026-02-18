@@ -51,6 +51,8 @@ File ownership map:
 - server/src/services/** → Service teammate
 - server/src/worker/** → Worker teammate
 - server/src/app.js → Server app teammate
+- server/src/models/** → Model teammate (shared — coordinate with Routes + Worker)
+- server/src/platforms/** → Platform teammate
 - server/src/middleware/** → Middleware teammate
 
 ## Platform Limitations
