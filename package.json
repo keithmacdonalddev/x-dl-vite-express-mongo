@@ -13,7 +13,8 @@
     "verify": "npm run test && npm run build --prefix client && npm run lint --prefix client && npm run check",
     "auth:bootstrap": "npm run auth:bootstrap --prefix server",
     "start": "npm run start --prefix server",
-    "lint": "npm run lint --prefix client"
+    "lint": "npm run lint --prefix client",
+    "check:boundaries": "node scripts/check-module-boundaries.mjs"
   },
   "keywords": [],
   "author": "",

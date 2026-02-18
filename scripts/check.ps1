@@ -28,3 +28,15 @@ foreach ($item in $requiredPaths) {
 }
 
 Write-Host "check.ps1: required package scripts and release docs exist."
+
+# Module boundary check
+Write-Host "check.ps1: running module boundary check..."
+$boundaryScript = Join-Path $root 'scripts\check-module-boundaries.mjs'
+if (-not (Test-Path $boundaryScript)) {
+  throw "Missing boundary checker: $boundaryScript"
+}
+& node $boundaryScript
+if ($LASTEXITCODE -ne 0) {
+  throw "Module boundary violations detected. Fix imports before proceeding."
+}
+Write-Host "check.ps1: module boundaries OK."
