@@ -1,263 +1,113 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  bulkDeleteJobs,
-  createJob,
-  createManualRetryJob,
-  deleteJob,
-  updateJob,
-} from '../api/jobsApi'
+import { listTelemetry, openTelemetryStream } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
-import {
-  buildContacts,
-  deriveHandleFromUrl,
-  formatTimestamp,
-  parseQualityLabel,
-  toAssetHref,
-} from '../lib/contacts'
+import { buildContacts, toAssetHref } from '../lib/contacts'
+import { IntakeForm } from '../features/intake/IntakeForm'
+import { JobsList } from '../features/dashboard/JobsList'
+import { useSelection } from '../features/dashboard/useSelection'
+import { useJobActions } from '../features/dashboard/useJobActions'
+import { ActivityPanel } from '../features/activity/ActivityPanel'
 import { ConfirmModal } from './ConfirmModal'
 
-function getSelectedIds(selectionMap, allIds) {
-  return allIds.filter((id) => Boolean(selectionMap[id]))
+const MAX_TELEMETRY_EVENTS = 800
+
+/**
+ * HTTP request events (generated every 3s by polling) drown out actual job
+ * telemetry in the ring buffer.  Filter them so the Activity Panel only shows
+ * meaningful job-lifecycle events.
+ */
+const NOISE_EVENT_PREFIX = 'http.request.'
+
+function isNoiseTelemetry(entry) {
+  return typeof entry.event === 'string' && entry.event.startsWith(NOISE_EVENT_PREFIX)
+}
+
+function upsertTelemetryEvent(list, next) {
+  if (!next || typeof next !== 'object') return list
+  if (isNoiseTelemetry(next)) return list
+  const nextId = Number.isFinite(next.id) ? next.id : null
+  if (nextId !== null && list.some((entry) => entry.id === nextId)) return list
+  const merged = [...list, next]
+  if (merged.length <= MAX_TELEMETRY_EVENTS) return merged
+  return merged.slice(merged.length - MAX_TELEMETRY_EVENTS)
 }
 
 export function JobsPage({ onOpenContact }) {
-  const [postUrl, setPostUrl] = useState('')
-  const [manualMediaByJobId, setManualMediaByJobId] = useState({})
-  const [editDraftByJobId, setEditDraftByJobId] = useState({})
-  const [selectedJobIds, setSelectedJobIds] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isMutating, setIsMutating] = useState(false)
-  const [manualSubmittingJobId, setManualSubmittingJobId] = useState('')
-  const [editingJobId, setEditingJobId] = useState('')
-  const [submitError, setSubmitError] = useState('')
-  const [hiddenJobIds, setHiddenJobIds] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({
-    isOpen: false,
-    mode: '',
-    jobId: '',
-    count: 0,
-  })
   const { jobs, isLoading, error: pollError, refresh } = useJobsPolling({ intervalMs: 3000 })
+  const [telemetryEvents, setTelemetryEvents] = useState([])
+  const [isActivityOpen, setIsActivityOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
 
+  const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
-  const visibleJobs = useMemo(() => jobs.filter((job) => !hiddenJobIds[job._id]), [jobs, hiddenJobIds])
+  const visibleJobs = useMemo(() => jobs.filter((job) => !actions.hiddenJobIds[job._id]), [jobs, actions.hiddenJobIds])
   const allJobIds = useMemo(() => visibleJobs.map((job) => job._id), [visibleJobs])
-  const selectedIds = useMemo(() => getSelectedIds(selectedJobIds, allJobIds), [selectedJobIds, allJobIds])
-  const selectedCount = selectedIds.length
+  const selection = useSelection(allJobIds)
 
   useEffect(() => {
-    const validIds = new Set(allJobIds)
-    setSelectedJobIds((current) => {
-      const next = {}
-      for (const key of Object.keys(current)) {
-        if (validIds.has(key)) {
-          next[key] = current[key]
-        }
-      }
-      return next
-    })
-  }, [allJobIds])
+    actions.cleanupHiddenIds(jobs.map((j) => j._id))
+  }, [jobs]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Telemetry stream
   useEffect(() => {
-    const jobIds = new Set(jobs.map((job) => job._id))
-    setHiddenJobIds((current) => {
-      const next = {}
-      for (const key of Object.keys(current)) {
-        if (jobIds.has(key)) {
-          next[key] = current[key]
+    let cancelled = false
+    let stream = null
+
+    async function loadHistory() {
+      try {
+        const payload = await listTelemetry({ limit: 2000 })
+        if (cancelled) return
+        const raw = Array.isArray(payload.events) ? payload.events : []
+        const events = raw.filter((e) => !isNoiseTelemetry(e))
+        setTelemetryEvents(events.slice(Math.max(events.length - MAX_TELEMETRY_EVENTS, 0)))
+      } catch { /* best-effort */ }
+    }
+
+    function attachStream() {
+      stream = openTelemetryStream(
+        { limit: 2000 },
+        {
+          onEvent: (entry) => {
+            if (cancelled) return
+            setTelemetryEvents((current) => upsertTelemetryEvent(current, entry))
+          },
+          onError: () => {},
         }
-      }
-      return next
-    })
-  }, [jobs])
-
-  async function handleSubmit(event) {
-    event.preventDefault()
-    if (!postUrl.trim()) {
-      return
+      )
     }
 
-    setIsSubmitting(true)
-    setSubmitError('')
-    try {
-      await createJob(postUrl.trim())
-      setPostUrl('')
-      await refresh()
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsSubmitting(false)
+    loadHistory()
+    attachStream()
+    return () => {
+      cancelled = true
+      if (stream && typeof stream.close === 'function') stream.close()
     }
-  }
-
-  async function handleManualRetry(event, jobId) {
-    event.preventDefault()
-    const mediaUrl = (manualMediaByJobId[jobId] || '').trim()
-    if (!mediaUrl) {
-      return
-    }
-
-    setManualSubmittingJobId(jobId)
-    setSubmitError('')
-    try {
-      await createManualRetryJob(jobId, mediaUrl)
-      setManualMediaByJobId((current) => ({
-        ...current,
-        [jobId]: '',
-      }))
-      await refresh()
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setManualSubmittingJobId('')
-    }
-  }
-
-  async function handleCandidateRetry(jobId, mediaUrl) {
-    if (!mediaUrl) {
-      return
-    }
-
-    setManualSubmittingJobId(jobId)
-    setSubmitError('')
-    try {
-      await createManualRetryJob(jobId, mediaUrl)
-      await refresh()
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setManualSubmittingJobId('')
-    }
-  }
-
-  function toggleSelection(jobId) {
-    setSelectedJobIds((current) => ({
-      ...current,
-      [jobId]: !current[jobId],
-    }))
-  }
-
-  function toggleAllSelection() {
-    if (selectedCount === allJobIds.length) {
-      setSelectedJobIds({})
-      return
-    }
-
-    const next = {}
-    for (const jobId of allJobIds) {
-      next[jobId] = true
-    }
-    setSelectedJobIds(next)
-  }
+  }, [])
 
   function openSingleDelete(jobId) {
-    setConfirmDelete({
-      isOpen: true,
-      mode: 'single',
-      jobId,
-      count: 1,
-    })
+    setConfirmDelete({ isOpen: true, mode: 'single', jobId, count: 1 })
   }
 
   function openBulkDelete() {
-    if (selectedCount === 0) {
-      return
-    }
-    setConfirmDelete({
-      isOpen: true,
-      mode: 'bulk',
-      jobId: '',
-      count: selectedCount,
-    })
+    if (selection.selectedCount === 0) return
+    setConfirmDelete({ isOpen: true, mode: 'bulk', jobId: '', count: selection.selectedCount })
   }
 
   function closeDeleteModal() {
-    if (isMutating) {
-      return
-    }
-    setConfirmDelete({
-      isOpen: false,
-      mode: '',
-      jobId: '',
-      count: 0,
-    })
+    if (actions.isMutating) return
+    setConfirmDelete({ isOpen: false, mode: '', jobId: '', count: 0 })
   }
 
   async function handleConfirmDelete() {
-    setIsMutating(true)
-    setSubmitError('')
-
-    try {
-      if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
-        await deleteJob(confirmDelete.jobId)
-        setHiddenJobIds((current) => ({ ...current, [confirmDelete.jobId]: true }))
-      } else if (confirmDelete.mode === 'bulk') {
-        await bulkDeleteJobs(selectedIds)
-        setHiddenJobIds((current) => {
-          const next = { ...current }
-          for (const jobId of selectedIds) {
-            next[jobId] = true
-          }
-          return next
-        })
-        setSelectedJobIds({})
-      }
-
-      await refresh()
-      closeDeleteModal()
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsMutating(false)
+    if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
+      await actions.handleDeleteJob(confirmDelete.jobId)
+    } else if (confirmDelete.mode === 'bulk') {
+      await actions.handleBulkDelete(selection.selectedIds, selection.clearSelection)
     }
+    closeDeleteModal()
   }
 
-  function startEdit(job) {
-    setEditingJobId(job._id)
-    setEditDraftByJobId((current) => ({
-      ...current,
-      [job._id]: {
-        tweetUrl: job.tweetUrl || '',
-        accountDisplayName: job.accountDisplayName || '',
-      },
-    }))
-  }
-
-  function cancelEdit() {
-    setEditingJobId('')
-  }
-
-  async function submitEdit(event, job) {
-    event.preventDefault()
-    const draft = editDraftByJobId[job._id] || {}
-    const payload = {}
-
-    if (typeof draft.tweetUrl === 'string' && draft.tweetUrl.trim() && draft.tweetUrl.trim() !== job.tweetUrl) {
-      payload.tweetUrl = draft.tweetUrl.trim()
-    }
-    if (typeof draft.accountDisplayName === 'string' && draft.accountDisplayName.trim() !== (job.accountDisplayName || '')) {
-      payload.accountDisplayName = draft.accountDisplayName.trim()
-    }
-
-    if (Object.keys(payload).length === 0) {
-      setEditingJobId('')
-      return
-    }
-
-    setIsMutating(true)
-    setSubmitError('')
-    try {
-      await updateJob(job._id, payload)
-      setEditingJobId('')
-      await refresh()
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsMutating(false)
-    }
-  }
-
-  const errorMessage = submitError || pollError
+  const errorMessage = actions.actionError || pollError
 
   return (
     <main className="app">
@@ -275,7 +125,6 @@ export function JobsPage({ onOpenContact }) {
             <h2>Contacts</h2>
             <p>{contacts.length} tracked</p>
           </div>
-
           <ul className="contacts-list">
             {contacts.map((contact) => (
               <li key={contact.slug}>
@@ -283,9 +132,7 @@ export function JobsPage({ onOpenContact }) {
                   type="button"
                   className="contact-chip"
                   onClick={() => {
-                    if (typeof onOpenContact === 'function') {
-                      onOpenContact(contact.slug)
-                    }
+                    if (typeof onOpenContact === 'function') onOpenContact(contact.slug)
                   }}
                 >
                   {contact.latestThumbnail && (
@@ -300,226 +147,40 @@ export function JobsPage({ onOpenContact }) {
         </aside>
 
         <section className="workspace">
-          <section className="card">
-            <h2>Create job</h2>
-            <form className="job-form" onSubmit={handleSubmit}>
-              <label htmlFor="postUrl">Post URL</label>
-              <input
-                id="postUrl"
-                name="postUrl"
-                type="url"
-                placeholder="https://x.com/user/status/123... or https://www.tiktok.com/@user/video/123..."
-                value={postUrl}
-                onChange={(event) => setPostUrl(event.target.value)}
-                required
-              />
-              <button type="submit" disabled={isSubmitting || isMutating}>
-                {isSubmitting ? 'Submitting...' : 'Add job'}
-              </button>
-            </form>
-          </section>
+          <IntakeForm onCreated={refresh} isBusy={actions.isMutating} />
 
-          <section className="card">
-            <div className="jobs-header">
-              <h2>Jobs Timeline</h2>
-              <p>{visibleJobs.length} total</p>
-            </div>
-
-            <div className="bulk-toolbar">
-              <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={visibleJobs.length === 0}>
-                {selectedCount === allJobIds.length && allJobIds.length > 0 ? 'Clear all' : 'Select all'}
-              </button>
-              <button
-                type="button"
-                className="danger-btn"
-                onClick={openBulkDelete}
-                disabled={selectedCount === 0 || isMutating}
-              >
-                Delete selected ({selectedCount})
-              </button>
-            </div>
-
-            {isLoading && <p>Loading jobs...</p>}
-            {!isLoading && visibleJobs.length === 0 && <p>No jobs yet.</p>}
-            {!isLoading && visibleJobs.length > 0 && (
-              <ul className="jobs-list">
-                {visibleJobs.map((job) => (
-                  <li key={job._id} className="job-row">
-                    <div className="row-actions-top">
-                      <label className="select-box">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selectedJobIds[job._id])}
-                          onChange={() => toggleSelection(job._id)}
-                        />
-                        <span>Select</span>
-                      </label>
-                      <div className="row-buttons">
-                        <button type="button" className="ghost-btn small-btn" onClick={() => startEdit(job)}>
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="danger-btn small-btn"
-                          onClick={() => openSingleDelete(job._id)}
-                          disabled={isMutating}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="job-top">
-                      <div>
-                        <p>
-                          <strong>Status:</strong> {job.status}
-                        </p>
-                        <p>
-                          <strong>Account:</strong>{' '}
-                          {job.accountDisplayName || job.accountHandle || deriveHandleFromUrl(job.tweetUrl || '')}
-                        </p>
-                        <p>
-                          <strong>URL:</strong> {job.tweetUrl}
-                        </p>
-                        <p>
-                          <strong>Created:</strong> {formatTimestamp(job.createdAt)}
-                        </p>
-                      </div>
-                      {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) && (
-                        <img
-                          className="job-thumb"
-                          src={toAssetHref(job.thumbnailPath || job.imageUrls[0])}
-                          alt={job.accountDisplayName || job.accountHandle || 'thumbnail'}
-                        />
-                      )}
-                    </div>
-
-                    {editingJobId === job._id && (
-                      <form className="edit-form" onSubmit={(event) => submitEdit(event, job)}>
-                        <label htmlFor={`edit-url-${job._id}`}>Post URL</label>
-                        <input
-                          id={`edit-url-${job._id}`}
-                          type="url"
-                          value={editDraftByJobId[job._id]?.tweetUrl || ''}
-                          onChange={(event) =>
-                            setEditDraftByJobId((current) => ({
-                              ...current,
-                              [job._id]: {
-                                ...(current[job._id] || {}),
-                                tweetUrl: event.target.value,
-                              },
-                            }))
-                          }
-                          required
-                        />
-                        <label htmlFor={`edit-display-${job._id}`}>Display name</label>
-                        <input
-                          id={`edit-display-${job._id}`}
-                          type="text"
-                          value={editDraftByJobId[job._id]?.accountDisplayName || ''}
-                          onChange={(event) =>
-                            setEditDraftByJobId((current) => ({
-                              ...current,
-                              [job._id]: {
-                                ...(current[job._id] || {}),
-                                accountDisplayName: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        <div className="row-buttons">
-                          <button type="submit" disabled={isMutating}>
-                            {isMutating ? 'Saving...' : 'Save edit'}
-                          </button>
-                          <button type="button" className="ghost-btn" onClick={cancelEdit} disabled={isMutating}>
-                            Cancel
-                          </button>
-                        </div>
-                      </form>
-                    )}
-
-                    {job.metadata && (
-                      <details>
-                        <summary>Metadata</summary>
-                        <p>
-                          <strong>Title:</strong> {job.metadata.title || 'n/a'}
-                        </p>
-                        <p>
-                          <strong>Description:</strong> {job.metadata.description || 'n/a'}
-                        </p>
-                        <p>
-                          <strong>Canonical:</strong> {job.metadata.canonicalUrl || 'n/a'}
-                        </p>
-                      </details>
-                    )}
-
-                    {Array.isArray(job.imageUrls) && job.imageUrls.length > 0 && (
-                      <details>
-                        <summary>Images ({job.imageUrls.length})</summary>
-                        <ul className="assets-list">
-                          {job.imageUrls.map((imageUrl) => (
-                            <li key={imageUrl}>
-                              <a href={toAssetHref(imageUrl)} target="_blank" rel="noreferrer">
-                                {imageUrl}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-
-                    {Array.isArray(job.candidateUrls) && job.candidateUrls.length > 0 && (
-                      <details>
-                        <summary>Media candidates ({job.candidateUrls.length})</summary>
-                        <ul className="assets-list">
-                          {job.candidateUrls.map((candidateUrl, index) => (
-                            <li key={candidateUrl}>
-                              <button
-                                type="button"
-                                disabled={manualSubmittingJobId === job._id || isMutating}
-                                onClick={() => handleCandidateRetry(job._id, candidateUrl)}
-                              >
-                                {manualSubmittingJobId === job._id ? 'Retrying...' : 'Use this media URL'}
-                              </button>
-                              <p>{parseQualityLabel(candidateUrl, index)}</p>
-                              <a href={candidateUrl} target="_blank" rel="noreferrer">
-                                {candidateUrl}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-
-                    {job.status === 'failed' && (
-                      <form className="manual-retry-form" onSubmit={(event) => handleManualRetry(event, job._id)}>
-                        <label htmlFor={`manualMedia-${job._id}`}>Manual media URL</label>
-                        <input
-                          id={`manualMedia-${job._id}`}
-                          type="url"
-                          placeholder="https://video.twimg.com/.../video.mp4"
-                          value={manualMediaByJobId[job._id] || ''}
-                          onChange={(event) =>
-                            setManualMediaByJobId((current) => ({
-                              ...current,
-                              [job._id]: event.target.value,
-                            }))
-                          }
-                          required
-                        />
-                        <button type="submit" disabled={manualSubmittingJobId === job._id || isMutating}>
-                          {manualSubmittingJobId === job._id ? 'Retrying...' : 'Retry with media URL'}
-                        </button>
-                      </form>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {errorMessage && <p className="error">{errorMessage}</p>}
-          </section>
+          <JobsList
+            jobs={visibleJobs}
+            isLoading={isLoading}
+            error={errorMessage}
+            selectedJobIds={selection.selectedJobIds}
+            selectedCount={selection.selectedCount}
+            allJobIds={allJobIds}
+            editingJobId={actions.editingJobId}
+            editDraftByJobId={actions.editDraftByJobId}
+            isMutating={actions.isMutating}
+            manualSubmittingJobId={actions.manualSubmittingJobId}
+            manualMediaByJobId={actions.manualMediaByJobId}
+            onToggleSelect={selection.toggleSelection}
+            onToggleAllSelection={selection.toggleAllSelection}
+            onStartEdit={actions.startEdit}
+            onCancelEdit={actions.cancelEdit}
+            onSubmitEdit={actions.submitEdit}
+            onUpdateEditDraft={actions.updateEditDraft}
+            onOpenSingleDelete={openSingleDelete}
+            onOpenBulkDelete={openBulkDelete}
+            onManualRetry={actions.handleManualRetry}
+            onCandidateRetry={actions.handleCandidateRetry}
+            onSetManualMediaUrl={actions.setManualMediaUrl}
+          />
         </section>
       </section>
+
+      <ActivityPanel
+        telemetryEvents={telemetryEvents}
+        isOpen={isActivityOpen}
+        onToggle={() => setIsActivityOpen((v) => !v)}
+      />
 
       <ConfirmModal
         isOpen={confirmDelete.isOpen}
@@ -530,7 +191,7 @@ export function JobsPage({ onOpenContact }) {
             : 'Permanently delete this job and its local files?'
         }
         confirmLabel="Delete permanently"
-        isBusy={isMutating}
+        isBusy={actions.isMutating}
         onCancel={closeDeleteModal}
         onConfirm={handleConfirmDelete}
       />
