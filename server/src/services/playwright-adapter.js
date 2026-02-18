@@ -3,12 +3,17 @@ const fs = require('node:fs');
 
 const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
 const IMAGE_URL_PATTERN = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
-const TIKTOK_MEDIA_PATH_PATTERN = /\/(video\/tos\/|aweme\/v1\/play\/)/i;
+const { getAuthBlockingHosts, getAllMediaPathPatterns } = require('../platforms/registry');
+
 const VIDEO_CONTENT_TYPE_PATTERN = /^(video\/|application\/(vnd\.apple\.mpegurl|x-mpegurl))/i;
 const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
 const AUTH_REQUIRED_PATTERN = /(log in|login|sign in|authenticate|session expired)/i;
-const BOT_CHALLENGE_PATTERN = /(captcha|verify you are human|performing security verification|unusual traffic)/i;
-const X_AUTH_HOSTS = new Set(['x.com', 'twitter.com']);
+const BOT_CHALLENGE_PATTERN =
+  /(captcha|verify you are human|performing security verification|unusual traffic|just a moment|checking your browser|attention required)/i;
+
+// Resolved once at startup from the platform registry
+const AUTH_BLOCKING_HOSTS = getAuthBlockingHosts();
+const PLATFORM_MEDIA_PATH_PATTERNS = getAllMediaPathPatterns();
 
 let persistentContextPromise = null;
 const CHROMIUM_SINGLETON_ARTIFACTS = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
@@ -91,9 +96,9 @@ function assessAccessState({ title, visibleText, content, finalUrl }) {
     return 'BOT_CHALLENGE';
   }
 
-  // X/Twitter extraction usually requires login for restricted posts.
-  // TikTok pages often contain non-blocking "log in" UI text even when public media is accessible.
-  if (X_AUTH_HOSTS.has(hostname) && AUTH_REQUIRED_PATTERN.test(sample)) {
+  // Only block on auth-wall text for platforms that have authWallBlocks: true.
+  // (e.g. TikTok pages show "log in" UI even on public videos — not a hard block)
+  if (AUTH_BLOCKING_HOSTS.has(hostname) && AUTH_REQUIRED_PATTERN.test(sample)) {
     return 'AUTH_REQUIRED';
   }
 
@@ -128,6 +133,7 @@ async function launchPersistentContextWithRecovery(chromium, config) {
   try {
     return await chromium.launchPersistentContext(config.userDataDir, {
       headless: config.headless,
+      acceptDownloads: true,
       ...config.contextOptions,
     });
   } catch (error) {
@@ -139,6 +145,7 @@ async function launchPersistentContextWithRecovery(chromium, config) {
 
     return chromium.launchPersistentContext(config.userDataDir, {
       headless: config.headless,
+      acceptDownloads: true,
       ...config.contextOptions,
     });
   }
@@ -158,7 +165,7 @@ function isLikelyMediaResponse(response) {
     return true;
   }
 
-  if (TIKTOK_MEDIA_PATH_PATTERN.test(url)) {
+  if (PLATFORM_MEDIA_PATH_PATTERNS.some((pattern) => pattern.test(url))) {
     return true;
   }
 
@@ -212,7 +219,7 @@ function isLikelyMediaUrl(url) {
   }
   return (
     MEDIA_URL_PATTERN.test(url) ||
-    TIKTOK_MEDIA_PATH_PATTERN.test(url)
+    PLATFORM_MEDIA_PATH_PATTERNS.some((pattern) => pattern.test(url))
   );
 }
 
@@ -261,6 +268,8 @@ async function readPostMetadata(page) {
     return metadata;
   }
 
+  const metadataSelectorTimeoutMs = 1200;
+
   const selectors = [
     ['description', 'meta[name="description"]'],
     ['description', 'meta[property="og:description"]'],
@@ -280,7 +289,7 @@ async function readPostMetadata(page) {
     try {
       const locator = page.locator(selector).first();
       const attr = selector.startsWith('link') ? 'href' : 'content';
-      const value = await locator.getAttribute(attr);
+      const value = await locator.getAttribute(attr, { timeout: metadataSelectorTimeoutMs });
       if (value && !metadata[field]) {
         metadata[field] = value.trim();
       }
@@ -300,7 +309,7 @@ async function readPostMetadata(page) {
   for (const [field, selector] of numericSelectors) {
     try {
       const locator = page.locator(selector).first();
-      const value = await locator.getAttribute('content');
+      const value = await locator.getAttribute('content', { timeout: metadataSelectorTimeoutMs });
       const parsed = Number.parseInt(value || '', 10);
       if (Number.isFinite(parsed) && parsed > 0 && !metadata[field]) {
         metadata[field] = parsed;
@@ -311,7 +320,9 @@ async function readPostMetadata(page) {
   }
 
   try {
-    const authorMeta = await page.locator('meta[name="author"]').first().getAttribute('content');
+    const authorMeta = await page.locator('meta[name="author"]').first().getAttribute('content', {
+      timeout: metadataSelectorTimeoutMs,
+    });
     if (authorMeta) {
       metadata.author = authorMeta.trim();
     }
@@ -417,30 +428,76 @@ async function closePersistentContext() {
 
 function createPlaywrightPageFactory(options = {}) {
   const config = getAdapterConfig(options);
+  const chromium = resolveChromium(config.chromium);
 
   function isClosedContextError(error) {
     const message = error instanceof Error ? error.message : String(error);
     return /target page, context or browser has been closed/i.test(message);
   }
 
+  async function openEphemeralPage() {
+    const browser = await chromium.launch({
+      headless: config.headless,
+    });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    return {
+      page,
+      async close() {
+        await page.close().catch(() => {});
+        await context.close().catch(() => {});
+        await browser.close().catch(() => {});
+      },
+    };
+  }
+
   async function openNewPage() {
-    const context = await getPersistentContext(config);
+    let context;
+    try {
+      context = await getPersistentContext(config);
+    } catch (error) {
+      if (!isLaunchClosedError(error)) {
+        throw error;
+      }
+      return openEphemeralPage();
+    }
 
     try {
-      return await context.newPage();
+      const page = await context.newPage();
+      return {
+        page,
+        async close() {
+          await page.close();
+        },
+      };
     } catch (error) {
       if (!isClosedContextError(error)) {
         throw error;
       }
 
       await closePersistentContext().catch(() => {});
-      const relaunched = await getPersistentContext(config);
-      return relaunched.newPage();
+      try {
+        const relaunched = await getPersistentContext(config);
+        const page = await relaunched.newPage();
+        return {
+          page,
+          async close() {
+            await page.close();
+          },
+        };
+      } catch (relaunchError) {
+        if (!isLaunchClosedError(relaunchError)) {
+          throw relaunchError;
+        }
+        return openEphemeralPage();
+      }
     }
   }
 
   return async function pageFactory() {
-    const page = await openNewPage();
+    const opened = await openNewPage();
+    const page = opened.page;
     const mediaUrls = new Set();
     const imageUrls = new Set();
 
@@ -500,7 +557,7 @@ function createPlaywrightPageFactory(options = {}) {
       },
       async close() {
         page.off('response', onResponse);
-        await page.close();
+        await opened.close();
       },
     };
   };

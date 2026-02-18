@@ -91,6 +91,10 @@ const translations = {
   'worker.job.download.validation_retry.auth_succeeded': (m) => ({ text: `Browser session download succeeded${m.bytes ? ` (${fmtBytes(m.bytes)})` : ''}`, icon: '\u2713' }),
   'worker.job.download.validation_retry.auth_still_invalid': (m) => ({ text: `Browser session download still invalid: ${m.reason || '?'}`, icon: '\u2717' }),
   'worker.job.download.validation_retry.auth_failed': (m) => ({ text: `Browser session download failed: ${m.message || '?'}`, icon: '\u2717' }),
+  'worker.job.download.validation_retry.browser_nav_attempt': () => ({ text: 'Retrying with full browser download (native TLS)...', icon: '\u2192' }),
+  'worker.job.download.validation_retry.browser_nav_succeeded': (m) => ({ text: `Browser download succeeded${m.bytes ? ` (${fmtBytes(m.bytes)})` : ''}!`, icon: '\u2713' }),
+  'worker.job.download.validation_retry.browser_nav_still_invalid': (m) => ({ text: `Browser download still invalid: ${m.reason || '?'}`, icon: '\u2717' }),
+  'worker.job.download.validation_retry.browser_nav_failed': (m) => ({ text: `Browser download attempt failed: ${m.message || '?'}`, icon: '\u2717' }),
   'worker.job.download.validation_retry.re_extracting': () => ({ text: 'Re-extracting fresh media URL from page...', icon: '\u2192' }),
   'worker.job.download.validation_retry.re_extracted': (m) => ({ text: `Fresh URL extracted${m.changedMediaUrl ? ' (new URL)' : ' (same URL)'}${m.durationMs ? ` (${fmtSec(m.durationMs)})` : ''}`, icon: m.changedMediaUrl ? '\u2713' : '\u26a0' }),
   'worker.job.download.validation_retry.fresh_auth_succeeded': (m) => ({ text: `Fresh URL + browser session succeeded${m.bytes ? ` (${fmtBytes(m.bytes)})` : ''}`, icon: '\u2713' }),
@@ -141,6 +145,10 @@ const translations = {
     if (m.durationMs) parts.push(fmtSec(m.durationMs))
     return { text: parts.join(' \u2014 '), icon: '\u2713' }
   },
+  'downloader.browser_nav.started': () => ({ text: 'Downloading via browser navigation...', icon: '\u2192' }),
+  'downloader.browser_nav.completed': (m) => ({ text: `Browser download complete${m.bytes ? ` (${fmtBytes(m.bytes)})` : ''}`, icon: '\u2713' }),
+  'downloader.browser_nav.download_failed': (m) => ({ text: `Browser download failed: ${m.failure || '?'}`, icon: '\u2717' }),
+  'downloader.browser_nav.failed': (m) => ({ text: `Browser navigation download failed: ${m.message || '?'}`, icon: '\u2717' }),
   'downloader.hls.ffmpeg.started': () => ({ text: 'Starting HLS download with ffmpeg...', icon: '\u2192' }),
   'downloader.hls.ffmpeg.error': (m) => ({ text: `ffmpeg error: ${m.message || '?'}`, icon: '\u2717' }),
   'downloader.hls.ffmpeg.completed': (m) => {

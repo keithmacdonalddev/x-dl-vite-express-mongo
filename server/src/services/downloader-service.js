@@ -144,6 +144,91 @@ async function downloadDirectWithPlaywrightSession(
   };
 }
 
+async function downloadDirectWithBrowserNavigation(
+  mediaUrl,
+  {
+    targetPath,
+    getPersistentContextImpl,
+    telemetryContext,
+  } = {}
+) {
+  const contextMeta = normalizeTelemetryContext(telemetryContext);
+  const startedAt = Date.now();
+  if (!targetPath) {
+    throw new Error('targetPath is required for browser navigation download');
+  }
+
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+
+  const getPersistentContext =
+    getPersistentContextImpl ||
+    require('./playwright-adapter').getPersistentContext;
+
+  if (typeof getPersistentContext !== 'function') {
+    throw new Error('Playwright persistent context is not available');
+  }
+
+  const context = await getPersistentContext();
+  const page = await context.newPage();
+
+  logger.info('downloader.browser_nav.started', {
+    ...contextMeta,
+    mediaUrl,
+    targetPath,
+  });
+
+  try {
+    // Set up download listener BEFORE navigation to avoid race condition
+    const downloadPromise = context.waitForEvent('download', { timeout: 120000 });
+
+    await page.goto(mediaUrl, { waitUntil: 'commit', timeout: 30000 });
+
+    const download = await downloadPromise;
+
+    // Check for download failure
+    const failure = await download.failure();
+    if (failure) {
+      logger.error('downloader.browser_nav.download_failed', {
+        ...contextMeta,
+        mediaUrl,
+        targetPath,
+        failure,
+      });
+      throw new Error(`Browser download failed: ${failure}`);
+    }
+
+    await download.saveAs(targetPath);
+    const fileStat = await fs.promises.stat(targetPath);
+    const bytes = Number.isFinite(fileStat.size) ? fileStat.size : 0;
+
+    logger.info('downloader.browser_nav.completed', {
+      ...contextMeta,
+      mediaUrl,
+      targetPath,
+      bytes,
+      durationMs: Date.now() - startedAt,
+    });
+
+    return {
+      outputPath: targetPath,
+      mode: 'direct',
+      bytes,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('downloader.browser_nav.failed', {
+      ...contextMeta,
+      mediaUrl,
+      targetPath,
+      message,
+      durationMs: Date.now() - startedAt,
+    });
+    throw error;
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 function chooseDownloadMode(mediaUrl) {
   return typeof mediaUrl === 'string' && /\.m3u8(\?.*)?$/i.test(mediaUrl) ? 'hls' : 'direct';
 }
@@ -421,6 +506,7 @@ module.exports = {
   chooseDownloadMode,
   downloadDirect,
   downloadDirectWithPlaywrightSession,
+  downloadDirectWithBrowserNavigation,
   downloadHlsWithFfmpeg,
   downloadMedia,
 };

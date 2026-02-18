@@ -2,7 +2,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
-const { downloadMedia, downloadDirect, downloadDirectWithPlaywrightSession, isSignedUrlExpired } = require('../services/downloader-service');
+const { downloadMedia, downloadDirect, downloadDirectWithPlaywrightSession, downloadDirectWithBrowserNavigation, isSignedUrlExpired } = require('../services/downloader-service');
 const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
 const {
   deriveAccountProfile,
@@ -426,7 +426,60 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
         });
       }
 
-      // Strategy 2: Re-extract fresh URL + download (if auth didn't work)
+      // Strategy 2: Try browser-native download (page.goto + download event).
+      // Uses Chromium's real TLS fingerprint and full cookie jar.
+      if (!authRetrySucceeded) {
+        try {
+          logger.info('worker.job.download.validation_retry.browser_nav_attempt', {
+            jobId,
+            traceId,
+            mediaUrl: downloadUrl,
+          });
+          // Clean up before retry
+          try {
+            if (targetPath && fs.existsSync(targetPath)) {
+              fs.unlinkSync(targetPath);
+            }
+          } catch { /* ignore */ }
+
+          downloaded = await downloadDirectWithBrowserNavigation(downloadUrl, {
+            targetPath,
+            telemetryContext: { jobId, traceId, stage: 'validation-retry-browser-nav' },
+          });
+          const browserNavOutputPath = downloaded && typeof downloaded.outputPath === 'string' ? downloaded.outputPath : '';
+          const browserNavValidationError = validateDownloadedFile(downloaded, browserNavOutputPath, downloadUrl, { jobId, traceId });
+          if (!browserNavValidationError) {
+            outputPath = browserNavOutputPath;
+            authRetrySucceeded = true;  // reuse this flag to skip further strategies
+            logger.info('worker.job.download.validation_retry.browser_nav_succeeded', {
+              jobId,
+              traceId,
+              mediaUrl: downloadUrl,
+              bytes: downloaded && Number.isFinite(downloaded.bytes) ? downloaded.bytes : -1,
+            });
+          } else {
+            logger.error('worker.job.download.validation_retry.browser_nav_still_invalid', {
+              jobId,
+              traceId,
+              reason: browserNavValidationError.message,
+            });
+            try {
+              if (browserNavOutputPath && fs.existsSync(browserNavOutputPath)) {
+                fs.unlinkSync(browserNavOutputPath);
+              }
+            } catch { /* ignore */ }
+          }
+        } catch (browserNavErr) {
+          const browserNavMessage = browserNavErr instanceof Error ? browserNavErr.message : String(browserNavErr);
+          logger.error('worker.job.download.validation_retry.browser_nav_failed', {
+            jobId,
+            traceId,
+            message: browserNavMessage,
+          });
+        }
+      }
+
+      // Strategy 3: Re-extract fresh URL + download (if auth and browser nav didn't work)
       if (!authRetrySucceeded && typeof extractor === 'function') {
         logger.info('worker.job.download.validation_retry.re_extracting', {
           jobId,
