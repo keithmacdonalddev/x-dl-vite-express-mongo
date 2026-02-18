@@ -36,6 +36,139 @@ function pushHistory(entry) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// MongoDB sink (TELEMETRY_SINK=mongo)
+// Active only when TELEMETRY_SINK env var is set to 'mongo'.
+// The singleton API (publishTelemetry/subscribeTelemetry/listTelemetry) is
+// IDENTICAL regardless of sink mode — callers never need to change.
+// ---------------------------------------------------------------------------
+
+const SINK_MODE = (process.env.TELEMETRY_SINK || 'memory').toLowerCase();
+const useMongo = SINK_MODE === 'mongo';
+
+// Batch buffer: events are held for up to 500ms then bulk-inserted.
+let mongoBatch = [];
+let mongoFlushTimer = null;
+
+function scheduleMongoFlush() {
+  if (mongoFlushTimer !== null) {
+    return;
+  }
+  mongoFlushTimer = setTimeout(() => {
+    mongoFlushTimer = null;
+    flushMongooBatch();
+  }, 500);
+}
+
+function flushMongooBatch() {
+  if (mongoBatch.length === 0) {
+    return;
+  }
+  const toInsert = mongoBatch;
+  mongoBatch = [];
+
+  // Lazy-require to avoid circular dependencies and to let mongoose connect
+  // before the first write attempt.
+  let TelemetryEvent;
+  try {
+    ({ TelemetryEvent } = require('../models/telemetry-event'));
+  } catch (_) {
+    return;
+  }
+
+  TelemetryEvent.insertMany(toInsert, { ordered: false }).catch(() => {
+    // Fire-and-forget: silently drop if MongoDB is unavailable.
+  });
+}
+
+function queueMongoWrite(payload) {
+  if (!useMongo) {
+    return;
+  }
+  // Noise events are never persisted to MongoDB.
+  if (isNoiseEvent(payload.event)) {
+    return;
+  }
+  mongoBatch.push({
+    event: payload.event,
+    level: payload.level || '',
+    jobId: payload.jobId || '',
+    traceId: payload.traceId || '',
+    ts: payload.ts,
+    data: Object.fromEntries(
+      Object.entries(payload).filter(
+        ([k]) => !['id', 'event', 'level', 'jobId', 'traceId', 'ts'].includes(k)
+      )
+    ),
+    createdAt: new Date(payload.ts),
+  });
+  scheduleMongoFlush();
+}
+
+// ---------------------------------------------------------------------------
+// Mongo polling for subscribeTelemetry (cross-process events from worker)
+// When TELEMETRY_SINK=mongo, the API process may not share memory with the
+// worker process.  A 2s poll on the TelemetryEvent collection bridges the gap.
+// ---------------------------------------------------------------------------
+
+let mongoPollingHandle = null;
+let mongoLastPolledTs = null;
+
+function startMongoPolling() {
+  if (!useMongo || mongoPollingHandle !== null) {
+    return;
+  }
+  mongoLastPolledTs = new Date().toISOString();
+
+  mongoPollingHandle = setInterval(async () => {
+    let TelemetryEvent;
+    try {
+      ({ TelemetryEvent } = require('../models/telemetry-event'));
+    } catch (_) {
+      return;
+    }
+    try {
+      const since = mongoLastPolledTs;
+      const events = await TelemetryEvent.find(
+        { ts: { $gt: since } },
+        null,
+        { sort: { ts: 1 }, limit: 200, lean: true }
+      );
+      if (events.length > 0) {
+        mongoLastPolledTs = events[events.length - 1].ts;
+        for (const doc of events) {
+          const payload = {
+            id: ++nextId,
+            ts: doc.ts,
+            event: doc.event,
+            level: doc.level || '',
+            jobId: doc.jobId || '',
+            traceId: doc.traceId || '',
+            ...(doc.data || {}),
+          };
+          // Add to local ring buffer so listTelemetry stays consistent.
+          if (!isNoiseEvent(payload.event)) {
+            pushHistory(payload);
+          }
+          emitter.emit('event', payload);
+        }
+      }
+    } catch (_) {
+      // Silently skip if MongoDB is unavailable.
+    }
+  }, 2000);
+}
+
+// Start polling only in mongo mode.
+if (useMongo) {
+  // Defer start until next tick so mongoose has a chance to connect.
+  setImmediate(startMongoPolling);
+}
+
+// ---------------------------------------------------------------------------
+// Public API (UNCHANGED — same three exports, same signatures)
+// ---------------------------------------------------------------------------
+
 function publishTelemetry(event, meta = {}) {
   const payload = {
     id: ++nextId,
@@ -49,6 +182,8 @@ function publishTelemetry(event, meta = {}) {
     pushHistory(payload);
   }
   emitter.emit('event', payload);
+  // Queue async MongoDB write (no-op in memory mode).
+  queueMongoWrite(payload);
   return payload;
 }
 
