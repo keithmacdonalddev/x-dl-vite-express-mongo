@@ -400,7 +400,8 @@
   overflow-y: auto;
 }
 
-.activity-job-group.is-active .activity-event-list {
+.activity-job-group.is-active .activity-event-list,
+.activity-job-group.is-sticky .activity-event-list {
   max-height: none;
   flex: 1;
   min-height: 0;
