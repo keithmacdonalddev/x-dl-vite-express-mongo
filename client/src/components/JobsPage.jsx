@@ -65,7 +65,7 @@ export function JobsPage({ onOpenContact }) {
 
     function attachStream() {
       stream = openTelemetryStream(
-        { limit: 2000 },
+        {},
         {
           onEvent: (entry) => {
             if (cancelled) return
@@ -76,8 +76,9 @@ export function JobsPage({ onOpenContact }) {
       )
     }
 
-    loadHistory()
-    attachStream()
+    loadHistory().then(() => {
+      if (!cancelled) attachStream()
+    })
     return () => {
       cancelled = true
       if (stream && typeof stream.close === 'function') stream.close()
