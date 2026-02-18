@@ -2,7 +2,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
-const { downloadMedia, downloadDirect } = require('../services/downloader-service');
+const { downloadMedia, downloadDirect, downloadDirectWithPlaywrightSession } = require('../services/downloader-service');
 const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
 const {
   deriveAccountProfile,
@@ -358,8 +358,8 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
 
     const validationError = validateDownloadedFile(downloaded, outputPath, downloadUrl, { jobId, traceId });
 
-    if (validationError && typeof extractor === 'function') {
-      logger.info('worker.job.download.validation_failed.retrying_with_fresh_extraction', {
+    if (validationError) {
+      logger.info('worker.job.download.validation_failed', {
         jobId,
         traceId,
         reason: validationError.message,
@@ -380,63 +380,148 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
         });
       }
 
-      const reExtractStartedAt = Date.now();
-      const reExtracted = await withTimeout(
-        extractor(job.tweetUrl, {
-          telemetryContext: { jobId, traceId, stage: 'validation-retry-refresh' },
-        }),
-        extractionTimeoutMs,
-        `Validation-retry extraction timed out after ${extractionTimeoutMs}ms`
-      );
+      // Strategy 1: Try authenticated download (Playwright session with cookies).
+      // TikTok CDN returns 200 with empty body when cookies are missing.
+      let authRetrySucceeded = false;
+      try {
+        logger.info('worker.job.download.validation_retry.auth_attempt', {
+          jobId,
+          traceId,
+          mediaUrl: downloadUrl,
+        });
+        downloaded = await downloadDirectWithPlaywrightSession(downloadUrl, {
+          targetPath,
+          telemetryContext: { jobId, traceId, stage: 'validation-retry-auth' },
+        });
+        const authOutputPath = downloaded && typeof downloaded.outputPath === 'string' ? downloaded.outputPath : '';
+        const authValidationError = validateDownloadedFile(downloaded, authOutputPath, downloadUrl, { jobId, traceId });
+        if (!authValidationError) {
+          outputPath = authOutputPath;
+          authRetrySucceeded = true;
+          logger.info('worker.job.download.validation_retry.auth_succeeded', {
+            jobId,
+            traceId,
+            mediaUrl: downloadUrl,
+            bytes: downloaded && Number.isFinite(downloaded.bytes) ? downloaded.bytes : -1,
+          });
+        } else {
+          logger.info('worker.job.download.validation_retry.auth_still_invalid', {
+            jobId,
+            traceId,
+            reason: authValidationError.message,
+          });
+          // Clean up before next strategy
+          try {
+            if (authOutputPath && fs.existsSync(authOutputPath)) {
+              fs.unlinkSync(authOutputPath);
+            }
+          } catch { /* ignore */ }
+        }
+      } catch (authErr) {
+        const authMessage = authErr instanceof Error ? authErr.message : String(authErr);
+        logger.info('worker.job.download.validation_retry.auth_failed', {
+          jobId,
+          traceId,
+          message: authMessage,
+        });
+      }
 
-      const freshMediaUrl = chooseRetryMediaUrl(downloadUrl, reExtracted);
-      if (!freshMediaUrl) {
+      // Strategy 2: Re-extract fresh URL + download (if auth didn't work)
+      if (!authRetrySucceeded && typeof extractor === 'function') {
+        logger.info('worker.job.download.validation_retry.re_extracting', {
+          jobId,
+          traceId,
+          mediaUrl: downloadUrl,
+        });
+
+        const reExtractStartedAt = Date.now();
+        const reExtracted = await withTimeout(
+          extractor(job.tweetUrl, {
+            telemetryContext: { jobId, traceId, stage: 'validation-retry-refresh' },
+          }),
+          extractionTimeoutMs,
+          `Validation-retry extraction timed out after ${extractionTimeoutMs}ms`
+        );
+
+        const freshMediaUrl = chooseRetryMediaUrl(downloadUrl, reExtracted);
+        if (!freshMediaUrl) {
+          throw validationError;
+        }
+
+        sourceType = reExtracted.sourceType || sourceType || SOURCE_TYPES.UNKNOWN;
+        candidateUrls = Array.isArray(reExtracted.candidateUrls) ? reExtracted.candidateUrls : candidateUrls;
+        imageUrls = Array.isArray(reExtracted.imageUrls) ? reExtracted.imageUrls : imageUrls;
+        metadata = reExtracted.metadata && typeof reExtracted.metadata === 'object' ? reExtracted.metadata : metadata;
+        job.sourceType = sourceType;
+        job.candidateUrls = candidateUrls;
+        job.imageUrls = imageUrls;
+        job.metadata = metadata;
+        job.extractedUrl = freshMediaUrl;
+        await job.save();
+
+        logger.info('worker.job.download.validation_retry.re_extracted', {
+          jobId,
+          traceId,
+          durationMs: Date.now() - reExtractStartedAt,
+          freshMediaUrl,
+          changedMediaUrl: freshMediaUrl !== downloadUrl,
+          candidateCount: Array.isArray(candidateUrls) ? candidateUrls.length : 0,
+        });
+
+        // Try fresh URL with authenticated download first, then fall back to plain fetch
+        downloadUrl = freshMediaUrl;
+        let freshDownloadValid = false;
+
+        try {
+          downloaded = await downloadDirectWithPlaywrightSession(freshMediaUrl, {
+            targetPath,
+            telemetryContext: { jobId, traceId, stage: 'validation-retry-fresh-auth' },
+          });
+          const freshAuthOutputPath = downloaded && typeof downloaded.outputPath === 'string' ? downloaded.outputPath : '';
+          const freshAuthError = validateDownloadedFile(downloaded, freshAuthOutputPath, freshMediaUrl, { jobId, traceId });
+          if (!freshAuthError) {
+            outputPath = freshAuthOutputPath;
+            freshDownloadValid = true;
+            logger.info('worker.job.download.validation_retry.fresh_auth_succeeded', {
+              jobId,
+              traceId,
+              freshMediaUrl,
+              bytes: downloaded && Number.isFinite(downloaded.bytes) ? downloaded.bytes : -1,
+            });
+          } else {
+            try {
+              if (freshAuthOutputPath && fs.existsSync(freshAuthOutputPath)) {
+                fs.unlinkSync(freshAuthOutputPath);
+              }
+            } catch { /* ignore */ }
+          }
+        } catch {
+          // Auth download of fresh URL failed, try plain fetch below
+        }
+
+        if (!freshDownloadValid) {
+          downloaded = await downloader(downloadUrl, {
+            targetPath,
+            telemetryContext: { jobId, traceId, stage: 'validation-retry' },
+          });
+
+          const retryOutputPath = downloaded && typeof downloaded.outputPath === 'string' ? downloaded.outputPath : '';
+          const retryValidationError = validateDownloadedFile(downloaded, retryOutputPath, downloadUrl, { jobId, traceId });
+          if (retryValidationError) {
+            throw retryValidationError;
+          }
+          outputPath = retryOutputPath;
+        }
+
+        logger.info('worker.job.download.validation_retry.succeeded', {
+          jobId,
+          traceId,
+          mediaUrl: downloadUrl,
+          bytes: downloaded && Number.isFinite(downloaded.bytes) ? downloaded.bytes : -1,
+        });
+      } else if (!authRetrySucceeded) {
         throw validationError;
       }
-
-      sourceType = reExtracted.sourceType || sourceType || SOURCE_TYPES.UNKNOWN;
-      candidateUrls = Array.isArray(reExtracted.candidateUrls) ? reExtracted.candidateUrls : candidateUrls;
-      imageUrls = Array.isArray(reExtracted.imageUrls) ? reExtracted.imageUrls : imageUrls;
-      metadata = reExtracted.metadata && typeof reExtracted.metadata === 'object' ? reExtracted.metadata : metadata;
-      job.sourceType = sourceType;
-      job.candidateUrls = candidateUrls;
-      job.imageUrls = imageUrls;
-      job.metadata = metadata;
-      job.extractedUrl = freshMediaUrl;
-      await job.save();
-
-      logger.info('worker.job.download.validation_retry.re_extracted', {
-        jobId,
-        traceId,
-        durationMs: Date.now() - reExtractStartedAt,
-        freshMediaUrl,
-        changedMediaUrl: freshMediaUrl !== downloadUrl,
-        candidateCount: Array.isArray(candidateUrls) ? candidateUrls.length : 0,
-      });
-
-      downloadUrl = freshMediaUrl;
-      downloaded = await downloader(downloadUrl, {
-        targetPath,
-        telemetryContext: { jobId, traceId, stage: 'validation-retry' },
-      });
-
-      const retryOutputPath = downloaded && typeof downloaded.outputPath === 'string' ? downloaded.outputPath : '';
-      const retryValidationError = validateDownloadedFile(downloaded, retryOutputPath, downloadUrl, { jobId, traceId });
-      if (retryValidationError) {
-        throw retryValidationError;
-      }
-
-      // Update outputPath for downstream use after successful retry
-      outputPath = retryOutputPath;
-
-      logger.info('worker.job.download.validation_retry.succeeded', {
-        jobId,
-        traceId,
-        freshMediaUrl,
-        bytes: downloaded && Number.isFinite(downloaded.bytes) ? downloaded.bytes : -1,
-      });
-    } else if (validationError) {
-      throw validationError;
     }
 
     let thumbnailPath = '';
