@@ -1,0 +1,4 @@
+{
+  "description": "Temporary allowlist for migration-only boundary exceptions. Keep this list minimal and remove entries after adapter cutover.",
+  "entries": []
+}

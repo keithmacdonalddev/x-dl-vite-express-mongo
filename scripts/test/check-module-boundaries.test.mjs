@@ -125,3 +125,36 @@ test('ignores edges with unrecognized domains (e.g. node_modules paths)', () => 
   const violations = evaluateImports(edges);
   assert.equal(violations.length, 0);
 });
+
+// --- Strict folder ownership staged rules ---
+
+test('flags cross-domain import: domains/jobs -> domains/contacts', () => {
+  const edges = [
+    { from: abs('domains/jobs/routes.js'), to: abs('domains/contacts/routes.js') },
+  ];
+  const violations = evaluateImports(edges);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].fromDomain, 'domains:jobs');
+  assert.equal(violations[0].toDomain, 'domains:contacts');
+});
+
+test('flags core -> domain import when not allowlisted', () => {
+  const edges = [
+    { from: abs('core/runtime/load-domains.js'), to: abs('domains/jobs/index.js') },
+  ];
+  const violations = evaluateImports(edges);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].fromDomain, 'core');
+  assert.equal(violations[0].toDomain, 'domains:jobs');
+});
+
+test('allowlist entry suppresses a violation for staged adapter edges', () => {
+  const edges = [
+    { from: abs('core/runtime/load-domains.js'), to: abs('domains/jobs/index.js') },
+  ];
+  const allowlistEntries = [
+    { from: 'core/runtime/load-domains.js', to: 'domains/jobs/index.js' },
+  ];
+  const violations = evaluateImports(edges, { allowlistEntries });
+  assert.equal(violations.length, 0);
+});

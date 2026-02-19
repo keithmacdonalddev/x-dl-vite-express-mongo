@@ -7,7 +7,7 @@
  * Or:  npm run check:boundaries
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,6 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, '..');
 
 const SERVER_SRC = resolve(__dirname, '..', 'server', 'src');
+const BOUNDARY_ALLOWLIST_FILE = resolve(__dirname, 'module-boundary-allowlist.json');
 
 /**
  * Domain definitions: map a domain name to its path prefix (relative to server/src/).
@@ -44,13 +45,69 @@ const FORBIDDEN_EDGES = [
   { from: 'lib',     to: 'routes',   reason: 'Shared lib must not depend on route layer' },
 ];
 
+const DOMAIN_TO_DOMAIN_FORBIDDEN_REASON =
+  'Domain modules must not import other domain internals; use core contracts.';
+
+const CORE_TO_DOMAIN_FORBIDDEN_REASON =
+  'Core must only reference domains through explicit registration seams.';
+
+function normalizePath(pathValue) {
+  return String(pathValue || '').replace(/\\/g, '/');
+}
+
+function toServerRelative(absPath) {
+  return normalizePath(relative(SERVER_SRC, absPath));
+}
+
+function readBoundaryAllowlist(filePath = BOUNDARY_ALLOWLIST_FILE) {
+  if (!existsSync(filePath)) {
+    return [];
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+  } catch {
+    return [];
+  }
+
+  const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+  return entries
+    .map((entry) => ({
+      from: normalizePath(entry?.from),
+      to: normalizePath(entry?.to),
+    }))
+    .filter((entry) => entry.from && entry.to);
+}
+
+const BOUNDARY_ALLOWLIST_ENTRIES = readBoundaryAllowlist();
+
+function isAllowlisted(edge, allowlistEntries) {
+  const fromRel = toServerRelative(edge.from);
+  const toRel = toServerRelative(edge.to);
+  return allowlistEntries.some((entry) => entry.from === fromRel && entry.to === toRel);
+}
+
 /**
  * Resolve a file path to its domain name, or null if unrecognized.
  * @param {string} absPath - absolute path to the file
  * @returns {string|null}
  */
 function getDomain(absPath) {
-  const rel = relative(SERVER_SRC, absPath).replace(/\\/g, '/');
+  const rel = toServerRelative(absPath);
+
+  if (rel.startsWith('core/')) {
+    return 'core';
+  }
+
+  if (rel.startsWith('domains/')) {
+    const parts = rel.split('/');
+    const domainId = parts[1] || '';
+    if (domainId) {
+      return `domains:${domainId}`;
+    }
+  }
+
   for (const domain of DOMAINS) {
     if (rel.startsWith(domain.prefix)) return domain.name;
   }
@@ -113,24 +170,58 @@ function resolveRequire(fromFile, requireSpec) {
  * the filesystem; tests can pass synthetic edges directly.
  *
  * @param {{ from: string, to: string }[]} edges - each edge is { from: absPath, to: absPath }
+ * @param {{ from: string, to: string }[]} [options.allowlistEntries] - optional allowlist override
  * @returns {{ from: string, to: string, fromDomain: string, toDomain: string, reason: string }[]}
  */
-export function evaluateImports(edges) {
+export function evaluateImports(edges, options = {}) {
+  const allowlistEntries = Array.isArray(options.allowlistEntries)
+    ? options.allowlistEntries
+    : BOUNDARY_ALLOWLIST_ENTRIES;
+
   const violations = [];
   for (const edge of edges) {
     const fromDomain = getDomain(edge.from);
     const toDomain = getDomain(edge.to);
     if (!fromDomain || !toDomain) continue;
     if (fromDomain === toDomain) continue;
-    for (const forbidden of FORBIDDEN_EDGES) {
-      if (forbidden.from === fromDomain && forbidden.to === toDomain) {
+
+    if (fromDomain.startsWith('domains:') && toDomain.startsWith('domains:')) {
+      if (!isAllowlisted(edge, allowlistEntries)) {
         violations.push({
           from: edge.from,
           to: edge.to,
           fromDomain,
           toDomain,
-          reason: forbidden.reason,
+          reason: DOMAIN_TO_DOMAIN_FORBIDDEN_REASON,
         });
+      }
+      continue;
+    }
+
+    if (fromDomain === 'core' && toDomain.startsWith('domains:')) {
+      if (!isAllowlisted(edge, allowlistEntries)) {
+        violations.push({
+          from: edge.from,
+          to: edge.to,
+          fromDomain,
+          toDomain,
+          reason: CORE_TO_DOMAIN_FORBIDDEN_REASON,
+        });
+      }
+      continue;
+    }
+
+    for (const forbidden of FORBIDDEN_EDGES) {
+      if (forbidden.from === fromDomain && forbidden.to === toDomain) {
+        if (!isAllowlisted(edge, allowlistEntries)) {
+          violations.push({
+            from: edge.from,
+            to: edge.to,
+            fromDomain,
+            toDomain,
+            reason: forbidden.reason,
+          });
+        }
         break;
       }
     }
