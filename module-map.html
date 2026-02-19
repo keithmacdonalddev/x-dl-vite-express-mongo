@@ -72,7 +72,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .td-zoom-controls .td-zoom-pct{color:var(--text-dim);font-size:0.72rem;font-weight:600;min-width:42px;text-align:center;padding:0 4px;user-select:none}
 
 /* ── View 2: File Map (SVG Node Graph) ── */
-.fm-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 200px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none;background:#0c1322}
+.fm-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 180px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none;background:#0c1322}
 .fm-viewport.is-dragging{cursor:grabbing}
 .fm-viewport svg{width:100%;height:auto;transform-origin:0 0;pointer-events:all}
 .fm-zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;align-items:center;gap:4px;z-index:10;background:rgba(15,23,42,0.92);border:1px solid var(--bg4);border-radius:8px;padding:4px 6px;backdrop-filter:blur(6px);box-shadow:0 4px 16px rgba(0,0,0,0.4)}
@@ -798,19 +798,19 @@ renderers.filemap = function() {
     dir.children[fileName] = {name:fileName, isDir:false, file:f, depth:dir.depth+1};
   });
 
-  // Default expand to depth 3
+  // Default expand to depth 2
   function autoExpand(node, maxDepth) {
     if(!node.isDir) return;
     if(node.depth < maxDepth) node._expanded = true;
     Object.values(node.children).forEach(c => autoExpand(c, maxDepth));
   }
-  autoExpand(tree, 3);
+  autoExpand(tree, 2);
 
   // ── Layout constants ──
-  const FOLDER_W = 152, FOLDER_H = 38;
-  const FILE_W = 132, FILE_H = 30;
-  const H_GAP = 18, V_GAP = 70;
-  const CHILD_BADGE_R = 9;
+  const FOLDER_W = 180, FOLDER_H = 44;
+  const FILE_W = 160, FILE_H = 34;
+  const H_GAP = 30, V_GAP = 90;
+  const CHILD_BADGE_R = 10;
 
   // ── Sort children: dirs first, then files, alpha ──
   function sortedChildren(node) {
@@ -987,7 +987,7 @@ renderers.filemap = function() {
           // Color top border
           const bg = svgEl('rect', {x:nx, y:ny, width:node._w, height:node._h, rx:8, ry:8, fill:'#1e293b', stroke:'#334155', 'stroke-width':'1'});
           g.appendChild(bg);
-          const topBorder = svgEl('rect', {x:nx, y:ny, width:node._w, height:4, rx:2, ry:2, fill:color});
+          const topBorder = svgEl('rect', {x:nx, y:ny, width:node._w, height:5, rx:2, ry:2, fill:color});
           // Clip to top rounded corners
           const clip = svgEl('clipPath', {id:'clip-'+nx+'-'+ny});
           clip.appendChild(svgEl('rect', {x:nx, y:ny, width:node._w, height:node._h, rx:8, ry:8}));
@@ -999,11 +999,11 @@ renderers.filemap = function() {
         // Folder icon + name
         const iconX = nx + 8;
         const textY = ny + node._h / 2 + 1;
-        const icon = svgEl('text', {x:iconX, y:textY, fill:'#94a3b8', 'font-size':'12', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+        const icon = svgEl('text', {x:iconX, y:textY, fill:'#94a3b8', 'font-size':'14', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
         icon.textContent = '\uD83D\uDCC1';
         g.appendChild(icon);
 
-        const label = svgEl('text', {x:iconX + 18, y:textY, fill: isRoot ? '#f8fafc' : '#e2e8f0', 'font-size': isRoot ? '12' : '11', 'font-weight':'600', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+        const label = svgEl('text', {x:iconX + 18, y:textY, fill: isRoot ? '#f8fafc' : '#e2e8f0', 'font-size':'13', 'font-weight':'600', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
         label.textContent = node.name;
         g.appendChild(label);
 
@@ -1064,8 +1064,8 @@ renderers.filemap = function() {
         g.appendChild(dot);
 
         // File name
-        const label = svgEl('text', {x:nx+20, y:ny+node._h/2+1, fill:'#cbd5e1', 'font-size':'9.5', 'font-weight':'400', 'dominant-baseline':'middle', 'font-family':"'Cascadia Code','Fira Code',monospace"});
-        const displayName = node.name.length > 14 ? node.name.slice(0, 13) + '\u2026' : node.name;
+        const label = svgEl('text', {x:nx+20, y:ny+node._h/2+1, fill:'#cbd5e1', 'font-size':'12', 'font-weight':'400', 'dominant-baseline':'middle', 'font-family':"'Cascadia Code','Fira Code',monospace"});
+        const displayName = node.name.length > 18 ? node.name.slice(0, 17) + '\u2026' : node.name;
         label.textContent = displayName;
         g.appendChild(label);
 
@@ -1204,10 +1204,49 @@ renderers.filemap = function() {
 
   zoomCtrl.querySelector('.fm-zin').onclick = () => setZoom(zoom * 1.25);
   zoomCtrl.querySelector('.fm-zout').onclick = () => setZoom(zoom / 1.25);
-  zoomCtrl.querySelector('.fm-zreset').onclick = () => { zoom = 1; panX = 0; panY = 0; applyTransform(); };
+  zoomCtrl.querySelector('.fm-zreset').onclick = () => { fitToView(); };
+
+  function fitToView() {
+    // Calculate bounds of currently visible nodes
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    function findBounds(node) {
+      if(node._x !== undefined) {
+        minX = Math.min(minX, node._x);
+        minY = Math.min(minY, node._y);
+        maxX = Math.max(maxX, node._x + node._w);
+        maxY = Math.max(maxY, node._y + node._h);
+      }
+      if(node.isDir && node._expanded) {
+        Object.values(node.children).forEach(c => findBounds(c));
+      }
+    }
+    findBounds(tree);
+
+    const treeW = maxX - minX + 120;
+    const treeH = maxY - minY + 120;
+    const vpRect = viewport.getBoundingClientRect();
+    const vpW = vpRect.width || 1200;
+    const vpH = vpRect.height || 600;
+
+    // Calculate zoom to fit the tree, capped at 1.8x so nodes are large
+    const scaleX = vpW / treeW;
+    const scaleY = vpH / treeH;
+    zoom = Math.min(scaleX, scaleY, 1.8);
+    zoom = Math.max(zoom, 0.3);
+
+    // Center the tree in the viewport
+    const centerTreeX = (minX + maxX) / 2;
+    const centerTreeY = (minY + maxY) / 2;
+    panX = vpW / 2 - centerTreeX * zoom;
+    panY = vpH / 2 - centerTreeY * zoom;
+
+    applyTransform();
+  }
 
   // Initial render
   renderGraph();
+  // Defer fitToView to after the viewport has layout dimensions
+  requestAnimationFrame(() => { fitToView(); });
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
