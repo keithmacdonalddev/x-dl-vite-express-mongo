@@ -127,6 +127,75 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .ft-stub{color:#9ca3af;opacity:0.7}
 .ft-new{color:#e879f9;font-weight:600}
 
+/* ── View 9: Mind Map ──────────────── */
+#view-mindmap .mm-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 200px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none}
+#view-mindmap .mm-viewport.is-dragging{cursor:grabbing}
+#view-mindmap .mm-viewport svg{width:100%;height:auto;transform-origin:0 0;pointer-events:all}
+.mm-node{cursor:pointer;transition:filter 200ms,opacity 200ms}
+.mm-node:hover{filter:brightness(1.25)}
+.mm-node.dimmed{opacity:0.15}
+.mm-node.highlighted{filter:brightness(1.3)}
+.mm-branch{fill:none;transition:opacity 200ms,stroke-width 200ms}
+.mm-branch.dimmed{opacity:0.06}
+.mm-branch.highlighted{stroke-width:3;opacity:1}
+.mm-center-label{font-family:'Segoe UI',system-ui,sans-serif;fill:#fff;font-weight:800;text-anchor:middle;pointer-events:none;font-size:16px}
+.mm-center-sub{font-family:'Segoe UI',system-ui,sans-serif;fill:rgba(255,255,255,0.6);font-weight:400;text-anchor:middle;pointer-events:none;font-size:10px}
+.mm-mod-label{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-bright);font-weight:700;text-anchor:middle;pointer-events:none;font-size:11px}
+.mm-file-label{font-family:'Cascadia Code','Fira Code',monospace;fill:var(--text);font-weight:400;font-size:8.5px;pointer-events:none}
+
+/* ── View 10: Network Graph ─────────── */
+#view-network .ng-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 200px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none}
+#view-network .ng-viewport.is-dragging{cursor:grabbing}
+#view-network .ng-viewport svg{width:100%;height:auto;transform-origin:0 0;pointer-events:all}
+.ng-edge{stroke-width:1;opacity:0.35;transition:opacity 200ms,stroke-width 200ms}
+.ng-edge.dimmed{opacity:0.04}
+.ng-edge.highlighted{opacity:0.9;stroke-width:2.5}
+.ng-node{cursor:grab;transition:filter 200ms,opacity 200ms}
+.ng-node:hover{filter:brightness(1.3)}
+.ng-node.dimmed{opacity:0.12}
+.ng-node.highlighted{filter:brightness(1.35)}
+.ng-label{font-family:'Cascadia Code','Fira Code',monospace;fill:var(--text-bright);font-weight:600;font-size:8px;text-anchor:middle;pointer-events:none;transition:opacity 200ms}
+.ng-label.dimmed{opacity:0.12}
+.ng-popup{position:absolute;z-index:100;background:#1a1e2e;border:1px solid var(--bg4);border-radius:10px;padding:14px 18px;max-width:360px;font-size:0.78rem;line-height:1.5;color:var(--text);box-shadow:0 12px 40px rgba(0,0,0,0.6);pointer-events:auto}
+.ng-popup h4{margin:0 0 6px;color:var(--text-bright);font-size:0.9rem}
+.ng-popup .ng-popup-path{color:var(--text-dim);font-family:'Cascadia Code','Fira Code',monospace;font-size:0.7rem;margin-bottom:6px}
+.ng-popup .ng-popup-mod{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.65rem;font-weight:600;color:#fff;margin-bottom:8px}
+.ng-popup .ng-popup-desc{margin-bottom:10px;color:var(--text)}
+.ng-popup .ng-popup-section{margin-top:8px;padding-top:6px;border-top:1px solid var(--border)}
+.ng-popup .ng-popup-section h5{margin:0 0 4px;font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em}
+.ng-popup .ng-popup-list{list-style:none;padding:0;margin:0;font-size:0.72rem}
+.ng-popup .ng-popup-list li{padding:1px 0;color:var(--text)}
+.ng-popup-close{position:absolute;top:6px;right:10px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;line-height:1}
+.ng-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px 12px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
+.ng-legend-item{display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);cursor:pointer;padding:2px 8px;border-radius:20px;transition:all var(--transition);border:1px solid transparent;user-select:none}
+.ng-legend-item:hover{background:rgba(255,255,255,0.06);color:var(--text)}
+.ng-legend-item.is-hidden{opacity:0.35;text-decoration:line-through}
+.ng-legend-item .ng-leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── View 11: Team Map ─────────────── */
+#view-teams .tm-sections{display:flex;flex-direction:column;gap:24px}
+.tm-section-title{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--bg4);font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.tm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.tm-card{background:var(--bg2);border-radius:12px;border:1px solid var(--border);overflow:hidden;transition:all 200ms ease;position:relative}
+.tm-card:hover{border-color:var(--bg4);box-shadow:0 6px 20px rgba(0,0,0,0.3);transform:translateY(-2px)}
+.tm-card.highlighted{border-color:var(--bg4);box-shadow:0 0 0 2px rgba(255,255,255,0.1)}
+.tm-card-header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tm-card-header h3{font-size:0.88rem;font-weight:700;color:var(--text-bright);margin:0;display:flex;align-items:center;gap:8px}
+.tm-card-header .tm-badge{font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff}
+.tm-card-body{padding:0 16px 14px}
+.tm-file-list{list-style:none;padding:0;margin:0 0 10px;display:flex;flex-direction:column;gap:3px}
+.tm-file-list li{font-family:'Cascadia Code','Fira Code',monospace;font-size:0.72rem;color:var(--text);padding:3px 8px;border-radius:4px;cursor:pointer;transition:background 150ms;display:flex;align-items:center;gap:6px}
+.tm-file-list li:hover{background:rgba(255,255,255,0.05)}
+.tm-file-list li .tm-file-icon{font-size:0.8rem;flex-shrink:0}
+.tm-coord{margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.tm-coord-title{font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);font-weight:600;margin-bottom:4px}
+.tm-coord-chips{display:flex;flex-wrap:wrap;gap:4px}
+.tm-coord-chip{font-size:0.65rem;padding:2px 8px;border-radius:12px;background:rgba(255,255,255,0.05);color:var(--text-dim);border:1px solid var(--border);transition:all 150ms;cursor:pointer}
+.tm-coord-chip:hover{background:rgba(255,255,255,0.1);color:var(--text)}
+.tm-svg-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.tm-viewport{position:relative;overflow:hidden;min-height:400px}
+.tm-card-section{position:relative;z-index:2}
+
 /* ── Responsive ─────────────────────── */
 @media(max-width:768px){
   .header{padding:14px 16px 0}
@@ -160,6 +229,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
   <div class="view" id="view-grid"></div>
   <div class="view" id="view-layers"></div>
   <div class="view" id="view-filetree"></div>
+  <div class="view" id="view-mindmap"></div>
+  <div class="view" id="view-network"></div>
+  <div class="view" id="view-teams"></div>
 </div>
 
 <div class="tooltip" id="tooltip">
@@ -327,6 +399,9 @@ const VIEWS = [
   {id:'grid',     icon:'\u25A6', label:'Grid Matrix'},
   {id:'layers',   icon:'\u2261', label:'Architecture Layers'},
   {id:'filetree', icon:'\uD83C\uDF33', label:'File Tree'},
+  {id:'mindmap',  icon:'\uD83E\uDDE0', label:'Mind Map'},
+  {id:'network',  icon:'\uD83D\uDD78\uFE0F', label:'Network'},
+  {id:'teams',    icon:'\uD83D\uDC65', label:'Teams'},
 ];
 
 const tabBar = document.getElementById('tab-bar');
@@ -1534,6 +1609,974 @@ renderers.filetree = function() {
   pre.className = 'ft-container';
   pre.innerHTML = lines.join('\n');
   container.appendChild(pre);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 9: MIND MAP (Radial tree from center)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.mindmap = function() {
+  const container = document.getElementById('view-mindmap');
+  container.innerHTML = '<div class="view-subtitle">Radial mind map — "Media Vault" at center, modules radiating outward, files on the periphery. Click modules to expand/collapse.</div>';
+  buildLegend(container);
+
+  const W = 1800, H = 1800;
+  const cx = W/2, cy = H/2;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMidYMid meet'});
+
+  // Background subtle grid
+  const defs = svgEl('defs');
+  const radGrad = svgEl('radialGradient', {id:'mm-bg-grad',cx:'50%',cy:'50%',r:'50%'});
+  radGrad.appendChild(svgEl('stop', {offset:'0%','stop-color':'#1e293b','stop-opacity':'0.3'}));
+  radGrad.appendChild(svgEl('stop', {offset:'100%','stop-color':'#0f172a','stop-opacity':'0'}));
+  defs.appendChild(radGrad);
+  svg.appendChild(defs);
+  svg.appendChild(svgEl('circle', {cx,cy,r:860,fill:'url(#mm-bg-grad)'}));
+
+  // Subtle concentric guide rings
+  [200,420,700].forEach(r => {
+    svg.appendChild(svgEl('circle', {cx,cy,r,fill:'none',stroke:'#1e293b','stroke-width':'0.5','stroke-dasharray':'4,6'}));
+  });
+
+  // Module data with file assignments
+  const mmModules = MODULES.map(m => ({
+    ...m,
+    files: FILES.filter(f => f.mod === m.id)
+  }));
+
+  // Client modules on top half (indices 0-3), Server modules on bottom half (indices 4-11)
+  const clientMods = mmModules.filter(m => ['intake','dashboard','activity','pages'].includes(m.id));
+  const serverMods = mmModules.filter(m => !['intake','dashboard','activity','pages'].includes(m.id));
+
+  // Arrange: client top half (-PI/2 centered), server bottom half
+  const allArranged = [];
+  const clientSpread = Math.PI * 0.85;
+  const serverSpread = Math.PI * 1.15;
+  const clientStart = -Math.PI/2 - clientSpread/2;
+  const serverStart = Math.PI/2 - serverSpread/2;
+
+  clientMods.forEach((m,i) => {
+    const angle = clientStart + (i+0.5) * (clientSpread / clientMods.length);
+    allArranged.push({...m, angle});
+  });
+  serverMods.forEach((m,i) => {
+    const angle = serverStart + (i+0.5) * (serverSpread / serverMods.length);
+    allArranged.push({...m, angle});
+  });
+
+  const moduleR = 340; // distance from center to module nodes
+  const fileR = 620;   // distance from center to file nodes
+  const centerR = 70;  // center node radius
+
+  // Track all elements for highlighting
+  const branchElements = {}; // modId -> {branches:[], nodes:[], labels:[]}
+  const expandedMods = {};
+  MODULES.forEach(m => { expandedMods[m.id] = true; branchElements[m.id] = {branches:[],nodes:[],labels:[]}; });
+
+  // -- Draw connections first (below nodes) --
+  const branchGroup = svgEl('g');
+  svg.appendChild(branchGroup);
+  const nodeGroup = svgEl('g');
+  svg.appendChild(nodeGroup);
+
+  // Center -> module branches (organic curves)
+  allArranged.forEach(mod => {
+    const mx = cx + moduleR * Math.cos(mod.angle);
+    const my = cy + moduleR * Math.sin(mod.angle);
+    // Control point: halfway, offset perpendicular for organic curve
+    const midX = cx + (moduleR*0.5) * Math.cos(mod.angle);
+    const midY = cy + (moduleR*0.5) * Math.sin(mod.angle);
+    const perpAngle = mod.angle + Math.PI/2;
+    const offset = 30 * Math.sin(mod.angle * 2.3); // varied curvature
+    const cpx = midX + offset * Math.cos(perpAngle);
+    const cpy = midY + offset * Math.sin(perpAngle);
+
+    const path = svgEl('path', {
+      d: `M${cx},${cy} Q${cpx},${cpy} ${mx},${my}`,
+      stroke: mod.color, 'stroke-width':'2.5', fill:'none', opacity:'0.5',
+      class:'mm-branch'
+    });
+    branchGroup.appendChild(path);
+    branchElements[mod.id].branches.push(path);
+  });
+
+  // File branches (module -> files)
+  const fileNodes = [];
+  allArranged.forEach(mod => {
+    if(mod.files.length === 0) return;
+    const mx = cx + moduleR * Math.cos(mod.angle);
+    const my = cy + moduleR * Math.sin(mod.angle);
+
+    const fileSpread = Math.min(0.35, mod.files.length * 0.06);
+    const fileStartAngle = mod.angle - fileSpread/2;
+
+    mod.files.forEach((file,i) => {
+      const fAngle = fileStartAngle + (i+0.5) * (fileSpread / mod.files.length);
+      const fx = cx + fileR * Math.cos(fAngle);
+      const fy = cy + fileR * Math.sin(fAngle);
+
+      // Curved branch from module to file
+      const mfMidX = mx + (fileR - moduleR)*0.4 * Math.cos(fAngle);
+      const mfMidY = my + (fileR - moduleR)*0.4 * Math.sin(fAngle);
+      const perpA = fAngle + Math.PI/2;
+      const mfOff = 15 * Math.sin(i * 1.7);
+      const mcpx = mfMidX + mfOff * Math.cos(perpA);
+      const mcpy = mfMidY + mfOff * Math.sin(perpA);
+
+      const path = svgEl('path', {
+        d: `M${mx},${my} Q${mcpx},${mcpy} ${fx},${fy}`,
+        stroke: mod.color, 'stroke-width':'1', fill:'none', opacity:'0.3',
+        class:'mm-branch', 'data-mod': mod.id
+      });
+      branchGroup.appendChild(path);
+      branchElements[mod.id].branches.push(path);
+
+      fileNodes.push({file, fx, fy, fAngle, mod, pathEl: path});
+    });
+  });
+
+  // -- Draw center node --
+  // Glow
+  const glowDefs = svgEl('filter', {id:'mm-glow',x:'-50%',y:'-50%',width:'200%',height:'200%'});
+  glowDefs.appendChild(svgEl('feGaussianBlur', {stdDeviation:'8',result:'blur'}));
+  const feMerge = svgEl('feMerge');
+  feMerge.appendChild(svgEl('feMergeNode', {in:'blur'}));
+  feMerge.appendChild(svgEl('feMergeNode', {in:'SourceGraphic'}));
+  glowDefs.appendChild(feMerge);
+  defs.appendChild(glowDefs);
+
+  const centerGrad = svgEl('radialGradient', {id:'mm-center-grad'});
+  centerGrad.appendChild(svgEl('stop', {offset:'0%','stop-color':'#3b82f6'}));
+  centerGrad.appendChild(svgEl('stop', {offset:'100%','stop-color':'#1d4ed8'}));
+  defs.appendChild(centerGrad);
+
+  const centerG = svgEl('g', {filter:'url(#mm-glow)'});
+  centerG.appendChild(svgEl('circle', {cx,cy,r:centerR,fill:'url(#mm-center-grad)',stroke:'#60a5fa','stroke-width':'2'}));
+  const cLabel1 = svgEl('text', {x:cx,y:cy-6,class:'mm-center-label'});
+  cLabel1.textContent = 'Media';
+  centerG.appendChild(cLabel1);
+  const cLabel2 = svgEl('text', {x:cx,y:cy+14,class:'mm-center-label','font-size':'14'});
+  cLabel2.textContent = 'Vault';
+  centerG.appendChild(cLabel2);
+  const cLabel3 = svgEl('text', {x:cx,y:cy+30,class:'mm-center-sub'});
+  cLabel3.textContent = `${MODULES.length} modules \u00B7 ${FILES.length} files`;
+  centerG.appendChild(cLabel3);
+  nodeGroup.appendChild(centerG);
+
+  // -- Draw module nodes --
+  allArranged.forEach(mod => {
+    const mx = cx + moduleR * Math.cos(mod.angle);
+    const my = cy + moduleR * Math.sin(mod.angle);
+    const mw = 120, mh = 40;
+    const g = svgEl('g', {class:'mm-node','data-mod':mod.id,cursor:'pointer'});
+
+    // Module rectangle
+    g.appendChild(svgEl('rect', {
+      x:mx-mw/2, y:my-mh/2, width:mw, height:mh, rx:10,
+      fill:hexToRgba(mod.color, 0.2), stroke:mod.color, 'stroke-width':'1.5'
+    }));
+    const mLabel = svgEl('text', {x:mx,y:my-2,class:'mm-mod-label'});
+    mLabel.textContent = mod.name;
+    g.appendChild(mLabel);
+    const mCount = svgEl('text', {x:mx,y:my+12,fill:mod.color,'font-size':'9','text-anchor':'middle','font-family':'Segoe UI,system-ui,sans-serif','pointer-events':'none','font-weight':'600'});
+    mCount.textContent = mod.files.length + ' files';
+    g.appendChild(mCount);
+
+    branchElements[mod.id].nodes.push(g);
+
+    // Click to toggle expand
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      expandedMods[mod.id] = !expandedMods[mod.id];
+      fileNodes.filter(fn => fn.mod.id === mod.id).forEach(fn => {
+        fn.pathEl.style.display = expandedMods[mod.id] ? '' : 'none';
+        fn.nodeEl.style.display = expandedMods[mod.id] ? '' : 'none';
+        fn.labelEl.style.display = expandedMods[mod.id] ? '' : 'none';
+      });
+    });
+
+    // Hover to highlight branch
+    g.addEventListener('mouseenter', () => highlightBranch(mod.id));
+    g.addEventListener('mouseleave', clearHighlight);
+    g.addEventListener('mousemove', e => showTooltipRaw(e, mod.name, mod.id, `${mod.files.length} files in this module`));
+    g.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
+
+    nodeGroup.appendChild(g);
+  });
+
+  // -- Draw file nodes --
+  fileNodes.forEach(fn => {
+    const g = svgEl('g', {class:'mm-node','data-mod':fn.mod.id});
+    const nodeR = 5;
+    g.appendChild(svgEl('circle', {cx:fn.fx,cy:fn.fy,r:nodeR,fill:hexToRgba(fn.mod.color,0.5),stroke:fn.mod.color,'stroke-width':'1'}));
+    fn.nodeEl = g;
+    branchElements[fn.mod.id].nodes.push(g);
+
+    // Label
+    const fileName = fn.file.path.split('/').pop();
+    const labelAngle = fn.fAngle;
+    const labelR = fileR + 15;
+    const lx = cx + labelR * Math.cos(labelAngle);
+    const ly = cy + labelR * Math.sin(labelAngle);
+    const isLeft = Math.abs(labelAngle) > Math.PI/2;
+    const label = svgEl('text', {
+      x:lx, y:ly, class:'mm-file-label',
+      'text-anchor': isLeft ? 'end' : 'start',
+      transform: `rotate(${labelAngle * 180/Math.PI + (isLeft ? 180 : 0)},${lx},${ly})`
+    });
+    label.textContent = fileName;
+    fn.labelEl = label;
+    branchElements[fn.mod.id].labels.push(label);
+
+    g.addEventListener('mouseenter', () => highlightBranch(fn.mod.id));
+    g.addEventListener('mouseleave', clearHighlight);
+    g.addEventListener('mousemove', e => showTooltip(e, fn.file));
+    g.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
+
+    nodeGroup.appendChild(g);
+    nodeGroup.appendChild(label);
+  });
+
+  function highlightBranch(modId) {
+    // Dim everything
+    branchGroup.querySelectorAll('.mm-branch').forEach(b => b.classList.add('dimmed'));
+    nodeGroup.querySelectorAll('.mm-node').forEach(n => n.classList.add('dimmed'));
+    nodeGroup.querySelectorAll('.mm-file-label').forEach(l => l.style.opacity = '0.1');
+    // Highlight the branch
+    const be = branchElements[modId];
+    if(be) {
+      be.branches.forEach(b => { b.classList.remove('dimmed'); b.classList.add('highlighted'); });
+      be.nodes.forEach(n => { n.classList.remove('dimmed'); n.classList.add('highlighted'); });
+      be.labels.forEach(l => { l.style.opacity = '1'; });
+    }
+    // Keep center visible
+    centerG.style.opacity = '1';
+  }
+
+  function clearHighlight() {
+    branchGroup.querySelectorAll('.mm-branch').forEach(b => { b.classList.remove('dimmed','highlighted'); });
+    nodeGroup.querySelectorAll('.mm-node').forEach(n => { n.classList.remove('dimmed','highlighted'); });
+    nodeGroup.querySelectorAll('.mm-file-label').forEach(l => { l.style.opacity = ''; });
+  }
+
+  // -- Viewport with zoom/pan --
+  const viewport = document.createElement('div');
+  viewport.className = 'mm-viewport';
+  viewport.appendChild(svg);
+
+  const controls = document.createElement('div');
+  controls.className = 'td-zoom-controls';
+  controls.innerHTML = `<button class="td-zin" title="Zoom in">+</button><button class="td-zout" title="Zoom out">\u2212</button><span class="td-zoom-pct">100%</span><button class="td-zreset" title="Reset zoom">&#x21bb;</button>`;
+  viewport.appendChild(controls);
+  container.appendChild(viewport);
+
+  // Zoom/Pan state
+  let scale = 0.55, panX = 0, panY = 0;
+  const MIN_SCALE = 0.15, MAX_SCALE = 3;
+  let isDragging = false, dragStartX = 0, dragStartY = 0, dragPanStartX = 0, dragPanStartY = 0;
+  const pctLabel = controls.querySelector('.td-zoom-pct');
+
+  function applyTransform(smooth) {
+    svg.style.transition = smooth ? 'transform 200ms ease' : 'none';
+    svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    pctLabel.textContent = Math.round(scale * 100) + '%';
+  }
+  function zoomAt(ecx, ecy, newScale, smooth) {
+    newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+    const rect = viewport.getBoundingClientRect();
+    const vx = ecx - rect.left, vy = ecy - rect.top;
+    panX = vx - (vx - panX) * (newScale / scale);
+    panY = vy - (vy - panY) * (newScale / scale);
+    scale = newScale;
+    applyTransform(smooth);
+  }
+  function resetZoom() { scale = 0.55; panX = 0; panY = 0; applyTransform(true); }
+  applyTransform(false);
+
+  viewport.addEventListener('wheel', function(e) { e.preventDefault(); zoomAt(e.clientX, e.clientY, scale * (e.deltaY > 0 ? 0.9 : 1.1), false); }, {passive:false});
+  viewport.addEventListener('mousedown', function(e) { if(e.button!==0) return; isDragging=true; dragStartX=e.clientX; dragStartY=e.clientY; dragPanStartX=panX; dragPanStartY=panY; viewport.classList.add('is-dragging'); });
+  window.addEventListener('mousemove', function(e) { if(!isDragging) return; panX=dragPanStartX+(e.clientX-dragStartX); panY=dragPanStartY+(e.clientY-dragStartY); applyTransform(false); });
+  window.addEventListener('mouseup', function() { if(!isDragging) return; isDragging=false; viewport.classList.remove('is-dragging'); });
+  viewport.addEventListener('dblclick', function(e) { e.preventDefault(); zoomAt(e.clientX, e.clientY, scale*1.4, true); });
+  controls.querySelector('.td-zin').addEventListener('click', function(e) { e.stopPropagation(); const r=viewport.getBoundingClientRect(); zoomAt(r.left+r.width/2,r.top+r.height/2,scale*1.25,true); });
+  controls.querySelector('.td-zout').addEventListener('click', function(e) { e.stopPropagation(); const r=viewport.getBoundingClientRect(); zoomAt(r.left+r.width/2,r.top+r.height/2,scale/1.25,true); });
+  controls.querySelector('.td-zreset').addEventListener('click', function(e) { e.stopPropagation(); resetZoom(); });
+  controls.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 10: NETWORK GRAPH (Force-directed)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.network = function() {
+  const container = document.getElementById('view-network');
+  container.innerHTML = '<div class="view-subtitle">Force-directed network graph — nodes are files, edges are import relationships. Drag nodes to rearrange. Click a node for details.</div>';
+
+  // Import edges data
+  const IMPORTS = [
+    // CLIENT
+    {from:'client/src/App.jsx', to:'client/src/components/JobsPage.jsx'},
+    {from:'client/src/App.jsx', to:'client/src/components/ContactProfilePage.jsx'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/api/jobsApi.js'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/hooks/useJobsPolling.js'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/lib/contacts.js'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/features/intake/IntakeForm.jsx'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/features/dashboard/JobsList.jsx'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/features/dashboard/useSelection.js'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/features/dashboard/useJobActions.js'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/features/activity/ActivityPanel.jsx'},
+    {from:'client/src/components/JobsPage.jsx', to:'client/src/components/ConfirmModal.jsx'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/api/jobsApi.js'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/hooks/useJobsPolling.js'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/lib/contacts.js'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/features/dashboard/useSelection.js'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/features/dashboard/useJobActions.js'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/features/dashboard/JobEditForm.jsx'},
+    {from:'client/src/components/ContactProfilePage.jsx', to:'client/src/components/ConfirmModal.jsx'},
+    {from:'client/src/features/intake/IntakeForm.jsx', to:'client/src/features/intake/useIntake.js'},
+    {from:'client/src/features/intake/IntakeForm.jsx', to:'client/src/platforms/index.js'},
+    {from:'client/src/features/intake/useIntake.js', to:'client/src/api/jobsApi.js'},
+    {from:'client/src/features/intake/useIntake.js', to:'client/src/platforms/index.js'},
+    {from:'client/src/features/dashboard/JobsList.jsx', to:'client/src/features/dashboard/JobRow.jsx'},
+    {from:'client/src/features/dashboard/JobRow.jsx', to:'client/src/lib/contacts.js'},
+    {from:'client/src/features/dashboard/JobRow.jsx', to:'client/src/features/dashboard/JobEditForm.jsx'},
+    {from:'client/src/features/dashboard/useJobActions.js', to:'client/src/api/jobsApi.js'},
+    {from:'client/src/hooks/useJobsPolling.js', to:'client/src/api/jobsApi.js'},
+    {from:'client/src/features/activity/ActivityPanel.jsx', to:'client/src/features/activity/eventTranslator.js'},
+    // SERVER
+    {from:'server/src/index.js', to:'server/src/app.js'},
+    {from:'server/src/index.js', to:'server/src/config/env.js'},
+    {from:'server/src/index.js', to:'server/src/worker/queue.js'},
+    {from:'server/src/index.js', to:'server/src/worker/process-job.js'},
+    {from:'server/src/index.js', to:'server/src/worker/recovery.js'},
+    {from:'server/src/index.js', to:'server/src/services/playwright-adapter.js'},
+    {from:'server/src/app.js', to:'server/src/routes/jobs.js'},
+    {from:'server/src/app.js', to:'server/src/routes/contacts.js'},
+    {from:'server/src/app.js', to:'server/src/routes/retry.js'},
+    {from:'server/src/app.js', to:'server/src/routes/status.js'},
+    {from:'server/src/app.js', to:'server/src/config/platform-capabilities.js'},
+    {from:'server/src/app.js', to:'server/src/lib/telemetry.js'},
+    {from:'server/src/app.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/app.js', to:'server/src/middleware/request-limits.js'},
+    {from:'server/src/app.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/models/job.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/utils/validation.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/lib/error-codes.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/config/platform-capabilities.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/routes/jobs.js', to:'server/src/routes/helpers/route-utils.js'},
+    {from:'server/src/routes/contacts.js', to:'server/src/models/job.js'},
+    {from:'server/src/routes/contacts.js', to:'server/src/lib/error-codes.js'},
+    {from:'server/src/routes/contacts.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/routes/contacts.js', to:'server/src/routes/helpers/route-utils.js'},
+    {from:'server/src/routes/retry.js', to:'server/src/models/job.js'},
+    {from:'server/src/routes/retry.js', to:'server/src/utils/validation.js'},
+    {from:'server/src/routes/retry.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/routes/retry.js', to:'server/src/lib/error-codes.js'},
+    {from:'server/src/routes/retry.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/routes/retry.js', to:'server/src/routes/helpers/route-utils.js'},
+    {from:'server/src/routes/status.js', to:'server/src/models/job.js'},
+    {from:'server/src/routes/status.js', to:'server/src/domain/job-transitions.js'},
+    {from:'server/src/routes/status.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/routes/status.js', to:'server/src/lib/error-codes.js'},
+    {from:'server/src/routes/status.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/routes/status.js', to:'server/src/routes/helpers/route-utils.js'},
+    {from:'server/src/routes/worker-health.js', to:'server/src/models/worker-heartbeat.js'},
+    {from:'server/src/routes/helpers/route-utils.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/routes/helpers/route-utils.js', to:'server/src/config/platform-capabilities.js'},
+    {from:'server/src/routes/helpers/route-utils.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/routes/helpers/route-utils.js', to:'server/src/lib/error-codes.js'},
+    {from:'server/src/worker/queue.js', to:'server/src/models/job.js'},
+    {from:'server/src/worker/queue.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/worker/queue.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/services/extractor-service.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/services/downloader-service.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/services/playwright-adapter.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/utils/account-profile.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/utils/validation.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/worker/queue.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/worker/process-job.js', to:'server/src/core/dispatch/route-job-by-domain.js'},
+    {from:'server/src/worker/recovery.js', to:'server/src/models/job.js'},
+    {from:'server/src/worker/recovery.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/services/extractor-service.js', to:'server/src/constants/job-status.js'},
+    {from:'server/src/services/extractor-service.js', to:'server/src/utils/validation.js'},
+    {from:'server/src/services/extractor-service.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/services/downloader-service.js', to:'server/src/lib/logger.js'},
+    {from:'server/src/services/downloader-service.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/services/playwright-adapter.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/config/platform-capabilities.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/utils/validation.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/utils/account-profile.js', to:'server/src/platforms/registry.js'},
+    {from:'server/src/lib/logger.js', to:'server/src/lib/telemetry.js'},
+    {from:'server/src/core/dispatch/resolve-domain-id.js', to:'server/src/core/platforms/registry.js'},
+    {from:'server/src/core/dispatch/route-job-by-domain.js', to:'server/src/core/dispatch/resolve-domain-id.js'},
+    {from:'server/src/core/dispatch/route-job-by-domain.js', to:'server/src/core/runtime/load-domains.js'},
+    {from:'server/src/core/runtime/load-domains.js', to:'server/src/core/runtime/domain-context.js'},
+    {from:'server/src/runtime/start-api-runtime.js', to:'server/src/app.js'},
+    {from:'server/src/runtime/start-api-runtime.js', to:'server/src/config/env.js'},
+    {from:'server/src/runtime/start-api-runtime.js', to:'server/src/core/runtime/load-domains.js'},
+    {from:'server/src/runtime/start-api-runtime.js', to:'server/src/runtime/register-shutdown.js'},
+    {from:'server/src/runtime/start-worker-runtime.js', to:'server/src/config/env.js'},
+    {from:'server/src/runtime/start-worker-runtime.js', to:'server/src/worker/queue.js'},
+    {from:'server/src/runtime/start-worker-runtime.js', to:'server/src/worker/process-job.js'},
+    {from:'server/src/runtime/start-worker-runtime.js', to:'server/src/worker/recovery.js'},
+    {from:'server/src/runtime/start-worker-runtime.js', to:'server/src/services/playwright-adapter.js'},
+    {from:'server/src/runtime/start-worker-runtime.js', to:'server/src/runtime/register-shutdown.js'},
+  ];
+
+  // Build node list from FILES
+  const filePathSet = new Set(FILES.map(f => f.path));
+  const nodeData = FILES.map(f => {
+    const importedByCount = IMPORTS.filter(e => e.to === f.path).length;
+    const importsCount = IMPORTS.filter(e => e.from === f.path).length;
+    return {
+      path: f.path,
+      mod: f.mod,
+      desc: f.desc,
+      isStub: f.isStub,
+      importedBy: importedByCount,
+      imports: importsCount,
+      // Node size based on how many import it
+      radius: Math.max(5, Math.min(22, 5 + importedByCount * 2.5)),
+      // Position — will be computed by force sim
+      x: 0, y: 0, vx: 0, vy: 0,
+      fx: null, fy: null // fixed position when dragging
+    };
+  });
+
+  const nodeByPath = {};
+  nodeData.forEach(n => nodeByPath[n.path] = n);
+
+  // Filter edges to only existing nodes
+  const validEdges = IMPORTS.filter(e => nodeByPath[e.from] && nodeByPath[e.to]);
+
+  // Build module groups for initial positioning
+  const allMods = [...MODULES, ...SUPPORT];
+  const modGroups = {};
+  allMods.forEach(m => { modGroups[m.id] = []; });
+  nodeData.forEach(n => { if(modGroups[n.mod]) modGroups[n.mod].push(n); });
+
+  // Initial layout: arrange modules in a circle, files clustered around their module
+  const simW = 1400, simH = 1200;
+  const simCx = simW/2, simCy = simH/2;
+  const modIds = Object.keys(modGroups).filter(id => modGroups[id].length > 0);
+  modIds.forEach((modId, i) => {
+    const angle = (i / modIds.length) * Math.PI * 2 - Math.PI/2;
+    const mr = 350;
+    const mcx = simCx + mr * Math.cos(angle);
+    const mcy = simCy + mr * Math.sin(angle);
+    modGroups[modId].forEach((n, j) => {
+      const spread = 80;
+      n.x = mcx + (Math.random() - 0.5) * spread;
+      n.y = mcy + (Math.random() - 0.5) * spread;
+    });
+  });
+
+  // Force-directed simulation
+  const repulsion = 800;
+  const springLength = 120;
+  const springK = 0.008;
+  const gravity = 0.01;
+  const damping = 0.85;
+  const iterations = 350;
+
+  for(let iter = 0; iter < iterations; iter++) {
+    const temp = 1 - iter/iterations; // cooling
+    // Repulsion between all pairs
+    for(let i = 0; i < nodeData.length; i++) {
+      for(let j = i+1; j < nodeData.length; j++) {
+        const a = nodeData[i], b = nodeData[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const force = repulsion * temp / (dist * dist);
+        const fx = (dx/dist) * force, fy = (dy/dist) * force;
+        a.vx -= fx; a.vy -= fy;
+        b.vx += fx; b.vy += fy;
+      }
+    }
+    // Spring attraction for connected nodes
+    validEdges.forEach(e => {
+      const a = nodeByPath[e.from], b = nodeByPath[e.to];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const force = (dist - springLength) * springK * temp;
+      const fx = (dx/dist) * force, fy = (dy/dist) * force;
+      a.vx += fx; a.vy += fy;
+      b.vx -= fx; b.vy -= fy;
+    });
+    // Gravity toward center
+    nodeData.forEach(n => {
+      n.vx += (simCx - n.x) * gravity * temp;
+      n.vy += (simCy - n.y) * gravity * temp;
+    });
+    // Apply velocities
+    nodeData.forEach(n => {
+      n.vx *= damping;
+      n.vy *= damping;
+      n.x += n.vx;
+      n.y += n.vy;
+      // Keep in bounds
+      n.x = Math.max(40, Math.min(simW-40, n.x));
+      n.y = Math.max(40, Math.min(simH-40, n.y));
+    });
+  }
+
+  // Module visibility for legend filtering
+  const modVisible = {};
+  allMods.forEach(m => { modVisible[m.id] = true; });
+
+  // Legend with filter toggles
+  const legend = document.createElement('div');
+  legend.className = 'ng-legend';
+  legend.innerHTML = '<div class="legend-strip-title">Click to filter modules</div>';
+  allMods.filter(m => modGroups[m.id] && modGroups[m.id].length > 0).forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'ng-legend-item';
+    item.innerHTML = `<span class="ng-leg-dot" style="background:${m.color}"></span>${m.name} (${modGroups[m.id].length})`;
+    item.addEventListener('click', () => {
+      modVisible[m.id] = !modVisible[m.id];
+      item.classList.toggle('is-hidden', !modVisible[m.id]);
+      updateVisibility();
+    });
+    legend.appendChild(item);
+  });
+  container.appendChild(legend);
+
+  // SVG
+  const svg = svgEl('svg', {viewBox:`0 0 ${simW} ${simH}`, preserveAspectRatio:'xMidYMid meet'});
+  const ngDefs = svgEl('defs');
+  const ngMarker = svgEl('marker', {id:'ng-arrow',viewBox:'0 0 10 7',refX:'10',refY:'3.5',markerWidth:'6',markerHeight:'4',orient:'auto-start-reverse'});
+  ngMarker.appendChild(svgEl('polygon', {points:'0 0, 10 3.5, 0 7', fill:'#64748b'}));
+  ngDefs.appendChild(ngMarker);
+  svg.appendChild(ngDefs);
+
+  // Edge group (below nodes)
+  const edgeGroup = svgEl('g');
+  svg.appendChild(edgeGroup);
+  const ngNodeGroup = svgEl('g');
+  svg.appendChild(ngNodeGroup);
+  const ngLabelGroup = svgEl('g');
+  svg.appendChild(ngLabelGroup);
+
+  // Draw edges
+  const edgeElements = [];
+  validEdges.forEach(e => {
+    const a = nodeByPath[e.from], b = nodeByPath[e.to];
+    const info = getModuleInfo(a.mod);
+    // Curved edge
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const perpX = -dy/dist * 20, perpY = dx/dist * 20;
+    const line = svgEl('path', {
+      d: `M${a.x},${a.y} Q${mx+perpX},${my+perpY} ${b.x},${b.y}`,
+      class:'ng-edge', stroke:info.color, fill:'none',
+      'marker-end':'url(#ng-arrow)',
+      'data-from': e.from, 'data-to': e.to
+    });
+    edgeGroup.appendChild(line);
+    edgeElements.push({el:line, from:e.from, to:e.to});
+  });
+
+  // Draw nodes
+  const nodeElements = [];
+  nodeData.forEach(n => {
+    const info = getModuleInfo(n.mod);
+    const g = svgEl('g', {class:'ng-node','data-path':n.path});
+    g.appendChild(svgEl('circle', {cx:n.x, cy:n.y, r:n.radius, fill:hexToRgba(info.color, 0.35), stroke:info.color, 'stroke-width':'1.5'}));
+
+    const fileName = n.path.split('/').pop();
+    const label = svgEl('text', {x:n.x, y:n.y + n.radius + 12, class:'ng-label'});
+    label.textContent = fileName;
+    ngLabelGroup.appendChild(label);
+
+    // Hover: highlight connections
+    g.addEventListener('mouseenter', () => highlightNode(n.path));
+    g.addEventListener('mouseleave', clearNodeHighlight);
+    g.addEventListener('mousemove', e => showTooltip(e, {path:n.path, mod:n.mod, desc:n.desc}));
+
+    // Click: show popup
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showNodePopup(n, e);
+    });
+
+    // Drag
+    let dragging = false, dragOffX = 0, dragOffY = 0;
+    g.addEventListener('mousedown', (e) => {
+      if(e.button !== 0) return;
+      e.stopPropagation();
+      dragging = true;
+      const svgPt = svgPoint(e);
+      dragOffX = n.x - svgPt.x;
+      dragOffY = n.y - svgPt.y;
+      g.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', (e) => {
+      if(!dragging) return;
+      const svgPt = svgPoint(e);
+      n.x = svgPt.x + dragOffX;
+      n.y = svgPt.y + dragOffY;
+      updateNodePosition(n);
+    });
+    window.addEventListener('mouseup', () => {
+      if(dragging) { dragging = false; g.style.cursor = ''; }
+    });
+
+    ngNodeGroup.appendChild(g);
+    nodeElements.push({el:g, labelEl:label, node:n});
+  });
+
+  function svgPoint(e) {
+    const rect = svg.getBoundingClientRect();
+    const svgW = simW, svgH = simH;
+    return {
+      x: (e.clientX - rect.left) / rect.width * svgW,
+      y: (e.clientY - rect.top) / rect.height * svgH
+    };
+  }
+
+  function updateNodePosition(n) {
+    const ne = nodeElements.find(ne => ne.node === n);
+    if(!ne) return;
+    const circle = ne.el.querySelector('circle');
+    circle.setAttribute('cx', n.x);
+    circle.setAttribute('cy', n.y);
+    ne.labelEl.setAttribute('x', n.x);
+    ne.labelEl.setAttribute('y', n.y + n.radius + 12);
+    // Update edges
+    edgeElements.forEach(ee => {
+      if(ee.from === n.path || ee.to === n.path) {
+        const a = nodeByPath[ee.from], b = nodeByPath[ee.to];
+        const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+        const dx = b.x-a.x, dy = b.y-a.y;
+        const dist = Math.sqrt(dx*dx+dy*dy)||1;
+        const perpX = -dy/dist*20, perpY = dx/dist*20;
+        ee.el.setAttribute('d', `M${a.x},${a.y} Q${mx+perpX},${my+perpY} ${b.x},${b.y}`);
+      }
+    });
+  }
+
+  function highlightNode(path) {
+    const connected = new Set([path]);
+    validEdges.forEach(e => {
+      if(e.from === path) connected.add(e.to);
+      if(e.to === path) connected.add(e.from);
+    });
+    nodeElements.forEach(ne => { ne.el.classList.toggle('dimmed', !connected.has(ne.node.path)); ne.labelEl.classList.toggle('dimmed', !connected.has(ne.node.path)); });
+    edgeElements.forEach(ee => {
+      const isConn = ee.from === path || ee.to === path;
+      ee.el.classList.toggle('dimmed', !isConn);
+      ee.el.classList.toggle('highlighted', isConn);
+    });
+  }
+
+  function clearNodeHighlight() {
+    nodeElements.forEach(ne => { ne.el.classList.remove('dimmed'); ne.labelEl.classList.remove('dimmed'); });
+    edgeElements.forEach(ee => { ee.el.classList.remove('dimmed','highlighted'); });
+    hideTooltip();
+  }
+
+  function updateVisibility() {
+    nodeElements.forEach(ne => {
+      const vis = modVisible[ne.node.mod];
+      ne.el.style.display = vis ? '' : 'none';
+      ne.labelEl.style.display = vis ? '' : 'none';
+    });
+    edgeElements.forEach(ee => {
+      const a = nodeByPath[ee.from], b = nodeByPath[ee.to];
+      ee.el.style.display = (modVisible[a.mod] && modVisible[b.mod]) ? '' : 'none';
+    });
+  }
+
+  // Popup
+  let popupEl = null;
+  function showNodePopup(n, e) {
+    removePopup();
+    const info = getModuleInfo(n.mod);
+    const importsFiles = IMPORTS.filter(imp => imp.from === n.path).map(imp => imp.to.split('/').pop());
+    const importedByFiles = IMPORTS.filter(imp => imp.to === n.path).map(imp => imp.from.split('/').pop());
+
+    popupEl = document.createElement('div');
+    popupEl.className = 'ng-popup';
+    popupEl.innerHTML = `
+      <button class="ng-popup-close" title="Close">\u00D7</button>
+      <h4>${n.path.split('/').pop()}</h4>
+      <div class="ng-popup-path">${n.path}</div>
+      <div class="ng-popup-mod" style="background:${info.color}">${info.name}</div>
+      <div class="ng-popup-desc">${n.desc || ''}</div>
+      ${importsFiles.length ? `<div class="ng-popup-section"><h5>Imports (${importsFiles.length})</h5><ul class="ng-popup-list">${importsFiles.map(f => '<li>\u2192 '+f+'</li>').join('')}</ul></div>` : ''}
+      ${importedByFiles.length ? `<div class="ng-popup-section"><h5>Imported by (${importedByFiles.length})</h5><ul class="ng-popup-list">${importedByFiles.map(f => '<li>\u2190 '+f+'</li>').join('')}</ul></div>` : ''}
+    `;
+    popupEl.style.left = Math.min(e.clientX + 10, window.innerWidth - 380) + 'px';
+    popupEl.style.top = Math.min(e.clientY + 10, window.innerHeight - 300) + 'px';
+    popupEl.querySelector('.ng-popup-close').addEventListener('click', removePopup);
+    viewport.appendChild(popupEl);
+  }
+  function removePopup() { if(popupEl) { popupEl.remove(); popupEl = null; } }
+
+  // Viewport with zoom/pan
+  const viewport = document.createElement('div');
+  viewport.className = 'ng-viewport';
+  viewport.appendChild(svg);
+  viewport.addEventListener('click', removePopup);
+
+  const controls = document.createElement('div');
+  controls.className = 'td-zoom-controls';
+  controls.innerHTML = `<button class="td-zin" title="Zoom in">+</button><button class="td-zout" title="Zoom out">\u2212</button><span class="td-zoom-pct">100%</span><button class="td-zreset" title="Reset zoom">&#x21bb;</button>`;
+  viewport.appendChild(controls);
+  container.appendChild(viewport);
+
+  let scale = 0.7, panX = 0, panY = 0;
+  const MIN_SCALE = 0.15, MAX_SCALE = 4;
+  let isDragging = false, dragStartX = 0, dragStartY = 0, dragPanStartX = 0, dragPanStartY = 0;
+  const pctLabel = controls.querySelector('.td-zoom-pct');
+
+  function applyTransform(smooth) {
+    svg.style.transition = smooth ? 'transform 200ms ease' : 'none';
+    svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    pctLabel.textContent = Math.round(scale * 100) + '%';
+  }
+  function zoomAt(ecx, ecy, newScale, smooth) {
+    newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+    const rect = viewport.getBoundingClientRect();
+    const vx = ecx - rect.left, vy = ecy - rect.top;
+    panX = vx - (vx - panX) * (newScale / scale);
+    panY = vy - (vy - panY) * (newScale / scale);
+    scale = newScale;
+    applyTransform(smooth);
+  }
+  function resetZoom() { scale = 0.7; panX = 0; panY = 0; applyTransform(true); }
+  applyTransform(false);
+
+  viewport.addEventListener('wheel', function(e) { e.preventDefault(); zoomAt(e.clientX, e.clientY, scale * (e.deltaY > 0 ? 0.9 : 1.1), false); }, {passive:false});
+  viewport.addEventListener('mousedown', function(e) {
+    if(e.button!==0) return;
+    // Don't start pan if clicking on a node
+    if(e.target.closest('.ng-node') || e.target.closest('.ng-popup')) return;
+    isDragging=true; dragStartX=e.clientX; dragStartY=e.clientY; dragPanStartX=panX; dragPanStartY=panY; viewport.classList.add('is-dragging');
+  });
+  window.addEventListener('mousemove', function(e) { if(!isDragging) return; panX=dragPanStartX+(e.clientX-dragStartX); panY=dragPanStartY+(e.clientY-dragStartY); applyTransform(false); });
+  window.addEventListener('mouseup', function() { if(!isDragging) return; isDragging=false; viewport.classList.remove('is-dragging'); });
+  viewport.addEventListener('dblclick', function(e) { e.preventDefault(); zoomAt(e.clientX, e.clientY, scale*1.4, true); });
+  controls.querySelector('.td-zin').addEventListener('click', function(e) { e.stopPropagation(); const r=viewport.getBoundingClientRect(); zoomAt(r.left+r.width/2,r.top+r.height/2,scale*1.25,true); });
+  controls.querySelector('.td-zout').addEventListener('click', function(e) { e.stopPropagation(); const r=viewport.getBoundingClientRect(); zoomAt(r.left+r.width/2,r.top+r.height/2,scale/1.25,true); });
+  controls.querySelector('.td-zreset').addEventListener('click', function(e) { e.stopPropagation(); resetZoom(); });
+  controls.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 11: TEAM MAP (Agent team assignment)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.teams = function() {
+  const container = document.getElementById('view-teams');
+  container.innerHTML = '<div class="view-subtitle">Agent team ownership map — which teammate owns which files, and who must coordinate with whom.</div>';
+
+  const TEAMS = [
+    // Client Teams
+    {name:'App Shell Teammate', color:'#3b82f6', group:'client',
+     files:['client/src/App.jsx','client/src/App.css','client/src/main.jsx','client/src/index.css'],
+     coordinates:['Page Components','Intake','Dashboard','Activity']},
+    {name:'Intake Teammate', color:'#10b981', group:'client',
+     files:['client/src/features/intake/IntakeForm.jsx','client/src/features/intake/useIntake.js','client/src/features/intake/intake.css'],
+     coordinates:['Data Layer','App Shell','Platform']},
+    {name:'Dashboard Teammate', color:'#f59e0b', group:'client',
+     files:['client/src/features/dashboard/JobsList.jsx','client/src/features/dashboard/JobRow.jsx','client/src/features/dashboard/JobEditForm.jsx','client/src/features/dashboard/useJobActions.js','client/src/features/dashboard/useSelection.js','client/src/features/dashboard/dashboard.css'],
+     coordinates:['Data Layer','Page Components','App Shell']},
+    {name:'Activity Teammate', color:'#8b5cf6', group:'client',
+     files:['client/src/features/activity/ActivityPanel.jsx','client/src/features/activity/eventTranslator.js','client/src/features/activity/activity.css'],
+     coordinates:['Page Components','App Shell']},
+    {name:'Page Components Teammate', color:'#ec4899', group:'client',
+     files:['client/src/components/JobsPage.jsx','client/src/components/ContactProfilePage.jsx','client/src/components/ConfirmModal.jsx','client/src/components/ActivityPanel.jsx'],
+     coordinates:['Dashboard','Intake','Activity','Data Layer']},
+    {name:'Data Layer Teammate', color:'#06b6d4', group:'client',
+     files:['client/src/hooks/useJobsPolling.js','client/src/api/jobsApi.js'],
+     coordinates:['Page Components','Dashboard','Intake','Routes']},
+    // Server Teams
+    {name:'Backend Teammate', color:'#3b82f6', group:'server',
+     files:['server/src/index.js','server/src/app.js','server/src/start-api.js','server/src/start-worker.js'],
+     coordinates:['Routes','Worker','Service','Runtime']},
+    {name:'Routes Teammate', color:'#f97316', group:'server',
+     files:['server/src/routes/jobs.js','server/src/routes/contacts.js','server/src/routes/retry.js','server/src/routes/status.js','server/src/routes/worker-health.js','server/src/routes/helpers/route-utils.js'],
+     coordinates:['Model','Backend','Service','Core Kernel']},
+    {name:'Model Teammate', color:'#eab308', group:'server',
+     files:['server/src/models/job.js','server/src/models/worker-heartbeat.js','server/src/models/telemetry-event.js'],
+     coordinates:['Routes','Worker','Core Kernel']},
+    {name:'Service Teammate', color:'#ef4444', group:'server',
+     files:['server/src/services/extractor-service.js','server/src/services/downloader-service.js','server/src/services/playwright-adapter.js'],
+     coordinates:['Worker','Backend','Platform']},
+    {name:'Worker Teammate', color:'#6366f1', group:'server',
+     files:['server/src/worker/queue.js','server/src/worker/process-job.js','server/src/worker/recovery.js'],
+     coordinates:['Service','Model','Backend','Core Kernel']},
+    {name:'Platform Teammate', color:'#14b8a6', group:'server',
+     files:['client/src/platforms/index.js','server/src/platforms/registry.js','server/src/platforms/x/index.js','server/src/platforms/tiktok/index.js','server/src/core/platforms/registry.js'],
+     coordinates:['Service','Routes','Intake','Core Kernel']},
+    {name:'Core Kernel Teammate', color:'#e879f9', group:'server',
+     files:['server/src/core/data/job-model.js','server/src/core/data/job-status.js','server/src/core/domain/job-transitions.js','server/src/core/http/request-limits.js','server/src/core/platforms/registry.js','server/src/core/dispatch/resolve-domain-id.js','server/src/core/dispatch/route-job-by-domain.js','server/src/core/runtime/domain-context.js','server/src/core/runtime/load-domains.js'],
+     coordinates:['Routes','Worker','Model','Runtime','Platform']},
+    {name:'Runtime Teammate', color:'#a78bfa', group:'server',
+     files:['server/src/runtime/register-shutdown.js','server/src/runtime/start-api-runtime.js','server/src/runtime/start-worker-runtime.js'],
+     coordinates:['Backend','Core Kernel','Worker']},
+    // Shared
+    {name:'Shared (No Owner)', color:'#9ca3af', group:'shared',
+     files:['server/src/config/env.js','server/src/config/platform-capabilities.js','server/src/lib/logger.js','server/src/lib/telemetry.js','server/src/lib/error-codes.js','server/src/utils/validation.js','server/src/utils/account-profile.js','server/src/constants/job-status.js','server/src/domain/job-transitions.js','server/src/middleware/request-limits.js','client/src/lib/contacts.js','client/src/lib/eventTranslator.js'],
+     coordinates:['All teams (shared utilities)']},
+  ];
+
+  // Estimate LOC per file (rough based on complexity)
+  const locEstimates = {
+    'client/src/App.jsx':120,'client/src/App.css':800,'client/src/main.jsx':15,'client/src/index.css':30,
+    'client/src/features/intake/IntakeForm.jsx':180,'client/src/features/intake/useIntake.js':90,'client/src/features/intake/intake.css':200,
+    'client/src/features/dashboard/JobsList.jsx':150,'client/src/features/dashboard/JobRow.jsx':200,'client/src/features/dashboard/JobEditForm.jsx':130,
+    'client/src/features/dashboard/useJobActions.js':80,'client/src/features/dashboard/useSelection.js':50,'client/src/features/dashboard/dashboard.css':350,
+    'client/src/features/activity/ActivityPanel.jsx':220,'client/src/features/activity/eventTranslator.js':100,'client/src/features/activity/activity.css':250,
+    'client/src/components/JobsPage.jsx':300,'client/src/components/ContactProfilePage.jsx':280,'client/src/components/ConfirmModal.jsx':60,'client/src/components/ActivityPanel.jsx':10,
+    'client/src/hooks/useJobsPolling.js':80,'client/src/api/jobsApi.js':120,
+    'client/src/lib/contacts.js':70,'client/src/lib/eventTranslator.js':5,
+    'client/src/platforms/index.js':50,
+    'server/src/index.js':130,'server/src/app.js':180,'server/src/start-api.js':15,'server/src/start-worker.js':15,
+    'server/src/routes/jobs.js':250,'server/src/routes/contacts.js':80,'server/src/routes/retry.js':70,'server/src/routes/status.js':90,'server/src/routes/worker-health.js':40,'server/src/routes/helpers/route-utils.js':150,
+    'server/src/models/job.js':120,'server/src/models/worker-heartbeat.js':40,'server/src/models/telemetry-event.js':35,
+    'server/src/services/extractor-service.js':300,'server/src/services/downloader-service.js':250,'server/src/services/playwright-adapter.js':200,
+    'server/src/worker/queue.js':120,'server/src/worker/process-job.js':350,'server/src/worker/recovery.js':60,
+    'server/src/platforms/registry.js':10,'server/src/platforms/x/index.js':80,'server/src/platforms/tiktok/index.js':70,
+    'server/src/core/data/job-model.js':120,'server/src/core/data/job-status.js':30,'server/src/core/domain/job-transitions.js':50,
+    'server/src/core/http/request-limits.js':60,'server/src/core/platforms/registry.js':100,
+    'server/src/core/dispatch/resolve-domain-id.js':40,'server/src/core/dispatch/route-job-by-domain.js':80,
+    'server/src/core/runtime/domain-context.js':30,'server/src/core/runtime/load-domains.js':90,
+    'server/src/runtime/register-shutdown.js':45,'server/src/runtime/start-api-runtime.js':70,'server/src/runtime/start-worker-runtime.js':80,
+    'server/src/config/env.js':60,'server/src/config/platform-capabilities.js':70,
+    'server/src/lib/logger.js':100,'server/src/lib/telemetry.js':150,'server/src/lib/error-codes.js':40,
+    'server/src/utils/validation.js':120,'server/src/utils/account-profile.js':80,
+    'server/src/constants/job-status.js':10,'server/src/domain/job-transitions.js':10,'server/src/middleware/request-limits.js':10,
+  };
+
+  const groups = [
+    {label:'Client Teams', teams: TEAMS.filter(t => t.group === 'client')},
+    {label:'Server Teams', teams: TEAMS.filter(t => t.group === 'server')},
+    {label:'Shared / Support', teams: TEAMS.filter(t => t.group === 'shared')},
+  ];
+
+  const sectionsDiv = document.createElement('div');
+  sectionsDiv.className = 'tm-sections';
+
+  // Track all cards for coordination highlighting
+  const cardElements = {};
+
+  groups.forEach(grp => {
+    const section = document.createElement('div');
+    section.className = 'tm-card-section';
+    const sTitle = document.createElement('div');
+    sTitle.className = 'tm-section-title';
+    sTitle.textContent = grp.label;
+    section.appendChild(sTitle);
+
+    const grid = document.createElement('div');
+    grid.className = 'tm-grid';
+
+    grp.teams.forEach(team => {
+      const totalLoc = team.files.reduce((s,f) => s + (locEstimates[f] || 30), 0);
+      const card = document.createElement('div');
+      card.className = 'tm-card';
+      cardElements[team.name] = card;
+
+      card.innerHTML = `
+        <div class="tm-card-header" style="border-bottom:3px solid ${team.color}">
+          <h3><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${team.color}"></span>${team.name}</h3>
+          <span class="tm-badge" style="background:${hexToRgba(team.color,0.25)};color:${team.color}">${team.files.length} files</span>
+        </div>
+        <div class="tm-card-body">
+          <div style="display:flex;gap:12px;margin-bottom:8px;font-size:0.7rem;color:var(--text-dim)">
+            <span>\u2248 ${totalLoc.toLocaleString()} LOC</span>
+            <span style="color:${team.color}">\u25CF ${team.group === 'client' ? 'Client' : team.group === 'server' ? 'Server' : 'Cross-cutting'}</span>
+          </div>
+          <ul class="tm-file-list">
+            ${team.files.map(f => {
+              const name = f.split('/').pop();
+              const isDir = f.includes('/');
+              const fileObj = FILES.find(fi => fi.path === f);
+              const isStub = fileObj && fileObj.isStub;
+              return `<li data-path="${f}" title="${f}"><span class="tm-file-icon">${isStub ? '\uD83D\uDD17' : '\uD83D\uDCC4'}</span>${name}${isStub ? ' <span style="color:#9ca3af;font-size:0.6rem">(stub)</span>' : ''}</li>`;
+            }).join('')}
+          </ul>
+          <div class="tm-coord">
+            <div class="tm-coord-title">Coordinates with</div>
+            <div class="tm-coord-chips">
+              ${team.coordinates.map(c => `<span class="tm-coord-chip" data-team="${c}">${c}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
+      // File click -> show tooltip with import info
+      card.querySelectorAll('.tm-file-list li').forEach(li => {
+        const path = li.dataset.path;
+        const fileObj = FILES.find(f => f.path === path);
+        if(fileObj) {
+          li.addEventListener('mousemove', e => showTooltip(e, fileObj));
+          li.addEventListener('mouseleave', hideTooltip);
+        }
+      });
+
+      // Coordination chip hover -> highlight target team
+      card.querySelectorAll('.tm-coord-chip').forEach(chip => {
+        const targetName = chip.dataset.team;
+        chip.addEventListener('mouseenter', () => {
+          // Find and highlight target card
+          Object.entries(cardElements).forEach(([name, el]) => {
+            if(name.toLowerCase().includes(targetName.toLowerCase())) {
+              el.classList.add('highlighted');
+              el.scrollIntoView({behavior:'smooth',block:'nearest'});
+            }
+          });
+        });
+        chip.addEventListener('mouseleave', () => {
+          Object.values(cardElements).forEach(el => el.classList.remove('highlighted'));
+        });
+      });
+
+      // Card hover -> highlight coordination targets
+      card.addEventListener('mouseenter', () => {
+        team.coordinates.forEach(c => {
+          Object.entries(cardElements).forEach(([name, el]) => {
+            if(name.toLowerCase().includes(c.toLowerCase())) {
+              el.style.boxShadow = `0 0 0 2px ${team.color}40, 0 6px 20px rgba(0,0,0,0.3)`;
+            }
+          });
+        });
+      });
+      card.addEventListener('mouseleave', () => {
+        Object.values(cardElements).forEach(el => { el.style.boxShadow = ''; });
+      });
+
+      grid.appendChild(card);
+    });
+
+    section.appendChild(grid);
+    sectionsDiv.appendChild(section);
+  });
+
+  container.appendChild(sectionsDiv);
+
+  // Summary stats at bottom
+  const summary = document.createElement('div');
+  summary.style.cssText = 'margin-top:24px;padding:16px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);display:flex;flex-wrap:wrap;gap:20px;font-size:0.78rem;color:var(--text-dim)';
+  const totalTeams = TEAMS.length;
+  const totalAssigned = TEAMS.reduce((s,t) => s + t.files.length, 0);
+  const totalCoord = new Set(TEAMS.flatMap(t => t.coordinates)).size;
+  summary.innerHTML = `
+    <div><span style="font-weight:700;color:var(--text-bright);font-size:1rem">${totalTeams}</span> teams</div>
+    <div><span style="font-weight:700;color:var(--text-bright);font-size:1rem">${totalAssigned}</span> file assignments</div>
+    <div><span style="font-weight:700;color:var(--text-bright);font-size:1rem">${totalCoord}</span> unique coordination links</div>
+    <div style="margin-left:auto;font-style:italic">Hover a card to see its coordination partners highlighted</div>
+  `;
+  container.appendChild(summary);
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
