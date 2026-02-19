@@ -13,6 +13,11 @@ const jobSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    canonicalUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     domainId: {
       type: String,
       default: '',

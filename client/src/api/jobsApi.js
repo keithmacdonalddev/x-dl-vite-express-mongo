@@ -1,13 +1,29 @@
 const JOBS_API_BASE = '/api/jobs'
+const CAPABILITIES_API = '/api/capabilities'
+const TELEMETRY_API = '/api/telemetry'
 
 async function parseResponse(response) {
   const data = await response.json().catch(() => ({}))
+  const responseTraceId = typeof response.headers?.get === 'function' ? response.headers.get('x-trace-id') : ''
   if (!response.ok) {
     const message =
       typeof data.error === 'string' && data.error
         ? data.error
         : `Request failed with status ${response.status}`
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    error.code = typeof data.code === 'string' ? data.code : ''
+    error.traceId = typeof data.traceId === 'string' ? data.traceId : responseTraceId || ''
+    if (typeof data.existingJobId === 'string' && data.existingJobId) {
+      error.existingJobId = data.existingJobId
+    }
+    if (typeof data.existingJobStatus === 'string' && data.existingJobStatus) {
+      error.existingJobStatus = data.existingJobStatus
+    }
+    throw error
+  }
+  if (responseTraceId && data && typeof data === 'object' && !('traceId' in data)) {
+    data.traceId = responseTraceId
   }
   return data
 }
@@ -89,4 +105,81 @@ export async function deleteContactProfile(contactSlug) {
     method: 'DELETE',
   })
   return parseResponse(response)
+}
+
+export async function getCapabilities() {
+  const response = await fetch(CAPABILITIES_API)
+  return parseResponse(response)
+}
+
+export async function updateCapabilities(platforms) {
+  const response = await fetch(CAPABILITIES_API, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ platforms }),
+  })
+  return parseResponse(response)
+}
+
+export async function listTelemetry(params = {}) {
+  const search = new URLSearchParams()
+  if (params.jobId) {
+    search.set('jobId', params.jobId)
+  }
+  if (params.traceId) {
+    search.set('traceId', params.traceId)
+  }
+  if (params.level) {
+    search.set('level', params.level)
+  }
+  if (params.limit) {
+    search.set('limit', String(params.limit))
+  }
+
+  const response = await fetch(`${TELEMETRY_API}?${search.toString()}`)
+  return parseResponse(response)
+}
+
+export function openTelemetryStream(params = {}, { onEvent, onError } = {}) {
+  if (typeof EventSource === 'undefined') {
+    return null
+  }
+
+  const search = new URLSearchParams()
+  if (params.jobId) {
+    search.set('jobId', params.jobId)
+  }
+  if (params.traceId) {
+    search.set('traceId', params.traceId)
+  }
+  if (params.level) {
+    search.set('level', params.level)
+  }
+  if (params.limit) {
+    search.set('limit', String(params.limit))
+  }
+
+  const stream = new EventSource(`/api/telemetry/stream?${search.toString()}`)
+  stream.addEventListener('telemetry', (event) => {
+    try {
+      const payload = JSON.parse(event.data)
+      if (typeof onEvent === 'function') {
+        onEvent(payload)
+      }
+    } catch (error) {
+      if (typeof onError === 'function') {
+        onError(error)
+      }
+    }
+  })
+
+  stream.onerror = (error) => {
+    if (typeof onError === 'function') {
+      onError(error)
+    }
+  }
+
+  return stream
 }

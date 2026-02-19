@@ -1,0 +1,203 @@
+.jobs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.jobs-header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jobs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.bulk-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.job-row {
+  border: 1px solid #d8e0e6;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fbfdff;
+  transition: border-color 200ms ease, box-shadow 220ms ease, background 180ms ease;
+}
+
+.job-row.is-highlighted {
+  border-color: #2c9a64;
+  background: #f2fcf6;
+  box-shadow: 0 0 0 3px rgba(44, 154, 100, 0.16);
+}
+
+.row-actions-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.row-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.small-btn {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.select-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.edit-form {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed #d7e2e9;
+}
+
+.edit-form input {
+  border: 1px solid #c4d0d8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.job-top {
+  display: grid;
+  grid-template-columns: 1fr 112px;
+  gap: 12px;
+}
+
+.job-primary {
+  display: grid;
+  gap: 10px;
+}
+
+.job-account-label {
+  margin: 0;
+  font-size: 16px;
+}
+
+.job-status-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.job-media-preview {
+  display: grid;
+  gap: 8px;
+}
+
+.job-media-preview video {
+  width: min(460px, 100%);
+  max-height: 260px;
+  border-radius: 12px;
+  background: #000;
+}
+
+.job-thumb {
+  width: 112px;
+  height: 112px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #dbe5ee;
+}
+
+.job-row p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+
+.job-row details {
+  margin-top: 8px;
+}
+
+.job-row summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.assets-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.assets-list li {
+  border: 1px solid #dce3ea;
+  border-radius: 10px;
+  padding: 8px;
+  background: #fff;
+}
+
+.assets-list a {
+  display: block;
+  word-break: break-all;
+}
+
+.manual-retry-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #d7e2e9;
+}
+
+.manual-retry-form input {
+  border: 1px solid #c4d0d8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.manual-retry-form button,
+.assets-list button {
+  width: fit-content;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.manual-retry-form button:hover,
+.assets-list button:hover {
+  background: var(--accent-strong);
+}
+
+.manual-retry-form button:disabled,
+.assets-list button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .bulk-toolbar,
+  .row-actions-top,
+  .row-buttons {
+    flex-wrap: wrap;
+  }
+}

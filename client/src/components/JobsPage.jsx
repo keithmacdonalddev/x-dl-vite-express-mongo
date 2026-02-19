@@ -10,6 +10,7 @@ import { ActivityPanel } from '../features/activity/ActivityPanel'
 import { ConfirmModal } from './ConfirmModal'
 
 const MAX_TELEMETRY_EVENTS = 800
+const JOB_ROW_ID_PREFIX = 'job-row-'
 
 /**
  * HTTP request events (generated every 3s by polling) drown out actual job
@@ -37,6 +38,7 @@ export function JobsPage({ onOpenContact }) {
   const [telemetryEvents, setTelemetryEvents] = useState([])
   const [isActivityOpen, setIsActivityOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
+  const [highlightedJobId, setHighlightedJobId] = useState('')
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
@@ -47,6 +49,12 @@ export function JobsPage({ onOpenContact }) {
   useEffect(() => {
     actions.cleanupHiddenIds(jobs.map((j) => j._id))
   }, [jobs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!highlightedJobId) return
+    const timer = setTimeout(() => setHighlightedJobId(''), 3500)
+    return () => clearTimeout(timer)
+  }, [highlightedJobId])
 
   // Telemetry stream
   useEffect(() => {
@@ -108,6 +116,21 @@ export function JobsPage({ onOpenContact }) {
     closeDeleteModal()
   }
 
+  async function handleDuplicateJobJump(duplicateInfo) {
+    const jobId = duplicateInfo && typeof duplicateInfo.jobId === 'string' ? duplicateInfo.jobId : ''
+    if (!jobId) return
+
+    await refresh()
+    setHighlightedJobId(jobId)
+
+    window.setTimeout(() => {
+      const row = document.getElementById(`${JOB_ROW_ID_PREFIX}${jobId}`)
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 80)
+  }
+
   const errorMessage = actions.actionError || pollError
 
   return (
@@ -148,7 +171,7 @@ export function JobsPage({ onOpenContact }) {
         </aside>
 
         <section className="workspace">
-          <IntakeForm onCreated={refresh} isBusy={actions.isMutating} />
+          <IntakeForm onCreated={refresh} onDuplicate={handleDuplicateJobJump} isBusy={actions.isMutating} />
 
           <JobsList
             jobs={visibleJobs}
@@ -160,8 +183,6 @@ export function JobsPage({ onOpenContact }) {
             editingJobId={actions.editingJobId}
             editDraftByJobId={actions.editDraftByJobId}
             isMutating={actions.isMutating}
-            manualSubmittingJobId={actions.manualSubmittingJobId}
-            manualMediaByJobId={actions.manualMediaByJobId}
             onToggleSelect={selection.toggleSelection}
             onToggleAllSelection={selection.toggleAllSelection}
             onStartEdit={actions.startEdit}
@@ -170,9 +191,7 @@ export function JobsPage({ onOpenContact }) {
             onUpdateEditDraft={actions.updateEditDraft}
             onOpenSingleDelete={openSingleDelete}
             onOpenBulkDelete={openBulkDelete}
-            onManualRetry={actions.handleManualRetry}
-            onCandidateRetry={actions.handleCandidateRetry}
-            onSetManualMediaUrl={actions.setManualMediaUrl}
+            highlightedJobId={highlightedJobId}
           />
         </section>
       </section>

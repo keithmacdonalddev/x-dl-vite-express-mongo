@@ -90,6 +90,11 @@ test('new POST /api/jobs assigns domainId from platform map', async () => {
 
   const jobStub = {
     Job: {
+      findOne: () => ({
+        sort: () => ({
+          lean: async () => null,
+        }),
+      }),
       create: async (doc) => {
         createdPayloads.push(doc);
         return {

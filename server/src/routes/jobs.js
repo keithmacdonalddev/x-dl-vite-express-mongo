@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { Job } = require('../models/job');
-const { getPostUrlInfo, isTweetUrl } = require('../utils/validation');
+const { getPostUrlInfo, isTweetUrl, canonicalizePostUrl } = require('../utils/validation');
 const { JOB_STATUSES } = require('../constants/job-status');
 const { ERROR_CODES } = require('../lib/error-codes');
 const { logger } = require('../lib/logger');
@@ -20,6 +20,7 @@ const {
 } = require('./helpers/route-utils');
 
 const jobsRouter = express.Router();
+const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
 
 jobsRouter.get('/', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
@@ -117,6 +118,38 @@ jobsRouter.post('/', async (req, res) => {
   }
 
   try {
+    const canonicalUrl = canonicalizePostUrl(tweetUrl) || tweetUrl;
+    const existingActive = await Job.findOne({
+      status: { $in: ACTIVE_JOB_STATUSES },
+      $or: [
+        { canonicalUrl },
+        { tweetUrl },
+      ],
+    }).sort({ createdAt: -1 }).lean();
+
+    if (existingActive) {
+      const existingJobId = existingActive._id ? String(existingActive._id) : '';
+      const existingJobStatus = typeof existingActive.status === 'string'
+        ? existingActive.status
+        : JOB_STATUSES.QUEUED;
+
+      logger.info('jobs.create.duplicate_active', {
+        traceId,
+        tweetUrl,
+        canonicalUrl,
+        existingJobId,
+        existingJobStatus,
+      });
+
+      return res.status(409).json({
+        ok: false,
+        code: ERROR_CODES.DUPLICATE_ACTIVE_JOB,
+        error: 'This URL is already downloading.',
+        existingJobId,
+        existingJobStatus,
+      });
+    }
+
     const domainId = resolveDomainId({
       platformId: postInfo.platform,
       tweetUrl,
@@ -124,6 +157,7 @@ jobsRouter.post('/', async (req, res) => {
 
     const job = await Job.create({
       tweetUrl,
+      canonicalUrl,
       domainId,
       traceId,
       status: JOB_STATUSES.QUEUED,
@@ -183,6 +217,7 @@ jobsRouter.patch('/:id', async (req, res) => {
       return platformError;
     }
     updates.tweetUrl = tweetUrl;
+    updates.canonicalUrl = canonicalizePostUrl(tweetUrl) || tweetUrl;
     updates.domainId = resolveDomainId({
       platformId: postInfo.platform,
       tweetUrl,
