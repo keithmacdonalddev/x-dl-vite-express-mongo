@@ -71,17 +71,20 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .td-zoom-controls button:active{background:var(--bg4)}
 .td-zoom-controls .td-zoom-pct{color:var(--text-dim);font-size:0.72rem;font-weight:600;min-width:42px;text-align:center;padding:0 4px;user-select:none}
 
-/* ── View 2: File Map ────────────────── */
-.fm-container{font-family:'Cascadia Code','Fira Code',monospace;font-size:0.8rem;line-height:1.8}
-.fm-row{display:flex;align-items:center;gap:6px;padding:2px 8px;border-radius:4px;cursor:pointer;transition:background 150ms}
-.fm-row:hover{background:rgba(255,255,255,0.04)}
-.fm-indent{display:inline-block;width:20px;flex-shrink:0}
-.fm-icon{width:16px;text-align:center;flex-shrink:0;font-size:0.9rem}
-.fm-name{color:var(--text)}
-.fm-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-left:auto}
-.fm-tag{font-size:0.62rem;color:var(--text-dim);margin-left:6px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
-.fm-row.collapsed .fm-children{display:none}
-.fm-toggle{cursor:pointer;user-select:none;width:16px;text-align:center;flex-shrink:0;font-size:0.8rem;color:var(--text-dim)}
+/* ── View 2: File Map (SVG Node Graph) ── */
+.fm-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 200px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none;background:#0c1322}
+.fm-viewport.is-dragging{cursor:grabbing}
+.fm-viewport svg{width:100%;height:auto;transform-origin:0 0;pointer-events:all}
+.fm-zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;align-items:center;gap:4px;z-index:10;background:rgba(15,23,42,0.92);border:1px solid var(--bg4);border-radius:8px;padding:4px 6px;backdrop-filter:blur(6px);box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.fm-zoom-controls button{background:var(--bg2);color:var(--text-bright);border:1px solid var(--bg4);border-radius:6px;width:30px;height:30px;font-size:1rem;font-weight:700;cursor:pointer;display:grid;place-items:center;transition:all 150ms ease;line-height:1}
+.fm-zoom-controls button:hover{background:var(--bg3);border-color:#64748b}
+.fm-zoom-controls button:active{background:var(--bg4)}
+.fm-zoom-controls .fm-zoom-pct{color:var(--text-dim);font-size:0.72rem;font-weight:600;min-width:42px;text-align:center;padding:0 4px;user-select:none}
+.fm-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px 12px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
+.fm-legend-item{display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);cursor:pointer;padding:2px 8px;border-radius:20px;transition:all var(--transition);border:1px solid transparent;user-select:none}
+.fm-legend-item:hover{background:rgba(255,255,255,0.06);color:var(--text)}
+.fm-legend-item.is-active{background:rgba(255,255,255,0.1);border-color:var(--bg4);color:var(--text-bright)}
+.fm-legend-item .fm-leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
 /* ── View 3: Sunburst ────────────────── */
 #view-sunburst svg{width:100%;max-width:700px;height:auto;margin:0 auto;display:block}
@@ -774,16 +777,15 @@ function hexToRgba(hex, a) {
 
 renderers.filemap = function() {
   const container = document.getElementById('view-filemap');
-  container.innerHTML = '<div class="view-subtitle">Interactive file/folder tree — click folders to collapse/expand</div>';
-  buildLegend(container);
+  container.innerHTML = '<div class="view-subtitle">Top-down folder hierarchy — click folders to expand/collapse, double-click to expand all descendants, scroll to zoom, drag to pan</div>';
 
-  // Build tree structure
-  const tree = {name:'x-dl-vite-express-mongo', children:{}, isDir:true};
+  // ── Build tree data structure ──
+  const tree = {name:'x-dl-vite-express-mongo', children:{}, isDir:true, _expanded:true, depth:0};
 
   function ensureDir(parts) {
     let node = tree;
-    parts.forEach(p => {
-      if(!node.children[p]) node.children[p] = {name:p, children:{}, isDir:true};
+    parts.forEach((p, i) => {
+      if(!node.children[p]) node.children[p] = {name:p, children:{}, isDir:true, _expanded:false, depth:node.depth+1};
       node = node.children[p];
     });
     return node;
@@ -792,112 +794,420 @@ renderers.filemap = function() {
   [...FILES, ...ROOT_FILES].forEach(f => {
     const parts = f.path.split('/');
     const fileName = parts.pop();
-    const dir = ensureDir(parts);
-    dir.children[fileName] = {name:fileName, isDir:false, file:f};
+    const dir = parts.length ? ensureDir(parts) : tree;
+    dir.children[fileName] = {name:fileName, isDir:false, file:f, depth:dir.depth+1};
   });
 
-  const fm = document.createElement('div');
-  fm.className = 'fm-container';
+  // Default expand to depth 3
+  function autoExpand(node, maxDepth) {
+    if(!node.isDir) return;
+    if(node.depth < maxDepth) node._expanded = true;
+    Object.values(node.children).forEach(c => autoExpand(c, maxDepth));
+  }
+  autoExpand(tree, 3);
 
-  function renderNode(node, depth, parentPath) {
-    const entries = Object.values(node.children).sort((a,b) => {
+  // ── Layout constants ──
+  const FOLDER_W = 152, FOLDER_H = 38;
+  const FILE_W = 132, FILE_H = 30;
+  const H_GAP = 18, V_GAP = 70;
+  const CHILD_BADGE_R = 9;
+
+  // ── Sort children: dirs first, then files, alpha ──
+  function sortedChildren(node) {
+    return Object.values(node.children).sort((a,b) => {
       if(a.isDir && !b.isDir) return -1;
       if(!a.isDir && b.isDir) return 1;
       return a.name.localeCompare(b.name);
-    });
-
-    entries.forEach(child => {
-      const fullPath = parentPath ? parentPath + '/' + child.name : child.name;
-      const row = document.createElement('div');
-      row.className = 'fm-row';
-      row.style.paddingLeft = (depth * 20 + 8) + 'px';
-
-      if(child.isDir) {
-        const childCount = Object.keys(child.children).length;
-        row.innerHTML = `<span class="fm-toggle">\u25BE</span><span class="fm-icon">\uD83D\uDCC1</span><span class="fm-name" style="font-weight:600;color:#60a5fa">${child.name}/</span><span class="fm-tag">${childCount} items</span>`;
-        fm.appendChild(row);
-        const childContainer = document.createElement('div');
-        childContainer.className = 'fm-children';
-        row.querySelector('.fm-toggle').onclick = () => {
-          const collapsed = childContainer.style.display === 'none';
-          childContainer.style.display = collapsed ? 'block' : 'none';
-          row.querySelector('.fm-toggle').textContent = collapsed ? '\u25BE' : '\u25B8';
-        };
-        fm.appendChild(childContainer);
-        const prevParent = fm;
-        // Render children into the child container
-        const subEntries = Object.values(child.children).sort((a,b) => {
-          if(a.isDir && !b.isDir) return -1;
-          if(!a.isDir && b.isDir) return 1;
-          return a.name.localeCompare(b.name);
-        });
-        subEntries.forEach(sub => {
-          const subPath = fullPath + '/' + sub.name;
-          if(sub.isDir) {
-            renderSubDir(sub, depth + 1, subPath, childContainer);
-          } else {
-            const srow = document.createElement('div');
-            srow.className = 'fm-row';
-            srow.style.paddingLeft = ((depth+1) * 20 + 8) + 'px';
-            const info = sub.file ? getModuleInfo(sub.file.mod) : {color:'#666',name:''};
-            const stubMark = sub.file && sub.file.isStub ? ' <span style="color:#9ca3af;font-size:0.65rem">(stub)</span>' : '';
-            srow.innerHTML = `<span class="fm-indent"></span><span class="fm-icon">\uD83D\uDCC4</span><span class="fm-name">${sub.name}${stubMark}</span><span class="fm-dot" style="background:${info.color}"></span><span class="fm-tag">${sub.file?sub.file.desc:''}</span>`;
-            if(sub.file) {
-              srow.addEventListener('mousemove', e => showTooltip(e, sub.file));
-              srow.addEventListener('mouseleave', hideTooltip);
-            }
-            childContainer.appendChild(srow);
-          }
-        });
-      }
     });
   }
 
-  function renderSubDir(node, depth, fullPath, parentEl) {
-    const row = document.createElement('div');
-    row.className = 'fm-row';
-    row.style.paddingLeft = (depth * 20 + 8) + 'px';
-    const childCount = Object.keys(node.children).length;
-    row.innerHTML = `<span class="fm-toggle">\u25BE</span><span class="fm-icon">\uD83D\uDCC1</span><span class="fm-name" style="font-weight:600;color:#60a5fa">${node.name}/</span><span class="fm-tag">${childCount} items</span>`;
-    parentEl.appendChild(row);
+  // ── Get dominant module color for a folder ──
+  function getFolderColor(node) {
+    if(!node.isDir) {
+      return node.file ? getModuleInfo(node.file.mod).color : '#475569';
+    }
+    const modCounts = {};
+    function countMods(n) {
+      if(!n.isDir && n.file) modCounts[n.file.mod] = (modCounts[n.file.mod]||0) + 1;
+      if(n.isDir) Object.values(n.children).forEach(c => countMods(c));
+    }
+    countMods(node);
+    const top = Object.entries(modCounts).sort((a,b) => b[1]-a[1])[0];
+    return top ? getModuleInfo(top[0]).color : '#475569';
+  }
 
-    const childContainer = document.createElement('div');
-    childContainer.className = 'fm-children';
-    row.querySelector('.fm-toggle').onclick = () => {
-      const collapsed = childContainer.style.display === 'none';
-      childContainer.style.display = collapsed ? 'block' : 'none';
-      row.querySelector('.fm-toggle').textContent = collapsed ? '\u25BE' : '\u25B8';
-    };
-    parentEl.appendChild(childContainer);
+  // ── Count all descendants ──
+  function countDescendants(node) {
+    if(!node.isDir) return 0;
+    let c = 0;
+    Object.values(node.children).forEach(ch => { c++; c += countDescendants(ch); });
+    return c;
+  }
 
-    const subEntries = Object.values(node.children).sort((a,b) => {
-      if(a.isDir && !b.isDir) return -1;
-      if(!a.isDir && b.isDir) return 1;
-      return a.name.localeCompare(b.name);
+  // ── Layout: bottom-up width, top-down position ──
+  // Returns {w, h} of subtree, sets node._x, node._y, node._w, node._h
+  function layoutNode(node, x, y) {
+    const isRoot = node === tree;
+    const w = node.isDir ? FOLDER_W : FILE_W;
+    const h = node.isDir ? FOLDER_H : FILE_H;
+    node._w = w;
+    node._h = h;
+
+    if(!node.isDir || !node._expanded || Object.keys(node.children).length === 0) {
+      node._x = x;
+      node._y = y;
+      node._subtreeW = w;
+      return {w, h};
+    }
+
+    // Layout children
+    const kids = sortedChildren(node);
+    const childSizes = [];
+    // First pass: compute subtree widths
+    kids.forEach(kid => {
+      const sz = layoutNode(kid, 0, 0); // temp position
+      childSizes.push(sz);
     });
 
-    subEntries.forEach(sub => {
-      const subPath = fullPath + '/' + sub.name;
-      if(sub.isDir) {
-        renderSubDir(sub, depth + 1, subPath, childContainer);
-      } else {
-        const srow = document.createElement('div');
-        srow.className = 'fm-row';
-        srow.style.paddingLeft = ((depth+1) * 20 + 8) + 'px';
-        const info = sub.file ? getModuleInfo(sub.file.mod) : {color:'#666',name:''};
-        const stubMark = sub.file && sub.file.isStub ? ' <span style="color:#9ca3af;font-size:0.65rem">(stub)</span>' : '';
-        srow.innerHTML = `<span class="fm-indent"></span><span class="fm-icon">\uD83D\uDCC4</span><span class="fm-name">${sub.name}${stubMark}</span><span class="fm-dot" style="background:${info.color}"></span><span class="fm-tag">${sub.file?sub.file.desc:''}</span>`;
-        if(sub.file) {
-          srow.addEventListener('mousemove', e => showTooltip(e, sub.file));
-          srow.addEventListener('mouseleave', hideTooltip);
+    const totalChildW = kids.reduce((sum, kid) => sum + kid._subtreeW, 0) + (kids.length - 1) * H_GAP;
+    const subtreeW = Math.max(w, totalChildW);
+    node._subtreeW = subtreeW;
+
+    // Position self centered above children
+    node._x = x + subtreeW / 2 - w / 2;
+    node._y = y;
+
+    // Position children
+    let cx = x + (subtreeW - totalChildW) / 2;
+    const childY = y + h + V_GAP;
+    kids.forEach((kid, i) => {
+      layoutNode(kid, cx, childY);
+      cx += kid._subtreeW + H_GAP;
+    });
+
+    return {w: subtreeW, h};
+  }
+
+  // ── SVG rendering ──
+  let svgInner; // the <g> that gets transformed for zoom/pan
+  let allNodeGroups = []; // for legend highlighting
+
+  function renderGraph() {
+    // Layout
+    layoutNode(tree, 40, 40);
+
+    // Compute bounds
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    function findBounds(node) {
+      if(node._x !== undefined) {
+        minX = Math.min(minX, node._x);
+        minY = Math.min(minY, node._y);
+        maxX = Math.max(maxX, node._x + node._w);
+        maxY = Math.max(maxY, node._y + node._h);
+      }
+      if(node.isDir && node._expanded) {
+        Object.values(node.children).forEach(c => findBounds(c));
+      }
+    }
+    findBounds(tree);
+    const pad = 60;
+    const vbW = maxX - minX + pad * 2;
+    const vbH = maxY - minY + pad * 2;
+
+    // Clear and rebuild SVG
+    const vp = container.querySelector('.fm-viewport');
+    const svg = vp.querySelector('svg');
+    svg.setAttribute('viewBox', `0 0 ${vbW} ${vbH}`);
+    svg.innerHTML = '';
+
+    // Defs for glow filter
+    const defs = svgEl('defs');
+    const filter = svgEl('filter', {id:'fm-glow', x:'-50%', y:'-50%', width:'200%', height:'200%'});
+    const feGauss = svgEl('feGaussianBlur', {stdDeviation:'6', result:'coloredBlur'});
+    filter.appendChild(feGauss);
+    const feMerge = svgEl('feMerge');
+    const fm1 = svgEl('feMergeNode', {in:'coloredBlur'});
+    const fm2 = svgEl('feMergeNode', {in:'SourceGraphic'});
+    feMerge.appendChild(fm1); feMerge.appendChild(fm2);
+    filter.appendChild(feMerge);
+    defs.appendChild(filter);
+    svg.appendChild(defs);
+
+    svgInner = svgEl('g', {class:'fm-inner'});
+    const offsetX = pad - minX;
+    const offsetY = pad - minY;
+    allNodeGroups = [];
+
+    // Draw edges first (behind nodes)
+    function drawEdges(node) {
+      if(!node.isDir || !node._expanded) return;
+      const kids = sortedChildren(node);
+      if(kids.length === 0) return;
+      const parentCx = node._x + offsetX + node._w / 2;
+      const parentBy = node._y + offsetY + node._h;
+      const midY = parentBy + V_GAP * 0.4;
+      const edgeColor = getFolderColor(node);
+
+      kids.forEach(kid => {
+        const kidCx = kid._x + offsetX + kid._w / 2;
+        const kidTy = kid._y + offsetY;
+        // L-shaped connector: vertical from parent, horizontal, vertical to child
+        const path = svgEl('path', {
+          d: `M ${parentCx} ${parentBy} L ${parentCx} ${midY} L ${kidCx} ${midY} L ${kidCx} ${kidTy}`,
+          fill: 'none',
+          stroke: hexToRgba(edgeColor, 0.3),
+          'stroke-width': '2',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round'
+        });
+        svgInner.appendChild(path);
+      });
+      kids.forEach(kid => drawEdges(kid));
+    }
+    drawEdges(tree);
+
+    // Draw nodes
+    function drawNode(node) {
+      const nx = node._x + offsetX;
+      const ny = node._y + offsetY;
+      const isRoot = node === tree;
+      const g = svgEl('g', {class:'td-node', 'data-path': node.name});
+      const color = getFolderColor(node);
+      const modId = (!node.isDir && node.file) ? node.file.mod : null;
+
+      if(node.isDir) {
+        // Folder node
+        if(isRoot) {
+          // Root: accent glow
+          const glow = svgEl('rect', {x:nx-2, y:ny-2, width:node._w+4, height:node._h+4, rx:12, ry:12, fill:'none', stroke:color, 'stroke-width':'2', filter:'url(#fm-glow)', opacity:'0.5'});
+          svgInner.appendChild(glow);
+          const rect = svgEl('rect', {x:nx, y:ny, width:node._w, height:node._h, rx:10, ry:10, fill:hexToRgba(color, 0.35), stroke:color, 'stroke-width':'2'});
+          g.appendChild(rect);
+        } else {
+          // Color top border
+          const bg = svgEl('rect', {x:nx, y:ny, width:node._w, height:node._h, rx:8, ry:8, fill:'#1e293b', stroke:'#334155', 'stroke-width':'1'});
+          g.appendChild(bg);
+          const topBorder = svgEl('rect', {x:nx, y:ny, width:node._w, height:4, rx:2, ry:2, fill:color});
+          // Clip to top rounded corners
+          const clip = svgEl('clipPath', {id:'clip-'+nx+'-'+ny});
+          clip.appendChild(svgEl('rect', {x:nx, y:ny, width:node._w, height:node._h, rx:8, ry:8}));
+          defs.appendChild(clip);
+          topBorder.setAttribute('clip-path', `url(#clip-${nx}-${ny})`);
+          g.appendChild(topBorder);
         }
-        childContainer.appendChild(srow);
+
+        // Folder icon + name
+        const iconX = nx + 8;
+        const textY = ny + node._h / 2 + 1;
+        const icon = svgEl('text', {x:iconX, y:textY, fill:'#94a3b8', 'font-size':'12', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+        icon.textContent = '\uD83D\uDCC1';
+        g.appendChild(icon);
+
+        const label = svgEl('text', {x:iconX + 18, y:textY, fill: isRoot ? '#f8fafc' : '#e2e8f0', 'font-size': isRoot ? '12' : '11', 'font-weight':'600', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+        label.textContent = node.name;
+        g.appendChild(label);
+
+        // Child count badge
+        const childCount = Object.keys(node.children).length;
+        if(childCount > 0) {
+          const badgeX = nx + node._w - 18;
+          const badgeY = ny + node._h / 2;
+          const badge = svgEl('circle', {cx:badgeX, cy:badgeY, r:CHILD_BADGE_R, fill:hexToRgba(color, 0.25), stroke:hexToRgba(color, 0.5), 'stroke-width':'1'});
+          g.appendChild(badge);
+          const badgeText = svgEl('text', {x:badgeX, y:badgeY+1, fill:'#94a3b8', 'font-size':'9', 'font-weight':'700', 'text-anchor':'middle', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+          badgeText.textContent = childCount;
+          g.appendChild(badgeText);
+        }
+
+        // Expand/collapse indicator
+        if(childCount > 0) {
+          const indX = nx + node._w - 36;
+          const indY = ny + node._h / 2;
+          const ind = svgEl('text', {x:indX, y:indY+1, fill:'#64748b', 'font-size':'11', 'font-weight':'700', 'text-anchor':'middle', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+          ind.textContent = node._expanded ? '\u2212' : '+';
+          g.appendChild(ind);
+        }
+
+        // Click to toggle expand
+        g.style.cursor = 'pointer';
+        g.addEventListener('click', (e) => {
+          e.stopPropagation();
+          node._expanded = !node._expanded;
+          renderGraph();
+        });
+
+        // Double-click to expand all descendants
+        g.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          function expandAll(n) {
+            if(n.isDir) { n._expanded = true; Object.values(n.children).forEach(c => expandAll(c)); }
+          }
+          expandAll(node);
+          renderGraph();
+        });
+
+        // Tooltip
+        const descParts = [];
+        const dc = countDescendants(node);
+        descParts.push(dc + ' total descendants');
+        g.addEventListener('mousemove', ev => showTooltipRaw(ev, node.name + '/', modId || 'shell', descParts.join(', ')));
+        g.addEventListener('mouseleave', hideTooltip);
+
+      } else {
+        // File node
+        const fileColor = node.file ? getModuleInfo(node.file.mod).color : '#475569';
+        const bg = svgEl('rect', {x:nx, y:ny, width:node._w, height:node._h, rx:6, ry:6, fill:'#1a2332', stroke:'#2a3444', 'stroke-width':'1'});
+        g.appendChild(bg);
+
+        // Module-colored left dot
+        const dot = svgEl('circle', {cx:nx+10, cy:ny+node._h/2, r:4, fill:fileColor});
+        g.appendChild(dot);
+
+        // File name
+        const label = svgEl('text', {x:nx+20, y:ny+node._h/2+1, fill:'#cbd5e1', 'font-size':'9.5', 'font-weight':'400', 'dominant-baseline':'middle', 'font-family':"'Cascadia Code','Fira Code',monospace"});
+        const displayName = node.name.length > 14 ? node.name.slice(0, 13) + '\u2026' : node.name;
+        label.textContent = displayName;
+        g.appendChild(label);
+
+        // Stub label
+        if(node.file && node.file.isStub) {
+          const stubLabel = svgEl('text', {x:nx+node._w-6, y:ny+node._h/2+1, fill:'#9ca3af', 'font-size':'7', 'font-weight':'400', 'text-anchor':'end', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif', 'font-style':'italic'});
+          stubLabel.textContent = 'stub';
+          g.appendChild(stubLabel);
+        }
+
+        // Tooltip
+        if(node.file) {
+          g.style.cursor = 'default';
+          g.addEventListener('mousemove', ev => showTooltip(ev, node.file));
+          g.addEventListener('mouseleave', hideTooltip);
+        }
       }
-    });
+
+      if(modId) g.setAttribute('data-mod', modId);
+      allNodeGroups.push({g, modId, node});
+      svgInner.appendChild(g);
+
+      // Draw children
+      if(node.isDir && node._expanded) {
+        sortedChildren(node).forEach(kid => drawNode(kid));
+      }
+    }
+    drawNode(tree);
+    svg.appendChild(svgInner);
+
+    // Apply current zoom/pan transform
+    applyTransform();
   }
 
-  renderNode(tree, 0, '');
-  container.appendChild(fm);
+  // ── Build DOM structure ──
+  // Legend for module highlighting
+  const legend = document.createElement('div');
+  legend.className = 'fm-legend';
+  let activeMod = null;
+  const allMods = [...MODULES, ...SUPPORT];
+  allMods.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'fm-legend-item';
+    item.innerHTML = `<span class="fm-leg-dot" style="background:${m.color}"></span>${m.name}`;
+    item.addEventListener('click', () => {
+      if(activeMod === m.id) {
+        activeMod = null;
+        legend.querySelectorAll('.fm-legend-item').forEach(el => el.classList.remove('is-active'));
+      } else {
+        activeMod = m.id;
+        legend.querySelectorAll('.fm-legend-item').forEach(el => el.classList.remove('is-active'));
+        item.classList.add('is-active');
+      }
+      // Highlight/dim nodes
+      allNodeGroups.forEach(({g, modId, node}) => {
+        if(!activeMod) {
+          g.style.opacity = '';
+        } else {
+          // Check if node or any descendant belongs to the module
+          function hasModule(n) {
+            if(!n.isDir && n.file && n.file.mod === activeMod) return true;
+            if(n.isDir) return Object.values(n.children).some(c => hasModule(c));
+            return false;
+          }
+          g.style.opacity = (modId === activeMod || hasModule(node)) ? '' : '0.15';
+        }
+      });
+    });
+    legend.appendChild(item);
+  });
+  container.appendChild(legend);
+
+  // Viewport
+  const viewport = document.createElement('div');
+  viewport.className = 'fm-viewport';
+  const svg = svgEl('svg', {viewBox:'0 0 100 100', preserveAspectRatio:'xMidYMid meet'});
+  viewport.appendChild(svg);
+
+  // Zoom controls
+  const zoomCtrl = document.createElement('div');
+  zoomCtrl.className = 'fm-zoom-controls';
+  zoomCtrl.innerHTML = `<button class="fm-zin">+</button><button class="fm-zout">\u2212</button><button class="fm-zreset">R</button><span class="fm-zoom-pct">100%</span>`;
+  viewport.appendChild(zoomCtrl);
+  container.appendChild(viewport);
+
+  // ── Zoom/Pan state ──
+  let zoom = 1, panX = 0, panY = 0;
+  let isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+
+  function applyTransform() {
+    if(!svgInner) return;
+    svgInner.setAttribute('transform', `translate(${panX},${panY}) scale(${zoom})`);
+    const pctEl = viewport.querySelector('.fm-zoom-pct');
+    if(pctEl) pctEl.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  function setZoom(newZoom, cx, cy) {
+    const oldZoom = zoom;
+    zoom = Math.max(0.1, Math.min(5, newZoom));
+    // Zoom towards cursor
+    if(cx !== undefined && cy !== undefined) {
+      panX = cx - (cx - panX) * (zoom / oldZoom);
+      panY = cy - (cy - panY) * (zoom / oldZoom);
+    }
+    applyTransform();
+  }
+
+  viewport.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = viewport.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom(zoom * factor, cx, cy);
+  }, {passive:false});
+
+  viewport.addEventListener('mousedown', e => {
+    if(e.button !== 0) return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    panStartX = panX;
+    panStartY = panY;
+    viewport.classList.add('is-dragging');
+  });
+  window.addEventListener('mousemove', e => {
+    if(!isDragging) return;
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    applyTransform();
+  });
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    viewport.classList.remove('is-dragging');
+  });
+
+  zoomCtrl.querySelector('.fm-zin').onclick = () => setZoom(zoom * 1.25);
+  zoomCtrl.querySelector('.fm-zout').onclick = () => setZoom(zoom / 1.25);
+  zoomCtrl.querySelector('.fm-zreset').onclick = () => { zoom = 1; panX = 0; panY = 0; applyTransform(); };
+
+  // Initial render
+  renderGraph();
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
