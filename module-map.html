@@ -17,7 +17,7 @@ html{font-size:14px}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;line-height:1.5;overflow-x:hidden}
 
 /* ── Header ─────────────────────────── */
-.header{padding:20px 28px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;max-width:1400px;margin:0 auto}
+.header{padding:20px 28px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;max-width:1440px;margin:0 auto}
 .header h1{font-size:1.4rem;font-weight:700;color:var(--text-bright);display:flex;align-items:center;gap:10px}
 .header h1 .icon{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:grid;place-items:center;font-size:14px;color:#fff;font-weight:700}
 .stats{display:flex;gap:12px;flex-wrap:wrap}
@@ -26,14 +26,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .stat-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim)}
 
 /* ── Tabs ───────────────────────────── */
-.tabs{display:flex;gap:4px;padding:14px 28px 0;max-width:1400px;margin:0 auto;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;padding:14px 28px 0;max-width:1440px;margin:0 auto;flex-wrap:wrap}
 .tab{background:var(--bg2);color:var(--text-dim);border:1px solid var(--border);padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all var(--transition);display:flex;align-items:center;gap:6px;user-select:none;border-bottom:2px solid transparent}
 .tab:hover{background:var(--bg3);color:var(--text)}
 .tab.active{background:var(--bg);color:var(--text-bright);border-color:var(--bg4);border-bottom-color:var(--bg);position:relative;z-index:2}
 .tab .tab-icon{font-size:1rem}
 
 /* ── View container ─────────────────── */
-.view-wrap{max-width:1400px;margin:0 auto;border-top:1px solid var(--bg4);min-height:calc(100vh - 140px);position:relative}
+.view-wrap{max-width:1440px;margin:0 auto;border-top:1px solid var(--bg4);min-height:calc(100vh - 140px);position:relative}
 .view{display:none;padding:20px 28px 40px;animation:fadeIn 300ms ease}
 .view.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -42,2306 +42,1403 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 /* ── Legend strip ───────────────────── */
 .legend-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding:10px 14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
 .legend-strip-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--bg4);font-weight:700;width:100%;margin-bottom:4px}
-.legend-chip{display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);cursor:pointer;padding:2px 8px;border-radius:20px;transition:all var(--transition);border:1px solid transparent}
+.legend-chip{display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);cursor:default;padding:2px 8px;border-radius:20px;transition:all var(--transition);border:1px solid transparent}
 .legend-chip:hover{background:rgba(255,255,255,0.06);color:var(--text)}
-.legend-chip.active{border-color:currentColor;color:var(--text-bright);background:rgba(255,255,255,0.08)}
 .legend-chip .lc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
 /* ── Tooltip ────────────────────────── */
-.tooltip{position:fixed;background:#1e293b;border:1px solid #475569;color:var(--text);padding:10px 14px;border-radius:var(--radius);font-size:0.78rem;max-width:360px;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.5);opacity:0;transition:opacity 120ms ease}
+.tooltip{position:fixed;pointer-events:none;z-index:9999;background:#1a1e2e;border:1px solid var(--bg4);border-radius:var(--radius);padding:8px 12px;max-width:340px;font-size:0.78rem;line-height:1.45;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,0.5);opacity:0;transition:opacity 150ms ease}
 .tooltip.visible{opacity:1}
-.tooltip .tt-file{font-weight:700;color:var(--text-bright);margin-bottom:2px}
-.tooltip .tt-module{font-size:0.7rem;display:flex;align-items:center;gap:4px;margin-bottom:4px}
-.tooltip .tt-desc{color:var(--text-dim);line-height:1.4}
+.tooltip .tt-path{color:var(--text-dim);font-size:0.7rem;margin-bottom:3px;font-family:'Cascadia Code','Fira Code',monospace}
+.tooltip .tt-mod{display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:600;color:#fff;margin-bottom:3px}
+.tooltip .tt-desc{color:var(--text)}
 
-/* ── SVG common ─────────────────────── */
-svg text{font-family:'Segoe UI',system-ui,sans-serif}
+/* ── View 1: Top-Down ────────────────── */
+#view-topdown svg{width:100%;height:auto;max-height:calc(100vh - 200px)}
+.td-node{cursor:pointer;transition:filter 200ms}
+.td-node:hover{filter:brightness(1.2)}
+.td-arrow{fill:none;stroke:var(--bg4);stroke-width:1.5;marker-end:url(#arrowhead)}
+.td-arrow.stub{stroke-dasharray:5,4;stroke:var(--text-dim);opacity:0.5}
+.td-label{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-bright);font-size:11px;font-weight:600;text-anchor:middle;pointer-events:none}
+.td-sublabel{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-dim);font-size:9px;text-anchor:middle;pointer-events:none}
 
-/* ── View 1: Sunburst ──────────────── */
-#sunburst-svg{display:block;margin:0 auto}
-.sunburst-label{pointer-events:none;fill:var(--text-bright);font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:middle}
+/* ── View 2: File Map ────────────────── */
+.fm-container{font-family:'Cascadia Code','Fira Code',monospace;font-size:0.8rem;line-height:1.8}
+.fm-row{display:flex;align-items:center;gap:6px;padding:2px 8px;border-radius:4px;cursor:pointer;transition:background 150ms}
+.fm-row:hover{background:rgba(255,255,255,0.04)}
+.fm-indent{display:inline-block;width:20px;flex-shrink:0}
+.fm-icon{width:16px;text-align:center;flex-shrink:0;font-size:0.9rem}
+.fm-name{color:var(--text)}
+.fm-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-left:auto}
+.fm-tag{font-size:0.62rem;color:var(--text-dim);margin-left:6px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+.fm-row.collapsed .fm-children{display:none}
+.fm-toggle{cursor:pointer;user-select:none;width:16px;text-align:center;flex-shrink:0;font-size:0.8rem;color:var(--text-dim)}
 
-/* ── View 2: Bubble Map ─────────────── */
-#bubble-svg{display:block;margin:0 auto}
+/* ── View 3: Sunburst ────────────────── */
+#view-sunburst svg{width:100%;max-width:700px;height:auto;margin:0 auto;display:block}
+.sb-arc{cursor:pointer;transition:opacity 200ms}
+.sb-arc:hover{opacity:0.8}
 
-/* ── View 3: Flow Diagram ───────────── */
-#flow-svg{display:block;margin:0 auto}
-.flow-node{cursor:pointer}
-.flow-node rect{transition:filter 180ms ease}
-.flow-node:hover rect{filter:brightness(1.3)}
-.flow-label{fill:var(--text-bright);font-size:11px;font-weight:600;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
-.flow-sublabel{fill:var(--text-dim);font-size:9px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+/* ── View 4: Bubble Map ──────────────── */
+#view-bubble svg{width:100%;height:auto;max-height:calc(100vh - 200px)}
+.bub-circle{cursor:pointer;transition:opacity 200ms}
+.bub-circle:hover{opacity:0.85}
+.bub-label{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-bright);font-weight:600;text-anchor:middle;pointer-events:none}
 
-/* ── View 4: Grid Matrix ───────────── */
-.matrix-table{width:100%;border-collapse:collapse;font-size:0.78rem}
-.matrix-table th{padding:8px 10px;text-align:left;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-size:0.68rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1}
-.matrix-table th.col-header{text-align:center;min-width:90px}
-.matrix-table td{padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4)}
-.matrix-table tr:hover td{background:rgba(255,255,255,0.02)}
-.matrix-mod{display:flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
-.matrix-mod .mm-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.matrix-cell{text-align:center}
-.matrix-pip{display:inline-block;width:22px;height:22px;border-radius:5px;cursor:pointer;transition:transform 120ms ease,filter 120ms ease}
-.matrix-pip:hover{transform:scale(1.3);filter:brightness(1.3)}
-.matrix-pip.empty{background:rgba(255,255,255,0.03);cursor:default}
-.matrix-pip.empty:hover{transform:none;filter:none}
-.matrix-files-popup{position:fixed;background:#1e293b;border:1px solid #475569;border-radius:var(--radius);padding:12px 16px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.5);max-width:320px;font-size:0.78rem;display:none}
-.matrix-files-popup.visible{display:block}
-.matrix-files-popup h4{color:var(--text-bright);font-size:0.82rem;margin-bottom:6px}
-.matrix-files-popup ul{list-style:none;padding:0}
-.matrix-files-popup li{color:var(--text-dim);padding:2px 0}
-.matrix-files-popup li::before{content:'> ';color:var(--bg4)}
+/* ── View 5: Dependency Flow ─────────── */
+#view-deps svg{width:100%;height:auto;max-height:calc(100vh - 200px)}
+.dep-node{cursor:pointer;transition:filter 200ms}
+.dep-node:hover{filter:brightness(1.15)}
+.dep-edge{fill:none;stroke-width:1.5;opacity:0.6}
+.dep-edge.stub{stroke-dasharray:5,3;opacity:0.4}
 
-/* ── View 5: Architecture Layers ───── */
-#layers-svg{display:block;margin:0 auto}
+/* ── View 6: Grid Matrix ────────────── */
+.gm-table{width:100%;border-collapse:separate;border-spacing:3px}
+.gm-table th{background:var(--bg2);color:var(--text-dim);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;padding:8px 6px;border-radius:var(--radius-sm);font-weight:600;position:sticky;top:0;z-index:2}
+.gm-table td{padding:6px;text-align:center;border-radius:var(--radius-sm);font-size:0.72rem;transition:all 150ms}
+.gm-table td.filled{cursor:pointer}
+.gm-table td.filled:hover{filter:brightness(1.25);transform:scale(1.05)}
+.gm-table td.empty{background:rgba(255,255,255,0.02)}
+.gm-row-header{background:var(--bg2)!important;color:var(--text-dim);font-weight:600;text-align:left!important;white-space:nowrap;padding-left:10px!important}
 
-/* ── View 0: Top-Down Flow ─────────── */
-#topdown-container{position:relative;overflow:hidden;cursor:grab;border-radius:var(--radius)}
-#topdown-container.grabbing{cursor:grabbing}
-#topdown-svg{display:block;margin:0 auto;transform-origin:0 0}
-.td-node{cursor:pointer}
-.td-node rect{transition:filter 200ms ease,stroke-width 200ms ease}
-.td-node:hover rect{filter:brightness(1.25);stroke-width:2.5}
-.td-node-label{fill:var(--text-bright);font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
-.td-node-desc{fill:var(--text-dim);font-size:9px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
-.td-edge-label{fill:var(--text-dim);font-size:8.5px;text-anchor:middle;dominant-baseline:middle;pointer-events:none;opacity:0.85}
-.td-boundary-label{fill:#3b82f6;font-size:11px;font-weight:700;letter-spacing:0.12em;text-anchor:start;dominant-baseline:middle}
-.td-dimmed{opacity:0.1;transition:opacity 250ms ease}
-.td-highlighted{opacity:1;transition:opacity 250ms ease}
-@keyframes td-boundary-pulse{0%,100%{stroke-opacity:0.5}50%{stroke-opacity:1}}
-@keyframes td-flow-particle{0%{stroke-dashoffset:20}100%{stroke-dashoffset:0}}
-.td-flow-line{animation:td-flow-particle 1.5s linear infinite}
+/* ── View 7: Architecture Layers ───── */
+#view-layers svg{width:100%;height:auto;max-height:calc(100vh - 200px)}
+.ly-layer{cursor:pointer;transition:opacity 200ms}
+.ly-layer:hover{opacity:0.88}
+.ly-label{font-family:'Segoe UI',system-ui,sans-serif;fill:#fff;font-weight:700;text-anchor:middle;pointer-events:none}
+.ly-sublabel{font-family:'Segoe UI',system-ui,sans-serif;fill:rgba(255,255,255,0.7);font-size:10px;text-anchor:middle;pointer-events:none}
 
-/* ── View 7: File Map (visual tree) ─── */
-#filemap-container{position:relative;overflow:hidden;cursor:grab;border-radius:var(--radius)}
-#filemap-container.grabbing{cursor:grabbing}
-#filemap-svg{display:block;transform-origin:0 0}
-.fm-node{cursor:pointer}
-.fm-node rect{transition:filter 200ms ease,stroke-width 200ms ease,stroke-opacity 200ms ease}
-.fm-node:hover rect{filter:brightness(1.3);stroke-width:2.5}
-.fm-folder-label{fill:var(--text-bright);font-size:11.5px;font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
-.fm-file-label{fill:var(--text);font-size:10px;font-weight:500;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
-.fm-badge{fill:var(--text-dim);font-size:8.5px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
-.fm-connector{fill:none;stroke:#334155;stroke-width:1.2;transition:stroke 200ms ease,stroke-opacity 200ms ease}
-.fm-connector.highlighted{stroke:#f8fafc;stroke-width:2}
-.fm-dimmed{opacity:0.08;transition:opacity 300ms ease}
-.fm-highlighted{opacity:1;transition:opacity 300ms ease}
-.fm-folder-icon{font-size:13px;pointer-events:none}
-.fm-file-icon{font-size:11px;pointer-events:none}
-.fm-root-glow{filter:drop-shadow(0 0 12px rgba(59,130,246,0.4))}
-.fm-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-.fm-toolbar button{background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:0.8rem;font-weight:600;transition:background var(--transition),border-color var(--transition)}
-.fm-toolbar button:hover{background:var(--bg3);border-color:var(--bg4)}
-.fm-toolbar button.active{background:var(--bg3);border-color:#3b82f6;color:var(--text-bright)}
-@keyframes fm-appear{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-
-/* ── View 6: File Tree ──────────────── */
-.tree-panel{overflow-y:auto}
-.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-.toolbar button{background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:0.8rem;font-weight:600;transition:background var(--transition),border-color var(--transition)}
-.toolbar button:hover{background:var(--bg3);border-color:var(--bg4)}
-.search-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:0.85rem;width:220px;outline:none;transition:border-color var(--transition)}
-.search-box:focus{border-color:#3b82f6}
-.search-box::placeholder{color:var(--bg4)}
-.tree{user-select:none}
-.tree ul{list-style:none;padding-left:20px}
-.tree>ul{padding-left:0}
-.tree-node{margin:1px 0}
-.tree-row{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:var(--radius-sm);cursor:default;position:relative;transition:background var(--transition)}
-.tree-row:hover{background:var(--bg2)}
-.tree-row.is-folder{cursor:pointer}
-.tree-row.search-match{background:rgba(59,130,246,0.18);outline:1px solid rgba(59,130,246,0.35)}
-.tree-row.search-dim{opacity:0.28}
-.chevron{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-dim);transition:transform var(--transition);flex-shrink:0}
-.chevron.open{transform:rotate(90deg)}
-.chevron.hidden{visibility:hidden}
-.node-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
-.mod-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor}
-.node-label{font-size:0.85rem;white-space:nowrap}
-.node-label.is-folder{font-weight:600;color:var(--text-bright)}
-.node-desc{font-size:0.72rem;color:var(--text-dim);margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
-.children-wrap{overflow:hidden;transition:max-height 300ms ease,opacity 200ms ease}
-.children-wrap.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+/* ── View 8: File Tree (text) ───────── */
+.ft-container{font-family:'Cascadia Code','Fira Code',monospace;font-size:0.82rem;line-height:1.9;white-space:pre;padding:12px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);overflow-x:auto;max-height:calc(100vh - 240px);overflow-y:auto}
+.ft-line{transition:background 150ms}
+.ft-line:hover{background:rgba(255,255,255,0.04)}
+.ft-dir{color:#60a5fa;font-weight:600}
+.ft-file{color:var(--text)}
+.ft-tag{color:var(--text-dim);font-style:italic}
+.ft-stub{color:#9ca3af;opacity:0.7}
+.ft-new{color:#e879f9;font-weight:600}
 
 /* ── Responsive ─────────────────────── */
-@media(max-width:900px){
-  .tabs{padding:10px 16px 0;gap:3px}
-  .tab{padding:6px 10px;font-size:0.75rem}
-  .tab .tab-icon{display:none}
-  .view{padding:16px}
-  .header{padding:16px}
+@media(max-width:768px){
+  .header{padding:14px 16px 0}
+  .tabs{padding:10px 16px 0}
+  .view{padding:16px 16px 32px}
+  .legend-strip{gap:6px;padding:8px 10px}
+  .gm-table th,.gm-table td{padding:4px 3px;font-size:0.62rem}
 }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1><span class="icon">M</span> Media Vault — Module Map</h1>
-  <div class="stats" id="stats"></div>
+  <h1><span class="icon">MV</span> Media Vault — Module Map</h1>
+  <div class="stats">
+    <div class="stat"><span class="stat-val" id="stat-files">0</span><span class="stat-label">Files</span></div>
+    <div class="stat"><span class="stat-val" id="stat-modules">12</span><span class="stat-label">Modules</span></div>
+    <div class="stat"><span class="stat-val" id="stat-client">0</span><span class="stat-label">Client</span></div>
+    <div class="stat"><span class="stat-val" id="stat-server">0</span><span class="stat-label">Server</span></div>
+  </div>
 </div>
 
-<div class="tabs" id="tabs">
-  <div class="tab active" data-view="topdown"><span class="tab-icon">&#8595;</span> Top-Down</div>
-  <div class="tab" data-view="filemap"><span class="tab-icon">&#128450;</span> File Map</div>
-  <div class="tab" data-view="sunburst"><span class="tab-icon">&#9788;</span> Sunburst</div>
-  <div class="tab" data-view="bubbles"><span class="tab-icon">&#9679;</span> Bubble Map</div>
-  <div class="tab" data-view="flow"><span class="tab-icon">&#8594;</span> Dependency Flow</div>
-  <div class="tab" data-view="matrix"><span class="tab-icon">&#9638;</span> Grid Matrix</div>
-  <div class="tab" data-view="layers"><span class="tab-icon">&#9776;</span> Architecture Layers</div>
-  <div class="tab" data-view="tree"><span class="tab-icon">&#9700;</span> File Tree</div>
-</div>
+<div class="tabs" id="tab-bar"></div>
 
 <div class="view-wrap">
-  <!-- View 0: Top-Down -->
-  <div class="view active" id="view-topdown">
-    <div class="view-subtitle">Vertical architecture flow — user at top, infrastructure at bottom. Hover a node to trace its connections. Scroll to zoom, drag to pan.</div>
-    <div id="topdown-legend" class="legend-strip"></div>
-    <div id="topdown-container"></div>
-  </div>
-
-  <!-- View 1: File Map -->
-  <div class="view" id="view-filemap">
-    <div class="view-subtitle">Visual directory tree flowing top-to-bottom. Click folders to expand/collapse. Scroll to zoom, drag to pan. Click a module in the legend to isolate.</div>
-    <div id="filemap-legend" class="legend-strip"></div>
-    <div class="fm-toolbar">
-      <button onclick="fmExpandAll()">Expand All</button>
-      <button onclick="fmCollapseAll()">Collapse All</button>
-      <button onclick="fmResetView()">Reset View</button>
-    </div>
-    <div id="filemap-container"></div>
-  </div>
-
-  <!-- View 2: Sunburst -->
-  <div class="view" id="view-sunburst">
-    <div class="view-subtitle">Concentric rings show hierarchy -- center is the project root, outer rings are individual files. Click a segment to zoom in.</div>
-    <div id="sunburst-legend" class="legend-strip"></div>
-    <div id="sunburst-container"></div>
-  </div>
-
-  <!-- View 2: Bubbles -->
-  <div class="view" id="view-bubbles">
-    <div class="view-subtitle">Circle size shows module scale. Client on the left, Server on the right. Hover for details.</div>
-    <div id="bubble-legend" class="legend-strip"></div>
-    <div id="bubble-container"></div>
-  </div>
-
-  <!-- View 3: Flow -->
-  <div class="view" id="view-flow">
-    <div class="view-subtitle">Follow data from user input (left) through API and processing layers (right). Lines show how modules communicate.</div>
-    <div id="flow-legend" class="legend-strip"></div>
-    <div id="flow-container"></div>
-  </div>
-
-  <!-- View 4: Matrix -->
-  <div class="view" id="view-matrix">
-    <div class="view-subtitle">Each row is a module, each column is a concern area. Colored cells show where a module touches that concern. Click a cell to see files.</div>
-    <div id="matrix-container"></div>
-  </div>
-
-  <!-- View 5: Layers -->
-  <div class="view" id="view-layers">
-    <div class="view-subtitle">Classic architecture diagram — UI on top, infrastructure on the bottom. Arrows show communication between layers.</div>
-    <div id="layers-legend" class="legend-strip"></div>
-    <div id="layers-container"></div>
-  </div>
-
-  <!-- View 6: Tree -->
-  <div class="view" id="view-tree">
-    <div class="view-subtitle">Collapsible file tree with module color-coding. Search or filter by module.</div>
-    <div id="tree-legend" class="legend-strip"></div>
-    <div class="tree-panel">
-      <div class="toolbar">
-        <button onclick="treeExpandAll()">Expand All</button>
-        <button onclick="treeCollapseAll()">Collapse All</button>
-        <input class="search-box" id="searchBox" type="text" placeholder="Search files..." oninput="onTreeSearch(this.value)">
-        <button onclick="clearTreeSearch()">Clear</button>
-      </div>
-      <div class="tree" id="tree"></div>
-    </div>
-  </div>
+  <div class="view active" id="view-topdown"></div>
+  <div class="view" id="view-filemap"></div>
+  <div class="view" id="view-sunburst"></div>
+  <div class="view" id="view-bubble"></div>
+  <div class="view" id="view-deps"></div>
+  <div class="view" id="view-grid"></div>
+  <div class="view" id="view-layers"></div>
+  <div class="view" id="view-filetree"></div>
 </div>
 
-<div class="tooltip" id="tooltip"></div>
-<div class="matrix-files-popup" id="matrixPopup"></div>
+<div class="tooltip" id="tooltip">
+  <div class="tt-path"></div>
+  <div class="tt-mod"></div>
+  <div class="tt-desc"></div>
+</div>
 
 <script>
-// ══════════════════════════════════════════════════════════════
-// DATA
-// ══════════════════════════════════════════════════════════════
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  DATA — All files, modules, and descriptions
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const MODULES = {
-  'root':        { label:'Root / Docs',       color:'#9ca3af', side:'root' },
-  'app-shell':   { label:'App Shell',         color:'#3b82f6', side:'client' },
-  'intake':      { label:'Intake',            color:'#10b981', side:'client' },
-  'dashboard':   { label:'Dashboard',         color:'#f59e0b', side:'client' },
-  'activity':    { label:'Activity',          color:'#8b5cf6', side:'client' },
-  'shared-comp': { label:'Shared Components', color:'#ec4899', side:'client' },
-  'data-layer':  { label:'Data Layer',        color:'#06b6d4', side:'client' },
-  'client-plat': { label:'Client Platforms',  color:'#14b8a6', side:'client' },
-  'api-routes':  { label:'API Routes',        color:'#f97316', side:'server' },
-  'services':    { label:'Services',          color:'#ef4444', side:'server' },
-  'worker':      { label:'Worker / Queue',    color:'#6366f1', side:'server' },
-  'plat-reg':    { label:'Platform Registry', color:'#14b8a6', side:'server' },
-  'models':      { label:'Data Models',       color:'#eab308', side:'server' },
-  'middleware':   { label:'Middleware',        color:'#64748b', side:'server' },
-  'config':      { label:'Configuration',     color:'#78716c', side:'server' },
-  'infra':       { label:'Infrastructure',    color:'#f43f5e', side:'server' },
-  'utils':       { label:'Utilities',         color:'#84cc16', side:'server' },
-};
-
-const DATA = {
-  name:'x-dl-vite-express-mongo', module:'root', children:[
-    { name:'package.json', module:'root', desc:'Root orchestration scripts: dev, build, test, verify' },
-    { name:'CLAUDE.md', module:'root', desc:'Project documentation — architecture, API, patterns' },
-    { name:'client', module:null, desc:'Client-side application (Vite + React 19)', children:[
-      { name:'package.json', module:'app-shell', desc:'Client dependencies and scripts' },
-      { name:'vite.config.js', module:'app-shell', desc:'Vite config with /api proxy to :4000' },
-      { name:'src', module:null, children:[
-        { name:'App.jsx', module:'app-shell', desc:'Hash router: dashboard + contact profile views, main layout' },
-        { name:'App.css', module:'app-shell', desc:'Global styles, CSS custom properties, responsive breakpoints' },
-        { name:'features', module:null, children:[
-          { name:'intake', module:'intake', children:[
-            { name:'IntakeForm.jsx', module:'intake', desc:'URL submission form with validation and platform detection' },
-            { name:'useIntake.js', module:'intake', desc:'Intake logic + platform classifier (X, TikTok)' },
-          ]},
-          { name:'dashboard', module:'dashboard', children:[
-            { name:'JobsList.jsx', module:'dashboard', desc:'Job list with multi-select and bulk action toolbar' },
-            { name:'JobRow.jsx', module:'dashboard', desc:'Individual job card — status, thumbnail, actions' },
-            { name:'JobEditForm.jsx', module:'dashboard', desc:'Inline job editing (URL, display name)' },
-            { name:'useJobActions.js', module:'dashboard', desc:'Delete, retry, and bulk-delete action handlers' },
-            { name:'useSelection.js', module:'dashboard', desc:'Multi-select state management for bulk operations' },
-          ]},
-          { name:'activity', module:'activity', children:[
-            { name:'ActivityPanel.jsx', module:'activity', desc:'Real-time telemetry feed via SSE, slide-out panel' },
-            { name:'eventTranslator.js', module:'activity', desc:'Raw telemetry events to human-readable text' },
-          ]},
-        ]},
-        { name:'components', module:'shared-comp', children:[
-          { name:'JobsPage.jsx', module:'shared-comp', desc:'Central dashboard component — orchestrates intake + jobs list' },
-          { name:'ContactProfilePage.jsx', module:'shared-comp', desc:'Per-contact job history view with profile header' },
-          { name:'ConfirmModal.jsx', module:'shared-comp', desc:'Shared confirmation dialog for destructive actions' },
-        ]},
-        { name:'hooks', module:'data-layer', children:[
-          { name:'useJobsPolling.js', module:'data-layer', desc:'3-second polling loop for job list updates' },
-        ]},
-        { name:'api', module:'data-layer', children:[
-          { name:'jobsApi.js', module:'data-layer', desc:'Fetch wrapper for all /api/* calls with error handling' },
-        ]},
-        { name:'platforms', module:'client-plat', children:[
-          { name:'index.js', module:'client-plat', desc:'Client-side platform definitions (X, TikTok hosts)' },
-        ]},
-        { name:'lib', module:'data-layer', children:[
-          { name:'eventTranslator.js', module:'data-layer', desc:'Event translation utilities (shared)' },
-        ]},
-      ]},
-    ]},
-    { name:'server', module:null, desc:'Server-side application (Express 5 + MongoDB)', children:[
-      { name:'package.json', module:'config', desc:'Server dependencies and scripts (CommonJS)' },
-      { name:'.env.example', module:'config', desc:'Environment variable template' },
-      { name:'src', module:null, children:[
-        { name:'index.js', module:'infra', desc:'Entry point: MongoDB connect, HTTP listen, queue start, graceful shutdown' },
-        { name:'app.js', module:'infra', desc:'Express app: middleware stack, route mounting, telemetry SSE, static serving' },
-        { name:'routes', module:'api-routes', children:[
-          { name:'jobs.js', module:'api-routes', desc:'CRUD: list, get, create, update, delete, bulk-delete jobs' },
-          { name:'contacts.js', module:'api-routes', desc:'Contact aggregation routes (grouped from jobs)' },
-          { name:'retry.js', module:'api-routes', desc:'Job retry endpoint — re-queues failed jobs' },
-          { name:'status.js', module:'api-routes', desc:'Job status transition endpoint (atomic state change)' },
-          { name:'helpers', module:'api-routes', children:[
-            { name:'route-utils.js', module:'api-routes', desc:'Shared route helpers: sendError, file deletion, validation' },
-          ]},
-        ]},
-        { name:'services', module:'services', children:[
-          { name:'extractor-service.js', module:'services', desc:'Playwright-based media URL extraction via network interception' },
-          { name:'downloader-service.js', module:'services', desc:'Direct fetch (MP4) + ffmpeg (HLS .m3u8) download' },
-          { name:'playwright-adapter.js', module:'services', desc:'Singleton persistent Chromium context with challenge detection' },
-        ]},
-        { name:'worker', module:'worker', children:[
-          { name:'queue.js', module:'worker', desc:'Queue worker: 1s poll interval, atomic job claim via findOneAndUpdate' },
-          { name:'process-job.js', module:'worker', desc:'Job pipeline: extract media URLs, pick best, download, save' },
-          { name:'recovery.js', module:'worker', desc:'Recover stale running jobs after server restart' },
-        ]},
-        { name:'platforms', module:'plat-reg', children:[
-          { name:'registry.js', module:'plat-reg', desc:'Platform registry with host resolution (X, TikTok)' },
-          { name:'x', module:'plat-reg', children:[
-            { name:'index.js', module:'plat-reg', desc:'X (Twitter) platform definition — URL patterns, extraction config' },
-          ]},
-          { name:'tiktok', module:'plat-reg', children:[
-            { name:'index.js', module:'plat-reg', desc:'TikTok platform definition — URL patterns, extraction config' },
-          ]},
-        ]},
-        { name:'models', module:'models', children:[
-          { name:'job.js', module:'models', desc:'Mongoose Job schema: statuses, paths, metadata, timestamps' },
-        ]},
-        { name:'constants', module:'models', children:[
-          { name:'job-status.js', module:'models', desc:'JOB_STATUSES and SOURCE_TYPES enum constants' },
-        ]},
-        { name:'domain', module:'models', children:[
-          { name:'job-transitions.js', module:'models', desc:'Valid state transition map' },
-        ]},
-        { name:'middleware', module:'middleware', children:[
-          { name:'request-limits.js', module:'middleware', desc:'CORS config, JSON body parser, URL length enforcement' },
-        ]},
-        { name:'config', module:'config', children:[
-          { name:'env.js', module:'config', desc:'getServerConfig() — port, mongoUri from environment' },
-          { name:'platform-capabilities.js', module:'config', desc:'Runtime enable/disable per platform' },
-        ]},
-        { name:'lib', module:'infra', children:[
-          { name:'logger.js', module:'infra', desc:'Structured logger that publishes to telemetry ring buffer' },
-          { name:'telemetry.js', module:'infra', desc:'In-memory ring buffer + SSE pub/sub for real-time events' },
-          { name:'error-codes.js', module:'infra', desc:'Standardized error code constants' },
-        ]},
-        { name:'utils', module:'utils', children:[
-          { name:'validation.js', module:'utils', desc:'URL validation, isTweetUrl(), getPostUrlInfo()' },
-          { name:'account-profile.js', module:'utils', desc:'Account slug derivation, path normalization' },
-        ]},
-      ]},
-    ]},
-  ]
-};
-
-// Connections for flow diagram
-const CONNECTIONS = [
-  { from:'intake',      to:'api-routes',  label:'POST /api/jobs' },
-  { from:'api-routes',  to:'models',      label:'Mongoose CRUD' },
-  { from:'api-routes',  to:'worker',      label:'Job claim via DB' },
-  { from:'worker',      to:'services',    label:'Extract + Download' },
-  { from:'services',    to:'infra',       label:'Logger, Telemetry' },
-  { from:'data-layer',  to:'api-routes',  label:'GET polling' },
-  { from:'dashboard',   to:'data-layer',  label:'useJobsPolling' },
-  { from:'activity',    to:'infra',       label:'SSE telemetry' },
-  { from:'middleware',   to:'api-routes',  label:'Request processing' },
-  { from:'config',      to:'services',    label:'Env vars, capabilities' },
-  { from:'plat-reg',    to:'services',    label:'Platform logic' },
-  { from:'utils',       to:'api-routes',  label:'Validation' },
-  { from:'shared-comp', to:'dashboard',   label:'Page composition' },
-  { from:'app-shell',   to:'shared-comp', label:'Routing' },
+const MODULES = [
+  { id:'intake',       name:'Intake',            color:'#10b981', files:3 },
+  { id:'dashboard',    name:'Dashboard',         color:'#f59e0b', files:6 },
+  { id:'activity',     name:'Activity',          color:'#8b5cf6', files:3 },
+  { id:'pages',        name:'Page Components',   color:'#ec4899', files:4 },
+  { id:'shell',        name:'Server Shell',      color:'#3b82f6', files:4 },
+  { id:'routes',       name:'API Routes',        color:'#f97316', files:6 },
+  { id:'models',       name:'Data Models',       color:'#eab308', files:3 },
+  { id:'platforms',    name:'Platform Registry',  color:'#14b8a6', files:4 },
+  { id:'worker',       name:'Worker/Queue',      color:'#6366f1', files:3 },
+  { id:'services',     name:'Services',          color:'#ef4444', files:3 },
+  { id:'core',         name:'Core Kernel',       color:'#e879f9', files:9 },
+  { id:'runtime',      name:'Process Runtime',   color:'#a78bfa', files:3 },
 ];
 
-// Concern matrix assignments
-const CONCERNS = ['UI', 'API', 'Data', 'Processing', 'Infrastructure', 'Config'];
-const MODULE_CONCERNS = {
-  'root':        [false, false, false, false, false, true],
-  'app-shell':   [true,  false, false, false, false, true],
-  'intake':      [true,  true,  false, false, false, false],
-  'dashboard':   [true,  false, true,  false, false, false],
-  'activity':    [true,  false, false, false, true,  false],
-  'shared-comp': [true,  false, false, false, false, false],
-  'data-layer':  [false, true,  true,  false, false, false],
-  'client-plat': [false, false, false, false, false, true],
-  'api-routes':  [false, true,  true,  false, false, false],
-  'services':    [false, false, false, true,  false, false],
-  'worker':      [false, false, true,  true,  false, false],
-  'plat-reg':    [false, false, false, true,  false, true],
-  'models':      [false, false, true,  false, false, false],
-  'middleware':   [false, true,  false, false, true,  false],
-  'config':      [false, false, false, false, false, true],
-  'infra':       [false, false, false, false, true,  false],
-  'utils':       [false, false, false, true,  false, false],
-};
-
-// Layer assignments for architecture view
-const LAYER_DEFS = [
-  { label:'Client UI',        y:0, modules:['app-shell','intake','dashboard','activity','shared-comp','client-plat'] },
-  { label:'Data / API Bridge', y:1, modules:['data-layer','middleware'] },
-  { label:'API Routes',       y:2, modules:['api-routes'] },
-  { label:'Business Logic',   y:3, modules:['worker','services','plat-reg'] },
-  { label:'Data & Infra',     y:4, modules:['models','infra','config','utils'] },
+const SUPPORT = [
+  { id:'app-shell',    name:'App Shell (Client)', color:'#3b82f6' },
+  { id:'data-layer',   name:'Data Layer',         color:'#06b6d4' },
+  { id:'client-lib',   name:'Client Lib',         color:'#84cc16' },
+  { id:'client-plat',  name:'Client Platforms',   color:'#14b8a6' },
+  { id:'server-config',name:'Server Config',      color:'#78716c' },
+  { id:'server-infra', name:'Server Infrastructure',color:'#f43f5e' },
+  { id:'server-utils', name:'Server Utils',       color:'#84cc16' },
+  { id:'stubs',        name:'Re-export Stubs',    color:'#9ca3af' },
 ];
 
-// ══════════════════════════════════════════════════════════════
-// HELPERS
-// ══════════════════════════════════════════════════════════════
+const FILES = [
+  // ── Client: App Shell ──
+  {path:'client/src/App.jsx',           mod:'app-shell',   desc:'Hash router — dashboard + contact profile views'},
+  {path:'client/src/App.css',           mod:'app-shell',   desc:'Global styles + design system tokens'},
+  {path:'client/src/main.jsx',          mod:'app-shell',   desc:'React entry point, renders App'},
+  {path:'client/src/index.css',         mod:'app-shell',   desc:'CSS reset'},
+  // ── Client: Intake ──
+  {path:'client/src/features/intake/IntakeForm.jsx', mod:'intake', desc:'URL submission form with platform detection'},
+  {path:'client/src/features/intake/useIntake.js',   mod:'intake', desc:'Intake logic, validation, platform classifier'},
+  {path:'client/src/features/intake/intake.css',     mod:'intake', desc:'Intake form styles'},
+  // ── Client: Dashboard ──
+  {path:'client/src/features/dashboard/JobsList.jsx',      mod:'dashboard', desc:'Job list with selection + bulk actions'},
+  {path:'client/src/features/dashboard/JobRow.jsx',        mod:'dashboard', desc:'Individual job card with actions'},
+  {path:'client/src/features/dashboard/JobEditForm.jsx',   mod:'dashboard', desc:'Inline job editing form'},
+  {path:'client/src/features/dashboard/useJobActions.js',  mod:'dashboard', desc:'Delete, retry, bulk-delete actions'},
+  {path:'client/src/features/dashboard/useSelection.js',   mod:'dashboard', desc:'Multi-select state for bulk operations'},
+  {path:'client/src/features/dashboard/dashboard.css',     mod:'dashboard', desc:'Dashboard styles'},
+  // ── Client: Activity ──
+  {path:'client/src/features/activity/ActivityPanel.jsx',    mod:'activity', desc:'Real-time telemetry feed via SSE'},
+  {path:'client/src/features/activity/eventTranslator.js',   mod:'activity', desc:'Raw telemetry -> human-readable text'},
+  {path:'client/src/features/activity/activity.css',         mod:'activity', desc:'Activity panel styles'},
+  // ── Client: Page Components ──
+  {path:'client/src/components/JobsPage.jsx',            mod:'pages', desc:'Central dashboard — wires intake + dashboard + activity'},
+  {path:'client/src/components/ContactProfilePage.jsx',  mod:'pages', desc:'Per-contact job history view'},
+  {path:'client/src/components/ConfirmModal.jsx',        mod:'pages', desc:'Shared confirmation dialog'},
+  {path:'client/src/components/ActivityPanel.jsx',       mod:'pages', desc:'Re-export stub -> features/activity/', isStub:true},
+  // ── Client: Data Layer ──
+  {path:'client/src/hooks/useJobsPolling.js', mod:'data-layer', desc:'3s polling loop for job list updates'},
+  {path:'client/src/api/jobsApi.js',          mod:'data-layer', desc:'Fetch wrapper for all /api/* calls'},
+  // ── Client: Lib ──
+  {path:'client/src/lib/contacts.js',         mod:'client-lib', desc:'Contact display helpers, slug formatting, avatar generation'},
+  {path:'client/src/lib/eventTranslator.js',  mod:'client-lib', desc:'Stale re-export (superseded by features/activity/)', isStub:true},
+  // ── Client: Platforms ──
+  {path:'client/src/platforms/index.js',      mod:'client-plat', desc:'Client-side platform definitions + detection'},
+  // ── Server: Shell ──
+  {path:'server/src/index.js',         mod:'shell', desc:'Entry point — MongoDB connect, HTTP listen, queue start, graceful shutdown'},
+  {path:'server/src/app.js',           mod:'shell', desc:'Express app — middleware, routes, telemetry SSE, static downloads'},
+  {path:'server/src/start-api.js',     mod:'shell', desc:'Sets ROLE=api, requires index.js for API-only process'},
+  {path:'server/src/start-worker.js',  mod:'shell', desc:'Sets ROLE=worker, requires index.js for worker-only process'},
+  // ── Server: Core Kernel ──
+  {path:'server/src/core/data/job-model.js',              mod:'core', desc:'Canonical Mongoose Job schema (source of truth)'},
+  {path:'server/src/core/data/job-status.js',             mod:'core', desc:'Canonical JOB_STATUSES + SOURCE_TYPES enums'},
+  {path:'server/src/core/domain/job-transitions.js',      mod:'core', desc:'Canonical state machine (canTransition)'},
+  {path:'server/src/core/http/request-limits.js',         mod:'core', desc:'Canonical CORS + body parser middleware'},
+  {path:'server/src/core/platforms/registry.js',          mod:'core', desc:'Canonical platform registry'},
+  {path:'server/src/core/dispatch/resolve-domain-id.js',  mod:'core', desc:'Maps URL -> domain ID string'},
+  {path:'server/src/core/dispatch/route-job-by-domain.js',mod:'core', desc:'Routes job to registered domain handler'},
+  {path:'server/src/core/runtime/domain-context.js',      mod:'core', desc:'Builds ctx object for domain plugins'},
+  {path:'server/src/core/runtime/load-domains.js',        mod:'core', desc:'Domain plugin loader/lifecycle manager'},
+  // ── Server: Runtime ──
+  {path:'server/src/runtime/register-shutdown.js',      mod:'runtime', desc:'SIGINT/SIGTERM cleanup handler registry'},
+  {path:'server/src/runtime/start-api-runtime.js',      mod:'runtime', desc:'API-only startup sequence'},
+  {path:'server/src/runtime/start-worker-runtime.js',   mod:'runtime', desc:'Worker-only startup sequence'},
+  // ── Server: Routes ──
+  {path:'server/src/routes/jobs.js',               mod:'routes', desc:'CRUD — list, get, create, update, delete, bulk-delete'},
+  {path:'server/src/routes/contacts.js',           mod:'routes', desc:'Contact aggregation routes'},
+  {path:'server/src/routes/retry.js',              mod:'routes', desc:'Job retry endpoint'},
+  {path:'server/src/routes/status.js',             mod:'routes', desc:'Job status transition endpoint'},
+  {path:'server/src/routes/worker-health.js',      mod:'routes', desc:'GET /api/worker/health — heartbeat staleness check'},
+  {path:'server/src/routes/helpers/route-utils.js',mod:'routes', desc:'Shared route helpers (sendError, file deletion)'},
+  // ── Server: Models ──
+  {path:'server/src/models/job.js',                mod:'models', desc:'Thin wrapper importing from core/data/job-model.js', isStub:true},
+  {path:'server/src/models/worker-heartbeat.js',   mod:'models', desc:'WorkerHeartbeat schema (30s heartbeat, stale threshold)'},
+  {path:'server/src/models/telemetry-event.js',    mod:'models', desc:'TelemetryEvent schema with 24h TTL index'},
+  // ── Server: Platforms ──
+  {path:'server/src/platforms/registry.js',    mod:'platforms', desc:'Re-export stub -> core/platforms/registry.js', isStub:true},
+  {path:'server/src/platforms/x/index.js',     mod:'platforms', desc:'X (Twitter) platform definition'},
+  {path:'server/src/platforms/tiktok/index.js',mod:'platforms', desc:'TikTok platform definition'},
+  // ── Server: Worker ──
+  {path:'server/src/worker/queue.js',        mod:'worker', desc:'1s interval, atomic job claim (FIFO)'},
+  {path:'server/src/worker/process-job.js',  mod:'worker', desc:'Extract -> pick media -> download -> save (+ domain routing)'},
+  {path:'server/src/worker/recovery.js',     mod:'worker', desc:'Recover stale running jobs after restart'},
+  // ── Server: Services ──
+  {path:'server/src/services/extractor-service.js',  mod:'services', desc:'Playwright-based media URL extraction'},
+  {path:'server/src/services/downloader-service.js', mod:'services', desc:'Direct fetch + ffmpeg HLS download'},
+  {path:'server/src/services/playwright-adapter.js', mod:'services', desc:'Singleton persistent Chromium context'},
+  // ── Server: Config ──
+  {path:'server/src/config/env.js',                     mod:'server-config', desc:'getServerConfig(), chooseRuntime(), isDomainKernelEnabled()'},
+  {path:'server/src/config/platform-capabilities.js',   mod:'server-config', desc:'Runtime enable/disable per platform'},
+  // ── Server: Lib ──
+  {path:'server/src/lib/logger.js',      mod:'server-infra', desc:'Structured logger -> publishes to telemetry ring buffer'},
+  {path:'server/src/lib/telemetry.js',   mod:'server-infra', desc:'In-memory ring buffer + SSE pub/sub'},
+  {path:'server/src/lib/error-codes.js', mod:'server-infra', desc:'Standardized error code constants'},
+  // ── Server: Utils ──
+  {path:'server/src/utils/validation.js',       mod:'server-utils', desc:'URL validation, isTweetUrl, getPostUrlInfo'},
+  {path:'server/src/utils/account-profile.js',  mod:'server-utils', desc:'Account slug derivation, path normalization'},
+  // ── Server: Re-export Stubs ──
+  {path:'server/src/constants/job-status.js',      mod:'stubs', desc:'Re-export stub -> core/data/job-status.js', isStub:true},
+  {path:'server/src/domain/job-transitions.js',    mod:'stubs', desc:'Re-export stub -> core/domain/job-transitions.js', isStub:true},
+  {path:'server/src/middleware/request-limits.js',  mod:'stubs', desc:'Re-export stub -> core/http/request-limits.js', isStub:true},
+];
 
-function esc(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''}
-function isFolder(n){return Array.isArray(n.children)}
-function countFiles(n){if(!isFolder(n))return 1;return n.children.reduce((s,c)=>s+countFiles(c),0)}
-function countByModule(n,acc={}){if(!isFolder(n)&&n.module)acc[n.module]=(acc[n.module]||0)+1;if(n.children)n.children.forEach(c=>countByModule(c,acc));return acc}
+// Root-level non-source files
+const ROOT_FILES = [
+  {path:'package.json',           desc:'Root scripts: dev, build, test, verify'},
+  {path:'CLAUDE.md',              desc:'Project instructions and architecture'},
+  {path:'README.md',              desc:'Project readme'},
+  {path:'client/package.json',    desc:'Client dependencies'},
+  {path:'client/vite.config.js',  desc:'Vite config with /api proxy to :4000'},
+  {path:'server/package.json',    desc:'Server dependencies'},
+  {path:'server/.env.example',    desc:'Environment variable template'},
+];
 
-function collectFiles(node, path='') {
-  const results = [];
-  const p = path ? path+'/'+node.name : node.name;
-  if (!isFolder(node) && node.module) results.push({ path:p, module:node.module, desc:node.desc||'' });
-  if (node.children) node.children.forEach(c => results.push(...collectFiles(c, p)));
-  return results;
+// ── Computed stats ──
+const clientFiles = FILES.filter(f => f.path.startsWith('client/')).length;
+const serverFiles = FILES.filter(f => f.path.startsWith('server/')).length;
+const totalFiles = FILES.length + ROOT_FILES.length;
+document.getElementById('stat-files').textContent = totalFiles;
+document.getElementById('stat-client').textContent = clientFiles;
+document.getElementById('stat-server').textContent = serverFiles;
+
+function getModuleInfo(modId) {
+  return MODULES.find(m => m.id === modId) || SUPPORT.find(s => s.id === modId) || {name:modId,color:'#666'};
 }
-const ALL_FILES = collectFiles(DATA);
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  TAB BAR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const VIEWS = [
+  {id:'topdown',  icon:'\u2B07', label:'Top-Down'},
+  {id:'filemap',  icon:'\uD83D\uDCC2', label:'File Map'},
+  {id:'sunburst', icon:'\u25CE', label:'Sunburst'},
+  {id:'bubble',   icon:'\u25CB', label:'Bubble Map'},
+  {id:'deps',     icon:'\u27A1', label:'Dependency Flow'},
+  {id:'grid',     icon:'\u25A6', label:'Grid Matrix'},
+  {id:'layers',   icon:'\u2261', label:'Architecture Layers'},
+  {id:'filetree', icon:'\uD83C\uDF33', label:'File Tree'},
+];
+
+const tabBar = document.getElementById('tab-bar');
+VIEWS.forEach((v,i) => {
+  const btn = document.createElement('div');
+  btn.className = 'tab' + (i===0?' active':'');
+  btn.innerHTML = `<span class="tab-icon">${v.icon}</span>${v.label}`;
+  btn.onclick = () => switchView(v.id);
+  tabBar.appendChild(btn);
+});
+
+function switchView(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', VIEWS[i].id === id);
+  });
+  document.querySelectorAll('.view').forEach(v => {
+    v.classList.toggle('active', v.id === 'view-' + id);
+  });
+  // Lazy render
+  if(!rendered[id]) { renderers[id](); rendered[id]=true; }
+}
+
+const rendered = {topdown:false};
+const renderers = {};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  TOOLTIP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const tooltip = document.getElementById('tooltip');
+function showTooltip(e, file) {
+  if(!file) return;
+  const info = getModuleInfo(file.mod || file.module);
+  tooltip.querySelector('.tt-path').textContent = file.path;
+  const modEl = tooltip.querySelector('.tt-mod');
+  modEl.textContent = info.name;
+  modEl.style.background = info.color;
+  tooltip.querySelector('.tt-desc').textContent = file.desc || '';
+  tooltip.classList.add('visible');
+  positionTooltip(e);
+}
+function showTooltipRaw(e, path, modId, desc) {
+  showTooltip(e, {path, mod:modId, desc});
+}
+function positionTooltip(e) {
+  let x = e.clientX + 14, y = e.clientY + 14;
+  const r = tooltip.getBoundingClientRect();
+  if(x + 350 > window.innerWidth) x = e.clientX - 350;
+  if(y + r.height > window.innerHeight) y = e.clientY - r.height - 10;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+document.addEventListener('mousemove', e => { if(tooltip.classList.contains('visible')) positionTooltip(e); });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SHARED: Legend strip builder
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function buildLegend(container) {
+  const strip = document.createElement('div');
+  strip.className = 'legend-strip';
+  strip.innerHTML = '<div class="legend-strip-title">Modules (12)</div>';
+  MODULES.forEach(m => {
+    strip.innerHTML += `<div class="legend-chip"><span class="lc-dot" style="background:${m.color}"></span>${m.name} <span style="color:var(--text-dim);font-size:0.62rem">(${m.files})</span></div>`;
+  });
+  strip.innerHTML += '<div class="legend-strip-title" style="margin-top:6px">Support / Shared</div>';
+  SUPPORT.forEach(s => {
+    strip.innerHTML += `<div class="legend-chip"><span class="lc-dot" style="background:${s.color}"></span>${s.name}</div>`;
+  });
+  container.prepend(strip);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SVG Helpers
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(const [k,v] of Object.entries(attrs||{})) el.setAttribute(k, v);
+  return el;
+}
 function hexToRgba(hex, a) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
 }
 
-// ── Tooltip ──────────────────────────
-const tip = document.getElementById('tooltip');
-function showTip(e, file, mod, desc, color) {
-  tip.innerHTML = `<div class="tt-file">${esc(file)}</div>`
-    + (mod ? `<div class="tt-module"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${esc(mod)}</div>` : '')
-    + (desc ? `<div class="tt-desc">${esc(desc)}</div>` : '');
-  tip.classList.add('visible');
-  posTip(e);
-}
-function showTipAt(x,y,file,mod,desc,color){
-  tip.innerHTML = `<div class="tt-file">${esc(file)}</div>`
-    + (mod ? `<div class="tt-module"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${esc(mod)}</div>` : '')
-    + (desc ? `<div class="tt-desc">${esc(desc)}</div>` : '');
-  tip.classList.add('visible');
-  let tx = x+14, ty = y+14;
-  const r = tip.getBoundingClientRect();
-  if(tx+r.width>window.innerWidth-8)tx=x-r.width-10;
-  if(ty+r.height>window.innerHeight-8)ty=y-r.height-10;
-  tip.style.left=tx+'px';tip.style.top=ty+'px';
-}
-function hideTip(){tip.classList.remove('visible')}
-document.addEventListener('mousemove', e => { if(tip.classList.contains('visible')) posTip(e) });
-function posTip(e){
-  let x=e.clientX+14,y=e.clientY+14;
-  const r=tip.getBoundingClientRect();
-  if(x+r.width>window.innerWidth-8)x=e.clientX-r.width-10;
-  if(y+r.height>window.innerHeight-8)y=e.clientY-r.height-10;
-  tip.style.left=x+'px';tip.style.top=y+'px';
-}
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 1: TOP-DOWN (Vertical architecture flow)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// ── Legend strip builder ─────────────
-function buildLegendStrip(containerId, filterFn) {
-  const el = document.getElementById(containerId);
-  let html = '<div class="legend-strip-title">Modules (click to highlight)</div>';
-  for (const [k, m] of Object.entries(MODULES)) {
-    html += `<div class="legend-chip" data-mod="${k}" onclick="toggleLegendChip(this,'${containerId}')">`;
-    html += `<span class="lc-dot" style="background:${m.color}"></span>${esc(m.label)}</div>`;
-  }
-  el.innerHTML = html;
-}
-let legendFilter = {};
-function toggleLegendChip(chip, containerId) {
-  const mod = chip.dataset.mod;
-  if (legendFilter[containerId] === mod) {
-    legendFilter[containerId] = null;
-    chip.classList.remove('active');
-  } else {
-    document.querySelectorAll(`#${containerId} .legend-chip`).forEach(c=>c.classList.remove('active'));
-    legendFilter[containerId] = mod;
-    chip.classList.add('active');
-  }
-}
+(function renderTopDown() {
+  rendered.topdown = true;
+  const container = document.getElementById('view-topdown');
+  container.innerHTML = '<div class="view-subtitle">Vertical architecture flow: User -> Client -> API -> Worker -> External</div>';
+  buildLegend(container);
 
-// ── Stats ────────────────────────────
-function renderStats() {
-  const total = countFiles(DATA);
-  const c = DATA.children.find(c=>c.name==='client');
-  const s = DATA.children.find(c=>c.name==='server');
-  document.getElementById('stats').innerHTML =
-    `<div class="stat"><span class="stat-val">${total}</span><span class="stat-label">Files</span></div>`
-    +`<div class="stat"><span class="stat-val">${Object.keys(MODULES).length}</span><span class="stat-label">Modules</span></div>`
-    +`<div class="stat"><span class="stat-val">${c?countFiles(c):0}</span><span class="stat-label">Client</span></div>`
-    +`<div class="stat"><span class="stat-val">${s?countFiles(s):0}</span><span class="stat-label">Server</span></div>`;
-}
+  const W = 1100, H = 980;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMidYMid meet'});
 
-// ══════════════════════════════════════════════════════════════
-// TAB SWITCHING
-// ══════════════════════════════════════════════════════════════
-
-let currentView = 'topdown';
-const rendered = {};
-
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    const view = tab.dataset.view;
-    if (view === currentView) return;
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('view-'+view).classList.add('active');
-    currentView = view;
-    if (!rendered[view]) {
-      renderView(view);
-      rendered[view] = true;
-    }
-  });
-});
-
-function renderView(v) {
-  switch(v) {
-    case 'topdown': renderTopDown(); break;
-    case 'filemap': renderFileMap(); break;
-    case 'sunburst': renderSunburst(); break;
-    case 'bubbles': renderBubbles(); break;
-    case 'flow': renderFlow(); break;
-    case 'matrix': renderMatrix(); break;
-    case 'layers': renderLayers(); break;
-    case 'tree': renderFileTree(); break;
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 0: TOP-DOWN FLOW
-// ══════════════════════════════════════════════════════════════
-
-function renderTopDown() {
-  buildLegendStrip('topdown-legend');
-  const container = document.getElementById('topdown-container');
-  const W = 1100, H = 1520;
-  const contW = Math.min(1100, window.innerWidth - 80);
-  const contH = Math.min(820, window.innerHeight - 180);
-
-  container.innerHTML = '';
-  container.style.width = contW + 'px';
-  container.style.height = contH + 'px';
-  container.style.margin = '0 auto';
-
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('id','topdown-svg');
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  container.appendChild(svg);
-
-  // Pan & zoom state
-  let scale = Math.min(contW / W, contH / H, 0.85);
-  let panX = (contW - W * scale) / 2;
-  let panY = 10;
-  let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
-
-  function applyTransform() {
-    svg.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
-  }
-  applyTransform();
-
-  container.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const rect = container.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    const oldScale = scale;
-    const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    scale = Math.max(0.25, Math.min(2.5, scale * factor));
-    panX = mx - (mx - panX) * (scale / oldScale);
-    panY = my - (my - panY) * (scale / oldScale);
-    applyTransform();
-  }, {passive:false});
-
-  container.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
-    panStartX = panX; panStartY = panY;
-    container.classList.add('grabbing');
-  });
-  window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    panX = panStartX + (e.clientX - dragStartX);
-    panY = panStartY + (e.clientY - dragStartY);
-    applyTransform();
-  });
-  window.addEventListener('mouseup', () => {
-    dragging = false; container.classList.remove('grabbing');
-  });
-
-  // Defs: arrowheads + boundary glow
-  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-
-  function makeMarker(id, color) {
-    const m = document.createElementNS('http://www.w3.org/2000/svg','marker');
-    m.setAttribute('id', id);
-    m.setAttribute('markerWidth','10');
-    m.setAttribute('markerHeight','7');
-    m.setAttribute('refX','9');
-    m.setAttribute('refY','3.5');
-    m.setAttribute('orient','auto');
-    const p = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-    p.setAttribute('points','0 0, 10 3.5, 0 7');
-    p.setAttribute('fill', color);
-    m.appendChild(p);
-    defs.appendChild(m);
-  }
-  makeMarker('td-arrow','#475569');
-  makeMarker('td-arrow-accent','#3b82f6');
-  makeMarker('td-arrow-green','#10b981');
-  makeMarker('td-arrow-purple','#8b5cf6');
+  // Defs
+  const defs = svgEl('defs');
+  const marker = svgEl('marker', {id:'arrowhead',viewBox:'0 0 10 7',refX:'10',refY:'3.5',markerWidth:'8',markerHeight:'6',orient:'auto-start-reverse'});
+  marker.appendChild(svgEl('polygon', {points:'0 0, 10 3.5, 0 7', fill:'#64748b'}));
+  defs.appendChild(marker);
   svg.appendChild(defs);
 
-  // ── Node definitions ──
-  // Each node: { id, label, desc, module, x, y, w, h }
-  const NW = 160, NH = 52;
-  const NWwide = 180;
-  const centerX = 400; // left column center (CRUD flow)
-  const rightX = 760;  // right column center (telemetry flow)
+  // Background grid
+  for(let y=0;y<H;y+=40){
+    svg.appendChild(svgEl('line',{x1:0,y1:y,x2:W,y2:y,stroke:'#1e293b',strokeWidth:'0.5'}));
+  }
 
-  const nodes = [
-    { id:'user',       label:'User',              desc:'Browser client',                      module:null,         x:550, y:20,  w:100, h:42, special:'user' },
-    { id:'app-shell',  label:'App Shell',          desc:'Hash router, layout (App.jsx)',       module:'app-shell',  x:550-NW/2, y:100, w:NW, h:NH },
-    { id:'intake',     label:'Intake Form',        desc:'URL submission + platform detect',    module:'intake',     x:220, y:200, w:NW, h:NH },
-    { id:'dashboard',  label:'Dashboard',          desc:'Jobs list, selection, bulk actions',  module:'dashboard',  x:430, y:200, w:NW, h:NH },
-    { id:'activity',   label:'Activity Panel',     desc:'Real-time telemetry feed (SSE)',      module:'activity',   x:750, y:200, w:NW, h:NH },
-    { id:'data-layer', label:'Data Layer',         desc:'useJobsPolling + jobsApi fetch',      module:'data-layer', x:330, y:310, w:NW+20, h:NH },
-    // API Boundary at y=400
-    { id:'middleware',  label:'Middleware',         desc:'CORS, body parser, traceId',         module:'middleware', x:260, y:470, w:NW, h:NH },
-    { id:'telemetry',  label:'Telemetry',          desc:'Ring buffer + SSE pub/sub',           module:'infra',      x:700, y:470, w:NW, h:NH },
-    { id:'api-routes', label:'API Routes',         desc:'jobs, contacts, retry, status',       module:'api-routes', x:260, y:560, w:NW, h:NH },
-    { id:'logger',     label:'Logger',             desc:'Structured logging to telemetry',     module:'infra',      x:700, y:560, w:NW, h:NH },
-    { id:'models',     label:'Data Models',        desc:'Job schema, statuses, transitions',  module:'models',     x:360, y:660, w:NW, h:NH },
-    { id:'worker',     label:'Worker / Queue',     desc:'1s poll, atomic claim, process',      module:'worker',     x:360, y:770, w:NW+20, h:NH },
-    { id:'plat-reg',   label:'Platform Registry',  desc:'X + TikTok definitions',             module:'plat-reg',   x:180, y:880, w:NW, h:NH },
-    { id:'extractor',  label:'Extractor Service',  desc:'Playwright network interception',    module:'services',   x:400, y:880, w:NW+10, h:NH },
-    { id:'downloader', label:'Downloader Service', desc:'fetch (MP4) + ffmpeg (HLS)',         module:'services',   x:630, y:880, w:NW+10, h:NH },
-    { id:'playwright', label:'Playwright',         desc:'Singleton Chromium context',         module:'services',   x:330, y:990, w:NW, h:NH },
-    { id:'ffmpeg',     label:'ffmpeg',             desc:'HLS stream processing',              module:'services',   x:630, y:990, w:NW, h:NH },
-    { id:'config',     label:'Config / Utils',     desc:'env.js, validation, account-profile',module:'config',     x:460, y:1100, w:NW+20, h:NH },
-    { id:'mongodb',    label:'MongoDB',            desc:'Atlas cloud database',               module:'models',     x:460, y:1210, w:NW, h:NH, special:'db' },
-    { id:'downloads',  label:'Downloads',          desc:'server/downloads/<slug>/<id>.mp4',   module:'infra',      x:700, y:1100, w:NW, h:NH, special:'storage' },
+  const layers = [
+    {y:20,  label:'User / Browser', items:[], bg:'none'},
+    {y:80,  label:'Client', items:[
+      {x:200,w:140,label:'App Shell',sub:'App.jsx, main.jsx',color:'#3b82f6',mod:'app-shell'},
+      {x:380,w:140,label:'Intake',sub:'IntakeForm, useIntake',color:'#10b981',mod:'intake'},
+      {x:560,w:140,label:'Dashboard',sub:'JobsList, JobRow, ...',color:'#f59e0b',mod:'dashboard'},
+      {x:740,w:140,label:'Activity',sub:'ActivityPanel, SSE',color:'#8b5cf6',mod:'activity'},
+    ]},
+    {y:170, label:'Data Layer', items:[
+      {x:360,w:160,label:'Data Layer',sub:'useJobsPolling, jobsApi',color:'#06b6d4',mod:'data-layer'},
+      {x:560,w:160,label:'Page Components',sub:'JobsPage, ContactProfile',color:'#ec4899',mod:'pages'},
+    ]},
+    {y:260, label:'', items:[
+      {x:400,w:260,label:'API BOUNDARY',sub:'/api/* proxy (Vite -> :4000)',color:'#475569',mod:null,isBorder:true},
+    ]},
+    {y:330, label:'Server', items:[
+      {x:120,w:160,label:'Process Runtime',sub:'start-api, start-worker',color:'#a78bfa',mod:'runtime'},
+      {x:320,w:130,label:'Server Shell',sub:'index.js, app.js',color:'#3b82f6',mod:'shell'},
+      {x:490,w:120,label:'Middleware',sub:'request-limits',color:'#9ca3af',mod:'stubs'},
+      {x:650,w:160,label:'API Routes',sub:'jobs, contacts, retry, ...',color:'#f97316',mod:'routes'},
+    ]},
+    {y:420, label:'', items:[
+      {x:250,w:160,label:'Data Models',sub:'Job, Heartbeat, Telemetry',color:'#eab308',mod:'models'},
+      {x:450,w:200,label:'Platform Registry',sub:'X, TikTok + core/platforms',color:'#14b8a6',mod:'platforms'},
+      {x:700,w:160,label:'Config / Infra',sub:'logger, telemetry, env',color:'#f43f5e',mod:'server-infra'},
+    ]},
+    {y:510, label:'', items:[
+      {x:350,w:160,label:'Worker / Queue',sub:'queue, process-job, recovery',color:'#6366f1',mod:'worker'},
+      {x:560,w:160,label:'Services',sub:'extractor, downloader',color:'#ef4444',mod:'services'},
+    ]},
+    {y:610, label:'', items:[
+      {x:400,w:260,label:'Playwright Adapter',sub:'Singleton Chromium context',color:'#ef4444',mod:'services'},
+    ]},
+    {y:720, label:'Core Kernel', items:[
+      {x:100,w:140,label:'core/data',sub:'job-model, job-status',color:'#e879f9',mod:'core'},
+      {x:270,w:140,label:'core/domain',sub:'job-transitions',color:'#e879f9',mod:'core'},
+      {x:440,w:140,label:'core/http',sub:'request-limits',color:'#e879f9',mod:'core'},
+      {x:610,w:140,label:'core/dispatch',sub:'resolve, route',color:'#e879f9',mod:'core'},
+      {x:780,w:160,label:'core/runtime',sub:'domain-context, load',color:'#e879f9',mod:'core'},
+    ]},
+    {y:830, label:'External', items:[
+      {x:200,w:160,label:'MongoDB (Atlas)',sub:'Mongoose 9.2',color:'#47A248',mod:null},
+      {x:420,w:160,label:'Chromium',sub:'Playwright 1.58',color:'#4285F4',mod:null},
+      {x:640,w:160,label:'ffmpeg',sub:'HLS stream downloads',color:'#007808',mod:null},
+    ]},
   ];
 
-  // ── Edge definitions ──
-  // { from, to, label, side?, marker? }
-  const edges = [
-    { from:'user',       to:'app-shell',  label:'opens app' },
-    { from:'app-shell',  to:'intake',     label:'route: /' },
-    { from:'app-shell',  to:'dashboard',  label:'route: /' },
-    { from:'app-shell',  to:'activity',   label:'toggle panel' },
-    { from:'intake',     to:'data-layer', label:'POST /api/jobs' },
-    { from:'dashboard',  to:'data-layer', label:'useJobsPolling' },
-    { from:'data-layer', to:'middleware',  label:'fetch /api/*', cross:true },
-    { from:'activity',   to:'telemetry',  label:'SSE stream', cross:true, accent:'purple' },
-    { from:'middleware',  to:'api-routes', label:'validated req' },
-    { from:'api-routes',  to:'models',    label:'Mongoose CRUD' },
-    { from:'models',     to:'worker',     label:'queued jobs' },
-    { from:'worker',     to:'extractor',  label:'extract URLs' },
-    { from:'worker',     to:'downloader', label:'download media' },
-    { from:'plat-reg',   to:'extractor',  label:'platform config' },
-    { from:'extractor',  to:'playwright', label:'browser control' },
-    { from:'downloader', to:'ffmpeg',     label:'HLS streams' },
-    { from:'downloader', to:'downloads',  label:'save .mp4' },
-    { from:'worker',     to:'logger',     label:'log events', accent:'purple' },
-    { from:'logger',     to:'telemetry',  label:'publish', accent:'purple' },
-    { from:'playwright', to:'config',     label:'env vars' },
-    { from:'ffmpeg',     to:'config',     label:'FFMPEG_PATH' },
-    { from:'models',     to:'mongodb',    label:'read/write' },
-    { from:'config',     to:'mongodb',    label:'MONGODB_URI' },
+  // Draw layers
+  layers.forEach(layer => {
+    if(layer.label && layer.items.length > 0) {
+      const lt = svgEl('text', {x:20, y:layer.y+28, fill:'#64748b', 'font-size':'10', 'font-family':'Segoe UI,system-ui,sans-serif', 'font-weight':'600', 'text-anchor':'start'});
+      lt.textContent = layer.label;
+      svg.appendChild(lt);
+    }
+    layer.items.forEach(item => {
+      const g = svgEl('g', {class:'td-node'});
+      const rect = svgEl('rect', {
+        x:item.x, y:layer.y, width:item.w, height:50,
+        rx:8, ry:8,
+        fill: item.isBorder ? 'none' : hexToRgba(item.color, 0.15),
+        stroke: item.color, 'stroke-width': item.isBorder ? 2 : 1,
+        'stroke-dasharray': item.isBorder ? '8,4' : 'none'
+      });
+      g.appendChild(rect);
+      const t1 = svgEl('text', {x:item.x+item.w/2, y:layer.y+22, class:'td-label'});
+      t1.textContent = item.label;
+      g.appendChild(t1);
+      const t2 = svgEl('text', {x:item.x+item.w/2, y:layer.y+37, class:'td-sublabel'});
+      t2.textContent = item.sub;
+      g.appendChild(t2);
+      if(item.mod) {
+        g.addEventListener('mousemove', e => showTooltipRaw(e, item.label, item.mod, item.sub));
+        g.addEventListener('mouseleave', hideTooltip);
+      }
+      svg.appendChild(g);
+    });
+  });
+
+  // Arrows (connections)
+  const arrows = [
+    // Client internal
+    [450,130, 440,170],  // Intake -> Data Layer
+    [630,130, 640,170],  // Dashboard -> Pages
+    [810,130, 720,170],  // Activity -> Pages
+    // Data Layer -> API Boundary
+    [440,210, 530,260],
+    [640,210, 530,260],
+    // API -> Server
+    [530,300, 385,330],  // -> Shell
+    [530,300, 730,330],  // -> Routes
+    // Runtime -> Shell
+    [280,340, 320,345],
+    // Shell -> Models
+    [385,380, 330,420],
+    // Routes -> Models
+    [730,380, 410,420],
+    // Routes -> Platforms
+    [730,380, 550,420],
+    // Models -> Worker
+    [330,470, 430,510],
+    // Platforms -> Worker
+    [550,470, 430,510],
+    // Worker -> Services
+    [510,560, 640,510],
+    // Services -> Playwright
+    [640,560, 530,610],
+    // External
+    [330,470, 280,830],  // Models -> MongoDB
+    [530,660, 500,830],  // Playwright -> Chromium
+    [640,560, 720,830],  // Services -> ffmpeg
   ];
 
-  // Build node position lookup
-  const nodeMap = {};
-  for (const n of nodes) {
-    nodeMap[n.id] = n;
-    n.cx = n.x + n.w / 2;
-    n.cy = n.y + n.h / 2;
-  }
+  arrows.forEach(([x1,y1,x2,y2]) => {
+    const path = svgEl('line', {x1,y1,x2,y2,class:'td-arrow'});
+    svg.appendChild(path);
+  });
 
-  // Build adjacency for highlighting
-  const adjacency = {};
-  for (const n of nodes) adjacency[n.id] = new Set();
-  for (const e of edges) {
-    if (adjacency[e.from]) adjacency[e.from].add(e.to);
-    if (adjacency[e.to]) adjacency[e.to].add(e.from);
-  }
-
-  // ── Draw API Boundary ──
-  const boundaryY = 400;
-  const bLine = document.createElementNS('http://www.w3.org/2000/svg','line');
-  bLine.setAttribute('x1', 40);
-  bLine.setAttribute('y1', boundaryY);
-  bLine.setAttribute('x2', W - 40);
-  bLine.setAttribute('y2', boundaryY);
-  bLine.setAttribute('stroke', '#3b82f6');
-  bLine.setAttribute('stroke-width', '2');
-  bLine.setAttribute('stroke-dasharray', '12,6');
-  bLine.style.animation = 'td-boundary-pulse 3s ease-in-out infinite';
-  svg.appendChild(bLine);
-
-  const bLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
-  bLabel.setAttribute('x', 50);
-  bLabel.setAttribute('y', boundaryY - 10);
-  bLabel.setAttribute('class', 'td-boundary-label');
-  bLabel.textContent = 'API BOUNDARY';
-  svg.appendChild(bLabel);
-
-  const bLabelR = document.createElementNS('http://www.w3.org/2000/svg','text');
-  bLabelR.setAttribute('x', W - 220);
-  bLabelR.setAttribute('y', boundaryY - 10);
-  bLabelR.setAttribute('class', 'td-boundary-label');
-  bLabelR.setAttribute('fill', '#64748b');
-  bLabelR.setAttribute('font-size', '10');
-  bLabelR.setAttribute('font-weight', '600');
-  bLabelR.textContent = 'CLIENT above / SERVER below';
-  svg.appendChild(bLabelR);
-
-  // Section labels
-  const secLabels = [
-    { text:'CLIENT', x:50, y:60 },
-    { text:'SERVER', x:50, y:450 },
+  // Stub arrows (dashed) from re-export stubs to core
+  const stubArrows = [
+    // constants/ -> core/data
+    {label:'constants/', from:[170,720], to:[170,710]},
+    // domain/ -> core/domain
+    // middleware/ -> core/http
+    // models/job -> core/data/job-model
+    // platforms/registry -> core/platforms
   ];
-  for (const sl of secLabels) {
-    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x', sl.x);
-    t.setAttribute('y', sl.y);
-    t.setAttribute('fill', '#334155');
-    t.setAttribute('font-size', '14');
-    t.setAttribute('font-weight', '700');
-    t.setAttribute('letter-spacing', '0.15em');
-    t.textContent = sl.text;
-    svg.appendChild(t);
+
+  // Stub annotation area
+  const stubG = svgEl('g');
+  const stubItems = [
+    {x:20, y:680, label:'Re-export stubs', items:['constants/job-status', 'domain/job-transitions', 'middleware/request-limits', 'models/job', 'platforms/registry']},
+  ];
+  const stubBg = svgEl('rect',{x:10,y:665,width:140,height:48,rx:6,fill:hexToRgba('#9ca3af',0.1),stroke:'#9ca3af','stroke-width':0.5,'stroke-dasharray':'4,3'});
+  stubG.appendChild(stubBg);
+  const stubT = svgEl('text',{x:80,y:683,'font-size':'9','text-anchor':'middle',fill:'#9ca3af','font-family':'Segoe UI,system-ui,sans-serif','font-weight':'600'});
+  stubT.textContent = 'Re-export Stubs';
+  stubG.appendChild(stubT);
+  const stubT2 = svgEl('text',{x:80,y:696,'font-size':'8','text-anchor':'middle',fill:'#64748b','font-family':'Segoe UI,system-ui,sans-serif'});
+  stubT2.textContent = 'constants, domain, middleware';
+  stubG.appendChild(stubT2);
+  const stubT3 = svgEl('text',{x:80,y:707,'font-size':'8','text-anchor':'middle',fill:'#64748b','font-family':'Segoe UI,system-ui,sans-serif'});
+  stubT3.textContent = 'models/job, platforms/registry';
+  stubG.appendChild(stubT3);
+  // Dashed line from stubs to core
+  const stubLine = svgEl('line',{x1:150,y1:690,x2:170,y2:730,class:'td-arrow stub'});
+  stubG.appendChild(stubLine);
+  svg.appendChild(stubG);
+
+  // Title for core layer
+  const coreLabel = svgEl('text',{x:550,y:718,fill:'#e879f9','font-size':'12','font-weight':'700','text-anchor':'middle','font-family':'Segoe UI,system-ui,sans-serif'});
+  coreLabel.textContent = 'CORE KERNEL (Plugin Architecture)';
+  svg.appendChild(coreLabel);
+
+  // Foundation line under core
+  svg.appendChild(svgEl('line',{x1:80,y1:780,x2:960,y2:780,stroke:'#e879f9','stroke-width':'1','stroke-dasharray':'6,4',opacity:'0.4'}));
+
+  container.appendChild(svg);
+})();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 2: FILE MAP (visual directory tree)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.filemap = function() {
+  const container = document.getElementById('view-filemap');
+  container.innerHTML = '<div class="view-subtitle">Interactive file/folder tree — click folders to collapse/expand</div>';
+  buildLegend(container);
+
+  // Build tree structure
+  const tree = {name:'x-dl-vite-express-mongo', children:{}, isDir:true};
+
+  function ensureDir(parts) {
+    let node = tree;
+    parts.forEach(p => {
+      if(!node.children[p]) node.children[p] = {name:p, children:{}, isDir:true};
+      node = node.children[p];
+    });
+    return node;
   }
 
-  // ── Collect SVG element groups for highlighting ──
-  const nodeEls = {};
-  const edgeEls = [];
+  [...FILES, ...ROOT_FILES].forEach(f => {
+    const parts = f.path.split('/');
+    const fileName = parts.pop();
+    const dir = ensureDir(parts);
+    dir.children[fileName] = {name:fileName, isDir:false, file:f};
+  });
 
-  // ── Draw edges ──
-  for (const e of edges) {
-    const from = nodeMap[e.from], to = nodeMap[e.to];
-    if (!from || !to) continue;
+  const fm = document.createElement('div');
+  fm.className = 'fm-container';
 
-    // Determine connection points
-    let x1, y1, x2, y2;
-    if (Math.abs(from.cy - to.cy) > Math.abs(from.cx - to.cx) * 0.3) {
-      // Vertical-ish
-      if (from.cy < to.cy) {
-        x1 = from.cx; y1 = from.y + from.h;
-        x2 = to.cx;   y2 = to.y;
-      } else {
-        x1 = from.cx; y1 = from.y;
-        x2 = to.cx;   y2 = to.y + to.h;
+  function renderNode(node, depth, parentPath) {
+    const entries = Object.values(node.children).sort((a,b) => {
+      if(a.isDir && !b.isDir) return -1;
+      if(!a.isDir && b.isDir) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    entries.forEach(child => {
+      const fullPath = parentPath ? parentPath + '/' + child.name : child.name;
+      const row = document.createElement('div');
+      row.className = 'fm-row';
+      row.style.paddingLeft = (depth * 20 + 8) + 'px';
+
+      if(child.isDir) {
+        const childCount = Object.keys(child.children).length;
+        row.innerHTML = `<span class="fm-toggle">\u25BE</span><span class="fm-icon">\uD83D\uDCC1</span><span class="fm-name" style="font-weight:600;color:#60a5fa">${child.name}/</span><span class="fm-tag">${childCount} items</span>`;
+        fm.appendChild(row);
+        const childContainer = document.createElement('div');
+        childContainer.className = 'fm-children';
+        row.querySelector('.fm-toggle').onclick = () => {
+          const collapsed = childContainer.style.display === 'none';
+          childContainer.style.display = collapsed ? 'block' : 'none';
+          row.querySelector('.fm-toggle').textContent = collapsed ? '\u25BE' : '\u25B8';
+        };
+        fm.appendChild(childContainer);
+        const prevParent = fm;
+        // Render children into the child container
+        const subEntries = Object.values(child.children).sort((a,b) => {
+          if(a.isDir && !b.isDir) return -1;
+          if(!a.isDir && b.isDir) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        subEntries.forEach(sub => {
+          const subPath = fullPath + '/' + sub.name;
+          if(sub.isDir) {
+            renderSubDir(sub, depth + 1, subPath, childContainer);
+          } else {
+            const srow = document.createElement('div');
+            srow.className = 'fm-row';
+            srow.style.paddingLeft = ((depth+1) * 20 + 8) + 'px';
+            const info = sub.file ? getModuleInfo(sub.file.mod) : {color:'#666',name:''};
+            const stubMark = sub.file && sub.file.isStub ? ' <span style="color:#9ca3af;font-size:0.65rem">(stub)</span>' : '';
+            srow.innerHTML = `<span class="fm-indent"></span><span class="fm-icon">\uD83D\uDCC4</span><span class="fm-name">${sub.name}${stubMark}</span><span class="fm-dot" style="background:${info.color}"></span><span class="fm-tag">${sub.file?sub.file.desc:''}</span>`;
+            if(sub.file) {
+              srow.addEventListener('mousemove', e => showTooltip(e, sub.file));
+              srow.addEventListener('mouseleave', hideTooltip);
+            }
+            childContainer.appendChild(srow);
+          }
+        });
       }
-    } else {
-      // Horizontal
-      if (from.cx < to.cx) {
-        x1 = from.x + from.w; y1 = from.cy;
-        x2 = to.x;            y2 = to.cy;
-      } else {
-        x1 = from.x;          y1 = from.cy;
-        x2 = to.x + to.w;     y2 = to.cy;
-      }
-    }
-
-    const markerColor = e.accent === 'purple' ? '#8b5cf6' : e.cross ? '#3b82f6' : '#475569';
-    const markerId = e.accent === 'purple' ? 'td-arrow-purple' : e.cross ? 'td-arrow-accent' : 'td-arrow';
-    const strokeColor = e.accent === 'purple' ? '#6366f1' : e.cross ? '#3b82f6' : '#334155';
-
-    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-
-    // Bezier curve
-    const dx = x2 - x1, dy = y2 - y1;
-    let d;
-    if (Math.abs(dy) > Math.abs(dx) * 0.5) {
-      const cy1 = y1 + dy * 0.4, cy2 = y2 - dy * 0.4;
-      d = `M${x1} ${y1} C${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
-    } else {
-      const cx1 = x1 + dx * 0.4, cx2 = x2 - dx * 0.4;
-      d = `M${x1} ${y1} C${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
-    }
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', strokeColor);
-    path.setAttribute('stroke-width', e.cross ? '2' : '1.5');
-    path.setAttribute('marker-end', `url(#${markerId})`);
-    if (e.cross) {
-      path.setAttribute('stroke-dasharray', '6,3');
-      path.classList.add('td-flow-line');
-    }
-    g.appendChild(path);
-
-    // Edge label at midpoint
-    if (e.label) {
-      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-      // Background pill for readability
-      const labelText = e.label;
-      const estW = labelText.length * 5.5 + 10;
-      const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      bg.setAttribute('x', mx - estW/2);
-      bg.setAttribute('y', my - 8);
-      bg.setAttribute('width', estW);
-      bg.setAttribute('height', 15);
-      bg.setAttribute('rx', '4');
-      bg.setAttribute('fill', '#0f172a');
-      bg.setAttribute('fill-opacity', '0.85');
-      g.appendChild(bg);
-
-      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-      lbl.setAttribute('x', mx);
-      lbl.setAttribute('y', my);
-      lbl.setAttribute('class', 'td-edge-label');
-      lbl.textContent = labelText;
-      g.appendChild(lbl);
-    }
-
-    g.dataset.from = e.from;
-    g.dataset.to = e.to;
-    svg.appendChild(g);
-    edgeEls.push({ g, from: e.from, to: e.to });
+    });
   }
 
-  // ── Draw nodes ──
-  for (const n of nodes) {
-    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class', 'td-node');
-    g.dataset.id = n.id;
+  function renderSubDir(node, depth, fullPath, parentEl) {
+    const row = document.createElement('div');
+    row.className = 'fm-row';
+    row.style.paddingLeft = (depth * 20 + 8) + 'px';
+    const childCount = Object.keys(node.children).length;
+    row.innerHTML = `<span class="fm-toggle">\u25BE</span><span class="fm-icon">\uD83D\uDCC1</span><span class="fm-name" style="font-weight:600;color:#60a5fa">${node.name}/</span><span class="fm-tag">${childCount} items</span>`;
+    parentEl.appendChild(row);
 
-    const mod = n.module && MODULES[n.module];
-    const color = mod ? mod.color : (n.special === 'user' ? '#f8fafc' : n.special === 'db' ? '#eab308' : '#f43f5e');
-
-    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-    rect.setAttribute('x', n.x);
-    rect.setAttribute('y', n.y);
-    rect.setAttribute('width', n.w);
-    rect.setAttribute('height', n.h);
-    rect.setAttribute('rx', n.special === 'db' ? '20' : n.special === 'user' ? '25' : '10');
-    rect.setAttribute('fill', n.special === 'user' ? 'rgba(248,250,252,0.1)' : hexToRgba(color, 0.18));
-    rect.setAttribute('stroke', color);
-    rect.setAttribute('stroke-width', n.special ? '2' : '1.5');
-    g.appendChild(rect);
-
-    // Color accent bar at top
-    if (!n.special) {
-      const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      bar.setAttribute('x', n.x + 1);
-      bar.setAttribute('y', n.y);
-      bar.setAttribute('width', n.w - 2);
-      bar.setAttribute('height', '3');
-      bar.setAttribute('rx', '1.5');
-      bar.setAttribute('fill', color);
-      bar.setAttribute('opacity', '0.7');
-      g.appendChild(bar);
-    }
-
-    // User icon for special node
-    if (n.special === 'user') {
-      const icon = document.createElementNS('http://www.w3.org/2000/svg','text');
-      icon.setAttribute('x', n.cx - 32);
-      icon.setAttribute('y', n.cy + 5);
-      icon.setAttribute('font-size', '18');
-      icon.setAttribute('fill', '#f8fafc');
-      icon.setAttribute('pointer-events', 'none');
-      icon.textContent = '\u{1F464}';
-      g.appendChild(icon);
-    }
-
-    // DB icon
-    if (n.special === 'db') {
-      const icon = document.createElementNS('http://www.w3.org/2000/svg','text');
-      icon.setAttribute('x', n.cx - 38);
-      icon.setAttribute('y', n.cy + 5);
-      icon.setAttribute('font-size', '16');
-      icon.setAttribute('fill', '#eab308');
-      icon.setAttribute('pointer-events', 'none');
-      icon.textContent = '\u{1F4BE}';
-      g.appendChild(icon);
-    }
-
-    // Storage icon
-    if (n.special === 'storage') {
-      const icon = document.createElementNS('http://www.w3.org/2000/svg','text');
-      icon.setAttribute('x', n.cx - 42);
-      icon.setAttribute('y', n.cy + 5);
-      icon.setAttribute('font-size', '16');
-      icon.setAttribute('fill', '#f43f5e');
-      icon.setAttribute('pointer-events', 'none');
-      icon.textContent = '\u{1F4C1}';
-      g.appendChild(icon);
-    }
-
-    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-    label.setAttribute('x', n.cx + (n.special ? 6 : 0));
-    label.setAttribute('y', n.cy - 4);
-    label.setAttribute('class', 'td-node-label');
-    label.textContent = n.label;
-    g.appendChild(label);
-
-    const desc = document.createElementNS('http://www.w3.org/2000/svg','text');
-    desc.setAttribute('x', n.cx + (n.special ? 6 : 0));
-    desc.setAttribute('y', n.cy + 12);
-    desc.setAttribute('class', 'td-node-desc');
-    const dText = n.desc.length > 30 ? n.desc.slice(0,28)+'..' : n.desc;
-    desc.textContent = dText;
-    g.appendChild(desc);
-
-    // Hover: highlight connected nodes, dim others
-    g.addEventListener('mouseenter', (ev) => {
-      const connected = adjacency[n.id] || new Set();
-      // Dim all
-      for (const [nid, nel] of Object.entries(nodeEls)) {
-        nel.classList.toggle('td-dimmed', nid !== n.id && !connected.has(nid));
-        nel.classList.toggle('td-highlighted', nid === n.id || connected.has(nid));
-      }
-      for (const ee of edgeEls) {
-        const related = (ee.from === n.id || ee.to === n.id);
-        ee.g.classList.toggle('td-dimmed', !related);
-        ee.g.classList.toggle('td-highlighted', related);
-      }
-      // Tooltip with file list
-      const files = n.module ? ALL_FILES.filter(f => f.module === n.module) : [];
-      const fileNames = files.map(f => f.path.split('/').pop()).join(', ');
-      showTip(ev, n.label, mod ? mod.label : n.label, fileNames || n.desc, color);
-    });
-    g.addEventListener('mouseleave', () => {
-      for (const [, nel] of Object.entries(nodeEls)) {
-        nel.classList.remove('td-dimmed','td-highlighted');
-      }
-      for (const ee of edgeEls) {
-        ee.g.classList.remove('td-dimmed','td-highlighted');
-      }
-      hideTip();
-    });
-
-    // Click: show files popup
-    g.addEventListener('click', (ev) => {
-      if (!n.module) return;
-      const files = ALL_FILES.filter(f => f.module === n.module);
-      if (!files.length) return;
-      const popup = document.getElementById('matrixPopup');
-      popup.innerHTML = `<h4 style="color:${color}">${esc(n.label)}</h4><ul>${files.map(f=>`<li>${esc(f.path)}</li>`).join('')}</ul>`;
-      popup.classList.add('visible');
-      let px = ev.clientX + 10, py = ev.clientY + 10;
-      if (px + 320 > window.innerWidth) px = ev.clientX - 330;
-      if (py + 200 > window.innerHeight) py = ev.clientY - 210;
-      popup.style.left = px + 'px'; popup.style.top = py + 'px';
-    });
-
-    svg.appendChild(g);
-    nodeEls[n.id] = g;
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 1: FILE MAP (Visual Directory Tree)
-// ══════════════════════════════════════════════════════════════
-
-const fmExpanded = new Set(['x-dl-vite-express-mongo','x-dl-vite-express-mongo/client','x-dl-vite-express-mongo/server','x-dl-vite-express-mongo/client/src','x-dl-vite-express-mongo/server/src']);
-let fmHighlightMod = null;
-let fmSvg = null, fmContainer = null, fmScale = 1, fmPanX = 0, fmPanY = 0;
-
-function fmExpandAll() {
-  (function walk(n, path) {
-    const id = path ? path+'/'+n.name : n.name;
-    if (isFolder(n)) { fmExpanded.add(id); n.children.forEach(c => walk(c, id)); }
-  })(DATA, '');
-  renderFileMapTree();
-}
-function fmCollapseAll() {
-  fmExpanded.clear();
-  fmExpanded.add('x-dl-vite-express-mongo');
-  renderFileMapTree();
-}
-function fmResetView() {
-  if (!fmContainer || !fmSvg) return;
-  const contW = fmContainer.clientWidth, contH = fmContainer.clientHeight;
-  const svgW = parseFloat(fmSvg.getAttribute('width')), svgH = parseFloat(fmSvg.getAttribute('height'));
-  fmScale = Math.min(contW / svgW, contH / svgH, 1) * 0.92;
-  fmPanX = (contW - svgW * fmScale) / 2;
-  fmPanY = 20;
-  fmApplyTransform();
-}
-
-function fmApplyTransform() {
-  if (fmSvg) fmSvg.style.transform = `translate(${fmPanX}px,${fmPanY}px) scale(${fmScale})`;
-}
-
-function renderFileMap() {
-  buildLegendStrip('filemap-legend');
-
-  // Wire legend chips for module highlighting
-  document.querySelectorAll('#filemap-legend .legend-chip').forEach(chip => {
-    chip.onclick = () => {
-      const mod = chip.dataset.mod;
-      if (fmHighlightMod === mod) {
-        fmHighlightMod = null;
-        chip.classList.remove('active');
-      } else {
-        document.querySelectorAll('#filemap-legend .legend-chip').forEach(c => c.classList.remove('active'));
-        fmHighlightMod = mod;
-        chip.classList.add('active');
-      }
-      renderFileMapTree();
+    const childContainer = document.createElement('div');
+    childContainer.className = 'fm-children';
+    row.querySelector('.fm-toggle').onclick = () => {
+      const collapsed = childContainer.style.display === 'none';
+      childContainer.style.display = collapsed ? 'block' : 'none';
+      row.querySelector('.fm-toggle').textContent = collapsed ? '\u25BE' : '\u25B8';
     };
-  });
+    parentEl.appendChild(childContainer);
 
-  fmContainer = document.getElementById('filemap-container');
-  const contW = Math.min(1340, window.innerWidth - 60);
-  const contH = Math.max(600, window.innerHeight - 260);
-  fmContainer.style.width = contW + 'px';
-  fmContainer.style.height = contH + 'px';
-  fmContainer.style.margin = '0 auto';
-  fmContainer.innerHTML = '';
-
-  // Pan & zoom setup
-  let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
-
-  fmContainer.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const rect = fmContainer.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    const oldScale = fmScale;
-    const factor = e.deltaY < 0 ? 1.12 : 0.89;
-    fmScale = Math.max(0.1, Math.min(3, fmScale * factor));
-    fmPanX = mx - (mx - fmPanX) * (fmScale / oldScale);
-    fmPanY = my - (my - fmPanY) * (fmScale / oldScale);
-    fmApplyTransform();
-  }, {passive:false});
-
-  fmContainer.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
-    panStartX = fmPanX; panStartY = fmPanY;
-    fmContainer.classList.add('grabbing');
-  });
-  window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    fmPanX = panStartX + (e.clientX - dragStartX);
-    fmPanY = panStartY + (e.clientY - dragStartY);
-    fmApplyTransform();
-  });
-  window.addEventListener('mouseup', () => {
-    if (dragging) { dragging = false; fmContainer.classList.remove('grabbing'); }
-  });
-
-  renderFileMapTree();
-}
-
-function renderFileMapTree() {
-  if (!fmContainer) return;
-
-  // ── Layout constants ──
-  const FOLDER_W = 140, FOLDER_H = 36;
-  const FILE_W = 120, FILE_H = 28;
-  const H_GAP = 18;   // horizontal gap between sibling nodes
-  const V_GAP = 60;   // vertical gap between levels
-  const ROOT_H = 44;
-
-  // ── Layout algorithm: assign width to each node, then x,y positions ──
-  // Width = sum of children widths + gaps, or node own width
-  function measureNode(node, path) {
-    const id = path ? path + '/' + node.name : node.name;
-    const folder = isFolder(node);
-    const expanded = folder && fmExpanded.has(id);
-    const nodeW = folder ? FOLDER_W : FILE_W;
-    const entry = { node, id, folder, expanded, nodeW, children: [], totalW: nodeW };
-
-    if (expanded && node.children) {
-      let childEntries = [];
-      for (const c of node.children) {
-        childEntries.push(measureNode(c, id));
-      }
-      entry.children = childEntries;
-      if (childEntries.length > 0) {
-        const childrenW = childEntries.reduce((s, c) => s + c.totalW, 0) + (childEntries.length - 1) * H_GAP;
-        entry.totalW = Math.max(nodeW, childrenW);
-      }
-    }
-    return entry;
-  }
-
-  function positionNode(entry, x, y) {
-    // Center this node's box at the top of its allocated width
-    entry.x = x + entry.totalW / 2;
-    entry.y = y;
-    entry.boxX = entry.x - entry.nodeW / 2;
-    entry.boxY = y;
-    entry.boxH = entry.folder ? FOLDER_H : FILE_H;
-
-    if (entry.expanded && entry.children.length > 0) {
-      const childrenTotalW = entry.children.reduce((s, c) => s + c.totalW, 0) + (entry.children.length - 1) * H_GAP;
-      let cx = x + (entry.totalW - childrenTotalW) / 2;
-      const childY = y + entry.boxH + V_GAP;
-      for (const child of entry.children) {
-        positionNode(child, cx, childY);
-        cx += child.totalW + H_GAP;
-      }
-    }
-  }
-
-  const root = measureNode(DATA, '');
-  positionNode(root, 0, 20);
-
-  // Determine SVG dimensions
-  let maxX = 0, maxY = 0;
-  function findBounds(entry) {
-    const right = entry.boxX + entry.nodeW;
-    const bottom = entry.boxY + entry.boxH;
-    if (right > maxX) maxX = right;
-    if (bottom > maxY) maxY = bottom;
-    if (entry.children) entry.children.forEach(findBounds);
-  }
-  findBounds(root);
-  const svgW = maxX + 40;
-  const svgH = maxY + 40;
-
-  // Create SVG
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('id', 'filemap-svg');
-  svg.setAttribute('width', svgW);
-  svg.setAttribute('height', svgH);
-  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
-
-  fmSvg = svg;
-
-  // Defs for glow filters
-  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  const glowFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-  glowFilter.setAttribute('id', 'fm-glow');
-  glowFilter.setAttribute('x', '-30%'); glowFilter.setAttribute('y', '-30%');
-  glowFilter.setAttribute('width', '160%'); glowFilter.setAttribute('height', '160%');
-  const feGauss = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-  feGauss.setAttribute('stdDeviation', '4');
-  feGauss.setAttribute('result', 'glow');
-  glowFilter.appendChild(feGauss);
-  const feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
-  const fmn1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
-  fmn1.setAttribute('in', 'glow');
-  feMerge.appendChild(fmn1);
-  const fmn2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
-  fmn2.setAttribute('in', 'SourceGraphic');
-  feMerge.appendChild(fmn2);
-  glowFilter.appendChild(feMerge);
-  defs.appendChild(glowFilter);
-  svg.appendChild(defs);
-
-  // Collect all drawn elements for highlighting
-  const allNodeEls = [];
-  const allConnEls = [];
-
-  // ── Draw connectors ──
-  function drawConnectors(entry) {
-    if (!entry.expanded || entry.children.length === 0) return;
-    const parentCx = entry.x;
-    const parentBottom = entry.boxY + entry.boxH;
-    const midY = parentBottom + V_GAP * 0.38;
-
-    for (const child of entry.children) {
-      const childCx = child.x;
-      const childTop = child.boxY;
-
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      // Org-chart style: down from parent, horizontal, down to child
-      const d = `M ${parentCx} ${parentBottom} L ${parentCx} ${midY} L ${childCx} ${midY} L ${childCx} ${childTop}`;
-      path.setAttribute('d', d);
-      path.setAttribute('class', 'fm-connector');
-      path.dataset.parentId = entry.id;
-      path.dataset.childId = child.id;
-
-      // Color the connector based on child module
-      const childMod = child.node.module && MODULES[child.node.module];
-      if (childMod) {
-        path.setAttribute('stroke', hexToRgba(childMod.color, 0.35));
-      }
-
-      svg.appendChild(path);
-      allConnEls.push(path);
-
-      drawConnectors(child);
-    }
-  }
-  drawConnectors(root);
-
-  // ── Draw nodes ──
-  function drawNode(entry, depth) {
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'fm-node');
-    g.dataset.id = entry.id;
-    g.dataset.module = entry.node.module || '';
-
-    const mod = entry.node.module && MODULES[entry.node.module];
-    const color = mod ? mod.color : (depth === 0 ? '#3b82f6' : '#64748b');
-    const isRoot = depth === 0;
-
-    // Check if dimmed by module filter
-    const modDimmed = fmHighlightMod && !entry.folder && entry.node.module !== fmHighlightMod;
-    const folderDimmedByMod = fmHighlightMod && entry.folder && !fmNodeContainsModule(entry, fmHighlightMod);
-
-    if (modDimmed || folderDimmedByMod) {
-      g.classList.add('fm-dimmed');
-    }
-
-    // Background rect
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', entry.boxX);
-    rect.setAttribute('y', entry.boxY);
-    rect.setAttribute('width', entry.nodeW);
-    rect.setAttribute('height', entry.boxH);
-    rect.setAttribute('rx', entry.folder ? '10' : '8');
-
-    if (isRoot) {
-      rect.setAttribute('fill', 'rgba(59,130,246,0.2)');
-      rect.setAttribute('stroke', '#3b82f6');
-      rect.setAttribute('stroke-width', '2');
-      g.setAttribute('filter', 'url(#fm-glow)');
-    } else if (entry.folder) {
-      rect.setAttribute('fill', hexToRgba(color, 0.18));
-      rect.setAttribute('stroke', hexToRgba(color, 0.6));
-      rect.setAttribute('stroke-width', '1.5');
-    } else {
-      rect.setAttribute('fill', hexToRgba(color, 0.1));
-      rect.setAttribute('stroke', hexToRgba(color, 0.4));
-      rect.setAttribute('stroke-width', '1');
-    }
-    g.appendChild(rect);
-
-    // Color accent bar at top for folders
-    if (entry.folder && !isRoot) {
-      const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      bar.setAttribute('x', entry.boxX + 1);
-      bar.setAttribute('y', entry.boxY);
-      bar.setAttribute('width', entry.nodeW - 2);
-      bar.setAttribute('height', '3');
-      bar.setAttribute('rx', '1.5');
-      bar.setAttribute('fill', color);
-      bar.setAttribute('opacity', '0.7');
-      g.appendChild(bar);
-    }
-
-    // Color dot for files
-    if (!entry.folder && mod) {
-      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dot.setAttribute('cx', entry.boxX + 10);
-      dot.setAttribute('cy', entry.boxY + entry.boxH / 2);
-      dot.setAttribute('r', '4');
-      dot.setAttribute('fill', color);
-      dot.setAttribute('opacity', '0.8');
-      g.appendChild(dot);
-    }
-
-    // Label
-    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    const labelX = entry.folder ? entry.x : entry.x + (mod ? 4 : 0);
-    label.setAttribute('x', labelX);
-    label.setAttribute('y', entry.boxY + entry.boxH / 2 + (entry.folder && !isRoot ? -3 : 0));
-    label.setAttribute('class', entry.folder ? 'fm-folder-label' : 'fm-file-label');
-    if (isRoot) { label.setAttribute('font-size', '13'); }
-    const maxChars = Math.floor(entry.nodeW / (entry.folder ? 8 : 7.5));
-    const displayName = entry.node.name.length > maxChars ? entry.node.name.slice(0, maxChars - 1) + '..' : entry.node.name;
-    label.textContent = displayName;
-    g.appendChild(label);
-
-    // Child count badge for folders
-    if (entry.folder) {
-      const fc = countFiles(entry.node);
-      const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      badge.setAttribute('x', entry.x);
-      badge.setAttribute('y', entry.boxY + entry.boxH / 2 + (isRoot ? 14 : 10));
-      badge.setAttribute('class', 'fm-badge');
-      badge.setAttribute('fill', isRoot ? '#94a3b8' : hexToRgba(color, 0.7));
-      badge.textContent = fc + ' file' + (fc !== 1 ? 's' : '');
-      g.appendChild(badge);
-
-      // Collapsed indicator
-      if (!entry.expanded && isFolder(entry.node) && entry.node.children && entry.node.children.length > 0) {
-        const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        indicator.setAttribute('x', entry.boxX + entry.nodeW - 14);
-        indicator.setAttribute('y', entry.boxY + entry.boxH / 2 + 1);
-        indicator.setAttribute('text-anchor', 'middle');
-        indicator.setAttribute('fill', color);
-        indicator.setAttribute('font-size', '14');
-        indicator.setAttribute('font-weight', '700');
-        indicator.setAttribute('pointer-events', 'none');
-        indicator.textContent = '+';
-        g.appendChild(indicator);
-      }
-    }
-
-    // Interactions
-    g.addEventListener('mouseenter', (ev) => {
-      const modLabel = mod ? mod.label : (isRoot ? 'Project Root' : '');
-      const desc = entry.node.desc || (entry.folder ? countFiles(entry.node) + ' files' : '');
-      showTip(ev, entry.node.name, modLabel, desc, color);
-
-      // Highlight path to root
-      if (!fmHighlightMod) {
-        const pathIds = new Set();
-        const parts = entry.id.split('/');
-        for (let i = 1; i <= parts.length; i++) {
-          pathIds.add(parts.slice(0, i).join('/'));
-        }
-        document.querySelectorAll('#filemap-svg .fm-node').forEach(el => {
-          if (!pathIds.has(el.dataset.id) && el.dataset.id !== entry.id) {
-            el.style.opacity = '0.2';
-          } else {
-            el.style.opacity = '1';
-          }
-        });
-        allConnEls.forEach(conn => {
-          const pId = conn.dataset.parentId;
-          const cId = conn.dataset.childId;
-          if (pathIds.has(pId) && pathIds.has(cId)) {
-            conn.setAttribute('stroke', '#f8fafc');
-            conn.setAttribute('stroke-width', '2');
-            conn.setAttribute('stroke-opacity', '1');
-          } else {
-            conn.style.opacity = '0.15';
-          }
-        });
-      }
+    const subEntries = Object.values(node.children).sort((a,b) => {
+      if(a.isDir && !b.isDir) return -1;
+      if(!a.isDir && b.isDir) return 1;
+      return a.name.localeCompare(b.name);
     });
 
-    g.addEventListener('mouseleave', () => {
-      hideTip();
-      if (!fmHighlightMod) {
-        document.querySelectorAll('#filemap-svg .fm-node').forEach(el => {
-          el.style.opacity = '';
-        });
-        allConnEls.forEach(conn => {
-          const childMod2 = conn.dataset.childId && document.querySelector(`#filemap-svg .fm-node[data-id="${CSS.escape(conn.dataset.childId)}"]`);
-          const cm = childMod2 ? childMod2.dataset.module : '';
-          const cmMod = cm && MODULES[cm];
-          conn.setAttribute('stroke', cmMod ? hexToRgba(cmMod.color, 0.35) : '#334155');
-          conn.setAttribute('stroke-width', '1.2');
-          conn.style.opacity = '';
-        });
+    subEntries.forEach(sub => {
+      const subPath = fullPath + '/' + sub.name;
+      if(sub.isDir) {
+        renderSubDir(sub, depth + 1, subPath, childContainer);
+      } else {
+        const srow = document.createElement('div');
+        srow.className = 'fm-row';
+        srow.style.paddingLeft = ((depth+1) * 20 + 8) + 'px';
+        const info = sub.file ? getModuleInfo(sub.file.mod) : {color:'#666',name:''};
+        const stubMark = sub.file && sub.file.isStub ? ' <span style="color:#9ca3af;font-size:0.65rem">(stub)</span>' : '';
+        srow.innerHTML = `<span class="fm-indent"></span><span class="fm-icon">\uD83D\uDCC4</span><span class="fm-name">${sub.name}${stubMark}</span><span class="fm-dot" style="background:${info.color}"></span><span class="fm-tag">${sub.file?sub.file.desc:''}</span>`;
+        if(sub.file) {
+          srow.addEventListener('mousemove', e => showTooltip(e, sub.file));
+          srow.addEventListener('mouseleave', hideTooltip);
+        }
+        childContainer.appendChild(srow);
       }
     });
-
-    // Click to toggle folder
-    if (entry.folder) {
-      g.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        if (fmExpanded.has(entry.id)) {
-          fmExpanded.delete(entry.id);
-        } else {
-          fmExpanded.add(entry.id);
-        }
-        // Preserve pan/zoom
-        renderFileMapTree();
-      });
-    }
-
-    svg.appendChild(g);
-    allNodeEls.push(g);
-
-    // Recurse
-    if (entry.expanded && entry.children.length > 0) {
-      entry.children.forEach(c => drawNode(c, depth + 1));
-    }
-  }
-  drawNode(root, 0);
-
-  // Replace SVG in container (keep pan/zoom state)
-  const existingSvg = fmContainer.querySelector('svg');
-  if (existingSvg) {
-    fmContainer.replaceChild(svg, existingSvg);
-  } else {
-    fmContainer.appendChild(svg);
-    // Initial fit
-    fmResetView();
-    return;
-  }
-  fmApplyTransform();
-}
-
-function fmNodeContainsModule(entry, mod) {
-  if (entry.node.module === mod) return true;
-  if (entry.children) return entry.children.some(c => fmNodeContainsModule(c, mod));
-  return false;
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 2: SUNBURST
-// ══════════════════════════════════════════════════════════════
-
-function renderSunburst() {
-  buildLegendStrip('sunburst-legend');
-  const container = document.getElementById('sunburst-container');
-  const W = Math.min(800, window.innerWidth - 80);
-  const H = W;
-  const cx = W/2, cy = H/2;
-  const maxR = W/2 - 30;
-
-  // Build ring data: ring 0 = root, ring 1 = client/server, ring 2 = module groups, ring 3 = files
-  // We'll flatten the tree into arcs
-
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('id','sunburst-svg');
-  svg.setAttribute('width',W);
-  svg.setAttribute('height',H);
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  container.innerHTML = '';
-  container.appendChild(svg);
-
-  // Compute hierarchical arcs
-  function buildArcs(node, depth, startAngle, endAngle, parentModule) {
-    const arcs = [];
-    const mod = node.module || parentModule;
-    const files = countFiles(node);
-
-    if (depth > 0) {
-      arcs.push({
-        depth, startAngle, endAngle,
-        module: mod,
-        name: node.name,
-        desc: node.desc || '',
-        isFolder: isFolder(node),
-        files
-      });
-    }
-
-    if (isFolder(node) && depth < 4) {
-      const totalFiles = files;
-      let angle = startAngle;
-      for (const child of node.children) {
-        const cf = countFiles(child);
-        const sweep = (endAngle - startAngle) * (cf / totalFiles);
-        arcs.push(...buildArcs(child, depth+1, angle, angle+sweep, mod));
-        angle += sweep;
-      }
-    }
-    return arcs;
   }
 
-  const allArcs = buildArcs(DATA, 0, 0, Math.PI*2, 'root');
-  const maxDepth = Math.max(...allArcs.map(a=>a.depth), 1);
-  const ringWidth = maxR / (maxDepth + 0.5);
-  const innerPad = ringWidth * 0.4;
+  renderNode(tree, 0, '');
+  container.appendChild(fm);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 3: SUNBURST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.sunburst = function() {
+  const container = document.getElementById('view-sunburst');
+  container.innerHTML = '<div class="view-subtitle">Concentric rings — center is root, outer rings are deeper directories. Color by module.</div>';
+  buildLegend(container);
+
+  const size = 700, cx = size/2, cy = size/2;
+  const svg = svgEl('svg', {viewBox:`0 0 ${size} ${size}`, preserveAspectRatio:'xMidYMid meet'});
+
+  // Build hierarchical data
+  const root = {name:'root', children:[]};
+  const sides = {client:{name:'client', children:[]}, server:{name:'server', children:[]}};
+  root.children.push(sides.client, sides.server);
+
+  function getOrCreateChild(parent, name) {
+    let c = parent.children.find(x => x.name === name);
+    if(!c) { c = {name, children:[]}; parent.children.push(c); }
+    return c;
+  }
+
+  FILES.forEach(f => {
+    const parts = f.path.split('/');
+    let node = parts[0] === 'client' ? sides.client : sides.server;
+    // Skip the first part (client/server) and 'src'
+    const relevantParts = parts.slice(parts[1] === 'src' ? 2 : 1);
+    const fileName = relevantParts.pop();
+    relevantParts.forEach(p => { node = getOrCreateChild(node, p); });
+    node.children.push({name:fileName, file:f, children:[]});
+  });
+
+  // Count leaves
+  function countLeaves(node) {
+    if(node.children.length === 0) return 1;
+    return node.children.reduce((s,c) => s + countLeaves(c), 0);
+  }
 
   // Draw arcs
-  for (const arc of allArcs) {
-    const r1 = innerPad + (arc.depth - 1) * ringWidth + 2;
-    const r2 = innerPad + arc.depth * ringWidth - 2;
-    const color = arc.module && MODULES[arc.module] ? MODULES[arc.module].color : '#475569';
-    const opacity = arc.depth === 1 ? 0.9 : arc.depth === 2 ? 0.75 : arc.depth === 3 ? 0.6 : 0.45;
+  const maxDepth = 6;
+  const innerR = 50, outerR = 320;
+  const ringW = (outerR - innerR) / maxDepth;
 
-    if (arc.endAngle - arc.startAngle < 0.005) continue; // skip tiny arcs
+  function drawNode(node, depth, startAngle, endAngle) {
+    if(depth > maxDepth) return;
+    const r1 = innerR + depth * ringW;
+    const r2 = r1 + ringW - 2;
+    const total = countLeaves(node);
+    if(total === 0) return;
 
-    const path = describeArc(cx, cy, r1, r2, arc.startAngle, arc.endAngle);
-    const el = document.createElementNS('http://www.w3.org/2000/svg','path');
-    el.setAttribute('d', path);
-    el.setAttribute('fill', color);
-    el.setAttribute('fill-opacity', opacity);
-    el.setAttribute('stroke', '#0f172a');
-    el.setAttribute('stroke-width', '1');
-    el.style.cursor = 'pointer';
-    el.style.transition = 'fill-opacity 150ms ease';
-
-    const modInfo = arc.module && MODULES[arc.module] ? MODULES[arc.module] : null;
-    el.addEventListener('mouseenter', (e) => {
-      el.setAttribute('fill-opacity', Math.min(1, opacity + 0.25));
-      showTip(e, arc.name, modInfo ? modInfo.label : '', arc.desc || `${arc.files} file(s)`, color);
-    });
-    el.addEventListener('mouseleave', () => {
-      el.setAttribute('fill-opacity', opacity);
-      hideTip();
-    });
-    svg.appendChild(el);
-
-    // Label for larger arcs
-    if (arc.endAngle - arc.startAngle > 0.15 && arc.depth <= 3) {
-      const midAngle = (arc.startAngle + arc.endAngle) / 2;
-      const midR = (r1 + r2) / 2;
-      const lx = cx + midR * Math.cos(midAngle - Math.PI/2);
-      const ly = cy + midR * Math.sin(midAngle - Math.PI/2);
-      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
-      txt.setAttribute('x', lx);
-      txt.setAttribute('y', ly);
-      txt.setAttribute('class', 'sunburst-label');
-      txt.setAttribute('font-size', arc.depth <= 2 ? '11' : '9');
-
-      // Rotate text along the arc
-      let rot = (midAngle * 180 / Math.PI) - 90;
-      if (rot > 90 && rot < 270) rot += 180;
-      txt.setAttribute('transform', `rotate(${rot},${lx},${ly})`);
-
-      const display = arc.name.length > 14 ? arc.name.slice(0,12)+'..' : arc.name;
-      txt.textContent = display;
-      svg.appendChild(txt);
-    }
-  }
-
-  // Center label
-  const centerText = document.createElementNS('http://www.w3.org/2000/svg','text');
-  centerText.setAttribute('x', cx);
-  centerText.setAttribute('y', cy - 8);
-  centerText.setAttribute('text-anchor', 'middle');
-  centerText.setAttribute('fill', '#f8fafc');
-  centerText.setAttribute('font-size', '14');
-  centerText.setAttribute('font-weight', '700');
-  centerText.textContent = 'Media Vault';
-  svg.appendChild(centerText);
-
-  const centerSub = document.createElementNS('http://www.w3.org/2000/svg','text');
-  centerSub.setAttribute('x', cx);
-  centerSub.setAttribute('y', cy + 10);
-  centerSub.setAttribute('text-anchor', 'middle');
-  centerSub.setAttribute('fill', '#94a3b8');
-  centerSub.setAttribute('font-size', '10');
-  centerSub.textContent = countFiles(DATA) + ' files';
-  svg.appendChild(centerSub);
-}
-
-function describeArc(cx, cy, r1, r2, startAngle, endAngle) {
-  // Convert from radians (0 = top, clockwise)
-  const sa = startAngle - Math.PI/2;
-  const ea = endAngle - Math.PI/2;
-  const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-
-  const x1o = cx + r2 * Math.cos(sa);
-  const y1o = cy + r2 * Math.sin(sa);
-  const x2o = cx + r2 * Math.cos(ea);
-  const y2o = cy + r2 * Math.sin(ea);
-  const x1i = cx + r1 * Math.cos(ea);
-  const y1i = cy + r1 * Math.sin(ea);
-  const x2i = cx + r1 * Math.cos(sa);
-  const y2i = cy + r1 * Math.sin(sa);
-
-  return `M ${x1o} ${y1o} A ${r2} ${r2} 0 ${largeArc} 1 ${x2o} ${y2o} L ${x1i} ${y1i} A ${r1} ${r1} 0 ${largeArc} 0 ${x2i} ${y2i} Z`;
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 2: BUBBLE MAP
-// ══════════════════════════════════════════════════════════════
-
-function renderBubbles() {
-  buildLegendStrip('bubble-legend');
-  const container = document.getElementById('bubble-container');
-  const W = Math.min(1100, window.innerWidth - 80);
-  const H = 620;
-
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('id','bubble-svg');
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  container.innerHTML = '';
-  container.appendChild(svg);
-
-  const counts = countByModule(DATA);
-
-  // Separate client and server modules
-  const clientMods = [], serverMods = [], rootMods = [];
-  for (const [k, m] of Object.entries(MODULES)) {
-    const count = counts[k] || 0;
-    if (count === 0) continue;
-    const entry = { key:k, ...m, count };
-    if (m.side === 'client') clientMods.push(entry);
-    else if (m.side === 'server') serverMods.push(entry);
-    else rootMods.push(entry);
-  }
-
-  // Layout: client cluster on left, server on right
-  const clientCx = W * 0.28, serverCx = W * 0.72;
-  const groupCy = H * 0.5;
-  const maxBubbleR = 80;
-  const maxCount = Math.max(...Object.values(counts));
-
-  function rForCount(c) { return 20 + (c / maxCount) * (maxBubbleR - 20); }
-
-  // Side labels
-  const clientLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
-  clientLabel.setAttribute('x', clientCx);
-  clientLabel.setAttribute('y', 30);
-  clientLabel.setAttribute('text-anchor','middle');
-  clientLabel.setAttribute('fill','#64748b');
-  clientLabel.setAttribute('font-size','13');
-  clientLabel.setAttribute('font-weight','700');
-  clientLabel.setAttribute('letter-spacing','0.1em');
-  clientLabel.textContent = 'CLIENT';
-  svg.appendChild(clientLabel);
-
-  const serverLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
-  serverLabel.setAttribute('x', serverCx);
-  serverLabel.setAttribute('y', 30);
-  serverLabel.setAttribute('text-anchor','middle');
-  serverLabel.setAttribute('fill','#64748b');
-  serverLabel.setAttribute('font-size','13');
-  serverLabel.setAttribute('font-weight','700');
-  serverLabel.setAttribute('letter-spacing','0.1em');
-  serverLabel.textContent = 'SERVER';
-  svg.appendChild(serverLabel);
-
-  // Divider line
-  const divider = document.createElementNS('http://www.w3.org/2000/svg','line');
-  divider.setAttribute('x1', W/2);
-  divider.setAttribute('y1', 20);
-  divider.setAttribute('x2', W/2);
-  divider.setAttribute('y2', H - 20);
-  divider.setAttribute('stroke', '#334155');
-  divider.setAttribute('stroke-width', '1');
-  divider.setAttribute('stroke-dasharray', '4,4');
-  svg.appendChild(divider);
-
-  function layoutBubbles(mods, centerX) {
-    // Simple circular layout around center
-    const n = mods.length;
-    const layoutR = Math.min(180, H/2 - 80);
-    const positions = [];
-
-    for (let i = 0; i < n; i++) {
-      const angle = (i / n) * Math.PI * 2 - Math.PI/2;
-      const spread = n <= 3 ? layoutR * 0.6 : layoutR;
-      const x = centerX + spread * Math.cos(angle) * (0.7 + 0.3 * (i%2));
-      const y = groupCy + spread * Math.sin(angle) * 0.8;
-      positions.push({ x, y });
+    // Determine color
+    let color = '#334155';
+    if(node.file) {
+      color = getModuleInfo(node.file.mod).color;
+    } else if(node.name === 'client') {
+      color = '#3b82f6';
+    } else if(node.name === 'server') {
+      color = '#6366f1';
+    } else {
+      // Use color of majority of children
+      const modCounts = {};
+      function countMods(n) {
+        if(n.file) modCounts[n.file.mod] = (modCounts[n.file.mod]||0) + 1;
+        n.children.forEach(c => countMods(c));
+      }
+      countMods(node);
+      const topMod = Object.entries(modCounts).sort((a,b) => b[1]-a[1])[0];
+      if(topMod) color = getModuleInfo(topMod[0]).color;
     }
 
-    // Simple force-based overlap reduction (10 iterations)
-    for (let iter = 0; iter < 20; iter++) {
-      for (let i = 0; i < n; i++) {
-        for (let j = i+1; j < n; j++) {
-          const ri = rForCount(mods[i].count);
-          const rj = rForCount(mods[j].count);
-          const dx = positions[j].x - positions[i].x;
-          const dy = positions[j].y - positions[i].y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          const minDist = ri + rj + 6;
-          if (dist < minDist && dist > 0) {
-            const push = (minDist - dist) / 2;
-            const nx = dx/dist, ny = dy/dist;
-            positions[i].x -= nx * push;
-            positions[i].y -= ny * push;
-            positions[j].x += nx * push;
-            positions[j].y += ny * push;
-          }
-        }
-        // Keep in bounds
-        const r = rForCount(mods[i].count);
-        positions[i].x = Math.max(r+5, Math.min(W-r-5, positions[i].x));
-        positions[i].y = Math.max(r+45, Math.min(H-r-5, positions[i].y));
+    if(endAngle - startAngle > 0.01) {
+      const path = arcPath(cx, cy, r1, r2, startAngle, endAngle - 0.005);
+      const arc = svgEl('path', {d:path, fill:hexToRgba(color, depth === 0 ? 0.4 : 0.25 + depth*0.1), stroke:hexToRgba(color, 0.6), 'stroke-width':'1', class:'sb-arc'});
+      if(node.file) {
+        arc.addEventListener('mousemove', e => showTooltip(e, node.file));
+        arc.addEventListener('mouseleave', hideTooltip);
+      } else if(node.name !== 'root') {
+        arc.addEventListener('mousemove', e => showTooltipRaw(e, node.name, '', `Directory: ${node.name} (${total} files)`));
+        arc.addEventListener('mouseleave', hideTooltip);
+      }
+      svg.appendChild(arc);
+
+      // Label for larger arcs
+      if(endAngle - startAngle > 0.25 && depth <= 3) {
+        const midAngle = (startAngle + endAngle) / 2;
+        const midR = (r1 + r2) / 2;
+        const lx = cx + midR * Math.cos(midAngle);
+        const ly = cy + midR * Math.sin(midAngle);
+        const label = svgEl('text', {x:lx, y:ly, fill:'#e2e8f0', 'font-size': depth===0?'12':'9', 'font-weight':'600', 'text-anchor':'middle', 'dominant-baseline':'middle', 'font-family':'Segoe UI,system-ui,sans-serif', 'pointer-events':'none'});
+        label.textContent = node.name.length > 12 ? node.name.slice(0,10)+'..' : node.name;
+        svg.appendChild(label);
       }
     }
 
-    return positions;
+    // Recurse into children
+    let angle = startAngle;
+    node.children.forEach(child => {
+      const childLeaves = countLeaves(child);
+      const childAngle = (childLeaves / total) * (endAngle - startAngle);
+      drawNode(child, depth + 1, angle, angle + childAngle);
+      angle += childAngle;
+    });
   }
 
-  function drawBubbles(mods, positions) {
-    for (let i = 0; i < mods.length; i++) {
-      const m = mods[i];
-      const r = rForCount(m.count);
-      const x = positions[i].x;
-      const y = positions[i].y;
-
-      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-      g.style.cursor = 'pointer';
-
-      // Outer glow
-      const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      glow.setAttribute('cx', x);
-      glow.setAttribute('cy', y);
-      glow.setAttribute('r', r + 3);
-      glow.setAttribute('fill', 'none');
-      glow.setAttribute('stroke', m.color);
-      glow.setAttribute('stroke-opacity', '0.2');
-      glow.setAttribute('stroke-width', '3');
-      g.appendChild(glow);
-
-      // Main bubble
-      const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      circle.setAttribute('cx', x);
-      circle.setAttribute('cy', y);
-      circle.setAttribute('r', r);
-      circle.setAttribute('fill', hexToRgba(m.color, 0.2));
-      circle.setAttribute('stroke', m.color);
-      circle.setAttribute('stroke-width', '2');
-      circle.style.transition = 'fill-opacity 150ms ease';
-      g.appendChild(circle);
-
-      // Label
-      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-      label.setAttribute('x', x);
-      label.setAttribute('y', y - 6);
-      label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('fill', '#f8fafc');
-      label.setAttribute('font-size', r > 40 ? '12' : '10');
-      label.setAttribute('font-weight', '700');
-      label.setAttribute('pointer-events', 'none');
-      const displayLabel = m.label.length > 16 ? m.label.slice(0,14)+'..' : m.label;
-      label.textContent = displayLabel;
-      g.appendChild(label);
-
-      // Count
-      const countLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
-      countLabel.setAttribute('x', x);
-      countLabel.setAttribute('y', y + 10);
-      countLabel.setAttribute('text-anchor', 'middle');
-      countLabel.setAttribute('fill', m.color);
-      countLabel.setAttribute('font-size', '11');
-      countLabel.setAttribute('font-weight', '600');
-      countLabel.setAttribute('pointer-events', 'none');
-      countLabel.textContent = m.count + ' file' + (m.count !== 1 ? 's' : '');
-      g.appendChild(countLabel);
-
-      // Interaction
-      const files = ALL_FILES.filter(f => f.module === m.key);
-      g.addEventListener('mouseenter', (e) => {
-        circle.setAttribute('fill', hexToRgba(m.color, 0.4));
-        const desc = files.map(f => f.path.split('/').pop()).join(', ');
-        showTip(e, m.label, m.label, desc, m.color);
-      });
-      g.addEventListener('mouseleave', () => {
-        circle.setAttribute('fill', hexToRgba(m.color, 0.2));
-        hideTip();
-      });
-
-      svg.appendChild(g);
-    }
+  function arcPath(cx, cy, r1, r2, startAngle, endAngle) {
+    const x1 = cx + r1 * Math.cos(startAngle), y1 = cy + r1 * Math.sin(startAngle);
+    const x2 = cx + r2 * Math.cos(startAngle), y2 = cy + r2 * Math.sin(startAngle);
+    const x3 = cx + r2 * Math.cos(endAngle), y3 = cy + r2 * Math.sin(endAngle);
+    const x4 = cx + r1 * Math.cos(endAngle), y4 = cy + r1 * Math.sin(endAngle);
+    const large = endAngle - startAngle > Math.PI ? 1 : 0;
+    return `M${x1},${y1} L${x2},${y2} A${r2},${r2} 0 ${large} 1 ${x3},${y3} L${x4},${y4} A${r1},${r1} 0 ${large} 0 ${x1},${y1} Z`;
   }
 
-  // Root bubbles in center
-  if (rootMods.length) {
-    const rootPos = rootMods.map((m,i) => ({ x: W/2, y: H/2 - 20 + i*50 }));
-    drawBubbles(rootMods, rootPos);
-  }
+  // Center circle
+  svg.appendChild(svgEl('circle', {cx, cy, r:innerR-2, fill:'#1e293b', stroke:'#475569', 'stroke-width':'1'}));
+  const ct = svgEl('text', {x:cx, y:cy-6, fill:'#f8fafc', 'font-size':'13', 'font-weight':'700', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+  ct.textContent = 'Media';
+  svg.appendChild(ct);
+  const ct2 = svgEl('text', {x:cx, y:cy+10, fill:'#94a3b8', 'font-size':'11', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+  ct2.textContent = 'Vault';
+  svg.appendChild(ct2);
 
-  const clientPos = layoutBubbles(clientMods, clientCx);
-  drawBubbles(clientMods, clientPos);
-
-  const serverPos = layoutBubbles(serverMods, serverCx);
-  drawBubbles(serverMods, serverPos);
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 3: DEPENDENCY FLOW
-// ══════════════════════════════════════════════════════════════
-
-function renderFlow() {
-  buildLegendStrip('flow-legend');
-  const container = document.getElementById('flow-container');
-  const W = Math.min(1200, window.innerWidth - 80);
-  const H = 700;
-
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('id','flow-svg');
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  container.innerHTML = '';
+  drawNode(root, 0, 0, Math.PI * 2);
   container.appendChild(svg);
+};
 
-  // Define arrow marker
-  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
-  marker.setAttribute('id','arrowhead');
-  marker.setAttribute('markerWidth','8');
-  marker.setAttribute('markerHeight','6');
-  marker.setAttribute('refX','8');
-  marker.setAttribute('refY','3');
-  marker.setAttribute('orient','auto');
-  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-  arrowPath.setAttribute('points','0 0, 8 3, 0 6');
-  arrowPath.setAttribute('fill','#64748b');
-  marker.appendChild(arrowPath);
-  defs.appendChild(marker);
-  svg.appendChild(defs);
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 4: BUBBLE MAP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // Arrange modules in columns by data flow
-  // Column 0: User-facing client (intake, dashboard, activity, app-shell, shared-comp)
-  // Column 1: Data bridge (data-layer, client-plat)
-  // Column 2: Server boundary (middleware, api-routes)
-  // Column 3: Processing (worker, services, plat-reg)
-  // Column 4: Foundation (models, infra, config, utils)
+renderers.bubble = function() {
+  const container = document.getElementById('view-bubble');
+  container.innerHTML = '<div class="view-subtitle">Nested circles — size proportional to file count. Client left, Server right.</div>';
+  buildLegend(container);
 
-  const columns = [
-    ['app-shell', 'intake', 'dashboard', 'activity', 'shared-comp'],
-    ['data-layer', 'client-plat'],
-    ['middleware', 'api-routes'],
-    ['worker', 'services', 'plat-reg'],
-    ['models', 'infra', 'config', 'utils'],
+  const W = 1100, H = 650;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMidYMid meet'});
+
+  // Client bubble
+  svg.appendChild(svgEl('circle', {cx:300, cy:H/2, r:260, fill:'rgba(59,130,246,0.06)', stroke:'#3b82f6', 'stroke-width':'1', 'stroke-dasharray':'6,3'}));
+  const clLabel = svgEl('text', {x:300, y:40, fill:'#3b82f6', 'font-size':'14', 'font-weight':'700', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+  clLabel.textContent = 'CLIENT';
+  svg.appendChild(clLabel);
+
+  // Server bubble
+  svg.appendChild(svgEl('circle', {cx:750, cy:H/2, r:310, fill:'rgba(99,102,241,0.06)', stroke:'#6366f1', 'stroke-width':'1', 'stroke-dasharray':'6,3'}));
+  const svLabel = svgEl('text', {x:750, y:30, fill:'#6366f1', 'font-size':'14', 'font-weight':'700', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+  svLabel.textContent = 'SERVER';
+  svg.appendChild(svLabel);
+
+  // Module bubbles
+  const clientMods = [
+    {mod:'intake',    x:180, y:200, r:45},
+    {mod:'dashboard', x:350, y:180, r:60},
+    {mod:'activity',  x:230, y:350, r:45},
+    {mod:'pages',     x:380, y:340, r:50},
+    {mod:'data-layer',x:160, y:480, r:35},
+    {mod:'app-shell', x:330, y:470, r:42},
+    {mod:'client-lib',x:440, y:460, r:30},
   ];
 
-  const colLabels = ['Client UI', 'Data Bridge', 'API Boundary', 'Processing', 'Foundation'];
+  const serverMods = [
+    {mod:'core',         x:700, y:160, r:70},
+    {mod:'routes',       x:870, y:180, r:55},
+    {mod:'worker',       x:600, y:310, r:45},
+    {mod:'services',     x:760, y:330, r:45},
+    {mod:'models',       x:900, y:330, r:45},
+    {mod:'platforms',    x:650, y:460, r:50},
+    {mod:'runtime',      x:830, y:460, r:42},
+    {mod:'shell',        x:550, y:480, r:42},
+    {mod:'server-infra', x:950, y:480, r:40},
+    {mod:'stubs',        x:750, y:550, r:30},
+  ];
 
-  const nodeW = 140, nodeH = 44;
-  const colCount = columns.length;
-  const colSpacing = (W - 60) / colCount;
-  const positions = {};
-
-  // Column labels
-  for (let ci = 0; ci < colCount; ci++) {
-    const x = 30 + ci * colSpacing + colSpacing/2;
-    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-    lbl.setAttribute('x', x);
-    lbl.setAttribute('y', 22);
-    lbl.setAttribute('text-anchor','middle');
-    lbl.setAttribute('fill','#475569');
-    lbl.setAttribute('font-size','11');
-    lbl.setAttribute('font-weight','700');
-    lbl.setAttribute('letter-spacing','0.08em');
-    lbl.textContent = colLabels[ci].toUpperCase();
-    svg.appendChild(lbl);
-  }
-
-  // Position nodes
-  for (let ci = 0; ci < colCount; ci++) {
-    const col = columns[ci];
-    const x = 30 + ci * colSpacing + (colSpacing - nodeW)/2;
-    const totalH = col.length * (nodeH + 14);
-    const startY = (H - totalH)/2 + 20;
-
-    for (let ri = 0; ri < col.length; ri++) {
-      const modKey = col[ri];
-      const y = startY + ri * (nodeH + 14);
-      positions[modKey] = { x: x + nodeW/2, y: y + nodeH/2, left: x, top: y, right: x + nodeW, bottom: y + nodeH };
-    }
-  }
-
-  // Draw connections first (behind nodes)
-  for (const conn of CONNECTIONS) {
-    const from = positions[conn.from];
-    const to = positions[conn.to];
-    if (!from || !to) continue;
-
-    const fromX = from.right;
-    const fromY = from.y;
-    const toX = to.left;
-    const toY = to.y;
-
-    // Determine if going left or right
-    let sx, sy, ex, ey;
-    if (fromX < toX) {
-      sx = fromX; sy = fromY; ex = toX; ey = toY;
-    } else {
-      // Going backward — use top/bottom
-      sx = from.x; sy = from.bottom;
-      ex = to.x; ey = to.top;
-    }
-
-    const cpOffset = Math.abs(ex - sx) * 0.4;
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    let d;
-    if (fromX < toX) {
-      d = `M ${sx} ${sy} C ${sx+cpOffset} ${sy}, ${ex-cpOffset} ${ey}, ${ex} ${ey}`;
-    } else {
-      d = `M ${sx} ${sy} C ${sx} ${sy+40}, ${ex} ${ey-40}, ${ex} ${ey}`;
-    }
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#334155');
-    path.setAttribute('stroke-width', '1.5');
-    path.setAttribute('marker-end', 'url(#arrowhead)');
-    path.style.transition = 'stroke 180ms ease';
-
-    // Hover label on connection
-    path.addEventListener('mouseenter', (e) => {
-      path.setAttribute('stroke', '#64748b');
-      path.setAttribute('stroke-width', '2.5');
-      showTip(e, conn.label, '', `${MODULES[conn.from]?.label || conn.from} -> ${MODULES[conn.to]?.label || conn.to}`, '#64748b');
-    });
-    path.addEventListener('mouseleave', () => {
-      path.setAttribute('stroke', '#334155');
-      path.setAttribute('stroke-width', '1.5');
-      hideTip();
-    });
-    path.style.cursor = 'pointer';
-    svg.appendChild(path);
-  }
-
-  // Draw nodes
-  for (const [modKey, pos] of Object.entries(positions)) {
-    const mod = MODULES[modKey];
-    if (!mod) continue;
-
-    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class','flow-node');
-
-    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-    rect.setAttribute('x', pos.left);
-    rect.setAttribute('y', pos.top);
-    rect.setAttribute('width', nodeW);
-    rect.setAttribute('height', nodeH);
-    rect.setAttribute('rx', '8');
-    rect.setAttribute('fill', hexToRgba(mod.color, 0.15));
-    rect.setAttribute('stroke', mod.color);
-    rect.setAttribute('stroke-width', '1.5');
-    g.appendChild(rect);
-
-    // Color bar on left
-    const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
-    bar.setAttribute('x', pos.left);
-    bar.setAttribute('y', pos.top);
-    bar.setAttribute('width', '4');
-    bar.setAttribute('height', nodeH);
-    bar.setAttribute('rx', '2');
-    bar.setAttribute('fill', mod.color);
-    g.appendChild(bar);
-
-    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-    label.setAttribute('x', pos.x + 2);
-    label.setAttribute('y', pos.y - 2);
-    label.setAttribute('class', 'flow-label');
-    label.setAttribute('font-size', '11');
-    const displayName = mod.label.length > 18 ? mod.label.slice(0,16)+'..' : mod.label;
-    label.textContent = displayName;
+  function drawBubble(b) {
+    const info = getModuleInfo(b.mod);
+    const g = svgEl('g', {class:'bub-circle'});
+    g.appendChild(svgEl('circle', {cx:b.x, cy:b.y, r:b.r, fill:hexToRgba(info.color, 0.2), stroke:info.color, 'stroke-width':'1.5'}));
+    const label = svgEl('text', {x:b.x, y:b.y-4, class:'bub-label', 'font-size': b.r > 50 ? '11' : '9'});
+    label.textContent = info.name;
     g.appendChild(label);
-
-    const counts = countByModule(DATA);
-    const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
-    sub.setAttribute('x', pos.x + 2);
-    sub.setAttribute('y', pos.y + 12);
-    sub.setAttribute('class', 'flow-sublabel');
-    sub.textContent = (counts[modKey] || 0) + ' files';
-    g.appendChild(sub);
-
-    // Hover
-    const files = ALL_FILES.filter(f=>f.module===modKey);
-    g.addEventListener('mouseenter', (e) => {
-      const desc = files.map(f=>f.path.split('/').pop()).join(', ');
-      showTip(e, mod.label, mod.label, desc || 'No files', mod.color);
-    });
-    g.addEventListener('mouseleave', () => hideTip());
-
+    const count = svgEl('text', {x:b.x, y:b.y+10, fill:'#94a3b8', 'font-size':'9', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif', 'pointer-events':'none'});
+    const fileCount = FILES.filter(f => f.mod === b.mod).length;
+    count.textContent = fileCount + ' files';
+    g.appendChild(count);
+    g.addEventListener('mousemove', e => showTooltipRaw(e, info.name, b.mod, `${fileCount} files in this module`));
+    g.addEventListener('mouseleave', hideTooltip);
     svg.appendChild(g);
   }
-}
 
-// ══════════════════════════════════════════════════════════════
-// VIEW 4: GRID MATRIX
-// ══════════════════════════════════════════════════════════════
-
-function renderMatrix() {
-  const container = document.getElementById('matrix-container');
-  const popup = document.getElementById('matrixPopup');
-
-  // Build concern-specific file lists
-  const concernFiles = {};
-  for (const [modKey, concerns] of Object.entries(MODULE_CONCERNS)) {
-    const files = ALL_FILES.filter(f => f.module === modKey);
-    concernFiles[modKey] = {};
-    for (let i = 0; i < CONCERNS.length; i++) {
-      if (concerns[i]) concernFiles[modKey][CONCERNS[i]] = files;
-      else concernFiles[modKey][CONCERNS[i]] = [];
-    }
-  }
-
-  let html = '<table class="matrix-table"><thead><tr><th>Module</th><th>Side</th>';
-  for (const c of CONCERNS) html += `<th class="col-header">${c}</th>`;
-  html += '</tr></thead><tbody>';
-
-  for (const [modKey, mod] of Object.entries(MODULES)) {
-    const concerns = MODULE_CONCERNS[modKey];
-    if (!concerns) continue;
-
-    html += '<tr>';
-    html += `<td><div class="matrix-mod"><span class="mm-dot" style="background:${mod.color}"></span>${esc(mod.label)}</div></td>`;
-    html += `<td style="color:var(--text-dim);font-size:0.72rem;text-transform:uppercase">${mod.side}</td>`;
-
-    for (let i = 0; i < CONCERNS.length; i++) {
-      const active = concerns[i];
-      if (active) {
-        const files = concernFiles[modKey]?.[CONCERNS[i]] || [];
-        html += `<td class="matrix-cell"><span class="matrix-pip" style="background:${hexToRgba(mod.color,0.5)};border:1px solid ${mod.color}" data-mod="${modKey}" data-concern="${CONCERNS[i]}" data-files='${JSON.stringify(files.map(f=>f.path))}'></span></td>`;
-      } else {
-        html += `<td class="matrix-cell"><span class="matrix-pip empty"></span></td>`;
-      }
-    }
-    html += '</tr>';
-  }
-
-  html += '</tbody></table>';
-  container.innerHTML = html;
-
-  // Cell click to show files
-  container.querySelectorAll('.matrix-pip:not(.empty)').forEach(pip => {
-    pip.addEventListener('click', (e) => {
-      const modKey = pip.dataset.mod;
-      const concern = pip.dataset.concern;
-      const files = JSON.parse(pip.dataset.files || '[]');
-      const mod = MODULES[modKey];
-
-      popup.innerHTML = `<h4 style="color:${mod.color}">${esc(mod.label)} / ${esc(concern)}</h4><ul>${files.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`;
-      popup.classList.add('visible');
-
-      let px = e.clientX + 10, py = e.clientY + 10;
-      if (px + 320 > window.innerWidth) px = e.clientX - 330;
-      if (py + 200 > window.innerHeight) py = e.clientY - 210;
-      popup.style.left = px + 'px';
-      popup.style.top = py + 'px';
-    });
-
-    pip.addEventListener('mouseenter', (e) => {
-      const mod = MODULES[pip.dataset.mod];
-      showTip(e, mod.label, pip.dataset.concern, 'Click to see files', mod.color);
-    });
-    pip.addEventListener('mouseleave', hideTip);
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.matrix-pip') && !e.target.closest('.matrix-files-popup')) {
-      popup.classList.remove('visible');
-    }
-  });
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 5: ARCHITECTURE LAYERS
-// ══════════════════════════════════════════════════════════════
-
-function renderLayers() {
-  buildLegendStrip('layers-legend');
-  const container = document.getElementById('layers-container');
-  const W = Math.min(1100, window.innerWidth - 80);
-  const H = 680;
-
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('id','layers-svg');
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  container.innerHTML = '';
+  clientMods.forEach(drawBubble);
+  serverMods.forEach(drawBubble);
   container.appendChild(svg);
+};
 
-  // Arrow marker
-  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
-  marker.setAttribute('id','layer-arrow');
-  marker.setAttribute('markerWidth','8');
-  marker.setAttribute('markerHeight','6');
-  marker.setAttribute('refX','8');
-  marker.setAttribute('refY','3');
-  marker.setAttribute('orient','auto');
-  const ap = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-  ap.setAttribute('points','0 0, 8 3, 0 6');
-  ap.setAttribute('fill','#475569');
-  marker.appendChild(ap);
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 5: DEPENDENCY FLOW (left-to-right)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.deps = function() {
+  const container = document.getElementById('view-deps');
+  container.innerHTML = '<div class="view-subtitle">Left-to-right dependency flow: how modules connect, including core dispatch and re-export stubs.</div>';
+  buildLegend(container);
+
+  const W = 1200, H = 700;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMidYMid meet'});
+
+  // Defs
+  const defs = svgEl('defs');
+  const marker = svgEl('marker', {id:'dep-arrow',viewBox:'0 0 10 7',refX:'10',refY:'3.5',markerWidth:'7',markerHeight:'5',orient:'auto-start-reverse'});
+  marker.appendChild(svgEl('polygon', {points:'0 0, 10 3.5, 0 7', fill:'#64748b'}));
   defs.appendChild(marker);
   svg.appendChild(defs);
 
-  const layerH = 100;
-  const layerGap = 22;
-  const layerPadX = 40;
-  const layerW = W - layerPadX * 2;
-  const totalH = LAYER_DEFS.length * layerH + (LAYER_DEFS.length - 1) * layerGap;
-  const startY = (H - totalH) / 2;
-
-  const layerPositions = {};
-
-  for (let li = 0; li < LAYER_DEFS.length; li++) {
-    const layer = LAYER_DEFS[li];
-    const y = startY + li * (layerH + layerGap);
-
-    layerPositions[li] = { y, h: layerH };
-
-    // Layer background
-    const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
-    bg.setAttribute('x', layerPadX);
-    bg.setAttribute('y', y);
-    bg.setAttribute('width', layerW);
-    bg.setAttribute('height', layerH);
-    bg.setAttribute('rx', '10');
-    bg.setAttribute('fill', 'rgba(30,41,59,0.6)');
-    bg.setAttribute('stroke', '#334155');
-    bg.setAttribute('stroke-width', '1');
-    svg.appendChild(bg);
-
-    // Layer label (left side)
-    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-    lbl.setAttribute('x', layerPadX + 14);
-    lbl.setAttribute('y', y + 18);
-    lbl.setAttribute('fill', '#64748b');
-    lbl.setAttribute('font-size', '10');
-    lbl.setAttribute('font-weight', '700');
-    lbl.setAttribute('letter-spacing', '0.06em');
-    lbl.textContent = layer.label.toUpperCase();
-    svg.appendChild(lbl);
-
-    // Module blocks within layer
-    const mods = layer.modules;
-    const blockH = 50;
-    const blockGap = 12;
-    const totalBlockW = mods.length * 130 + (mods.length - 1) * blockGap;
-    const blockStartX = layerPadX + (layerW - totalBlockW) / 2;
-    const blockY = y + 32;
-
-    for (let mi = 0; mi < mods.length; mi++) {
-      const modKey = mods[mi];
-      const mod = MODULES[modKey];
-      if (!mod) continue;
-
-      const bx = blockStartX + mi * (130 + blockGap);
-      const counts = countByModule(DATA);
-
-      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-      g.style.cursor = 'pointer';
-
-      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      rect.setAttribute('x', bx);
-      rect.setAttribute('y', blockY);
-      rect.setAttribute('width', '130');
-      rect.setAttribute('height', blockH);
-      rect.setAttribute('rx', '6');
-      rect.setAttribute('fill', hexToRgba(mod.color, 0.15));
-      rect.setAttribute('stroke', mod.color);
-      rect.setAttribute('stroke-width', '1.5');
-      rect.style.transition = 'fill-opacity 150ms ease';
-      g.appendChild(rect);
-
-      // Color indicator
-      const ind = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      ind.setAttribute('x', bx);
-      ind.setAttribute('y', blockY);
-      ind.setAttribute('width', '130');
-      ind.setAttribute('height', '4');
-      ind.setAttribute('rx', '2');
-      ind.setAttribute('fill', mod.color);
-      g.appendChild(ind);
-
-      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
-      txt.setAttribute('x', bx + 65);
-      txt.setAttribute('y', blockY + 26);
-      txt.setAttribute('text-anchor', 'middle');
-      txt.setAttribute('fill', '#f8fafc');
-      txt.setAttribute('font-size', '11');
-      txt.setAttribute('font-weight', '600');
-      txt.setAttribute('pointer-events', 'none');
-      const dn = mod.label.length > 16 ? mod.label.slice(0,14)+'..' : mod.label;
-      txt.textContent = dn;
-      g.appendChild(txt);
-
-      const cnt = document.createElementNS('http://www.w3.org/2000/svg','text');
-      cnt.setAttribute('x', bx + 65);
-      cnt.setAttribute('y', blockY + 40);
-      cnt.setAttribute('text-anchor', 'middle');
-      cnt.setAttribute('fill', '#94a3b8');
-      cnt.setAttribute('font-size', '9');
-      cnt.setAttribute('pointer-events', 'none');
-      cnt.textContent = (counts[modKey]||0) + ' files';
-      g.appendChild(cnt);
-
-      const files = ALL_FILES.filter(f=>f.module===modKey);
-      g.addEventListener('mouseenter', (e) => {
-        rect.setAttribute('fill', hexToRgba(mod.color, 0.35));
-        showTip(e, mod.label, mod.label, files.map(f=>f.path.split('/').pop()).join(', '), mod.color);
-      });
-      g.addEventListener('mouseleave', () => {
-        rect.setAttribute('fill', hexToRgba(mod.color, 0.15));
-        hideTip();
-      });
-
-      svg.appendChild(g);
+  // Columns: Client | API Boundary | Server Core | Worker Pipeline | External
+  const cols = [60, 280, 500, 740, 1000];
+  const colLabels = ['Client', 'API Layer', 'Server Core', 'Worker Pipeline', 'External'];
+  colLabels.forEach((l,i) => {
+    const t = svgEl('text', {x:cols[i]+80, y:25, fill:'#475569', 'font-size':'11', 'font-weight':'700', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+    t.textContent = l;
+    svg.appendChild(t);
+    if(i < colLabels.length - 1) {
+      svg.appendChild(svgEl('line', {x1:cols[i]+170, y1:35, x2:cols[i]+170, y2:H-20, stroke:'#1e293b', 'stroke-width':'1', 'stroke-dasharray':'4,4'}));
     }
-  }
-
-  // Draw arrows between adjacent layers
-  for (let li = 0; li < LAYER_DEFS.length - 1; li++) {
-    const y1 = layerPositions[li].y + layerH;
-    const y2 = layerPositions[li+1].y;
-    const midX = W / 2;
-
-    // Draw bidirectional arrow
-    const arrowUp = document.createElementNS('http://www.w3.org/2000/svg','line');
-    arrowUp.setAttribute('x1', midX - 15);
-    arrowUp.setAttribute('y1', y1 + 4);
-    arrowUp.setAttribute('x2', midX - 15);
-    arrowUp.setAttribute('y2', y2 - 4);
-    arrowUp.setAttribute('stroke', '#475569');
-    arrowUp.setAttribute('stroke-width', '1.5');
-    arrowUp.setAttribute('marker-end', 'url(#layer-arrow)');
-    svg.appendChild(arrowUp);
-
-    const arrowDown = document.createElementNS('http://www.w3.org/2000/svg','line');
-    arrowDown.setAttribute('x1', midX + 15);
-    arrowDown.setAttribute('y1', y2 - 4);
-    arrowDown.setAttribute('x2', midX + 15);
-    arrowDown.setAttribute('y2', y1 + 4);
-    arrowDown.setAttribute('stroke', '#475569');
-    arrowDown.setAttribute('stroke-width', '1.5');
-    arrowDown.setAttribute('marker-end', 'url(#layer-arrow)');
-    svg.appendChild(arrowDown);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// VIEW 6: FILE TREE (improved)
-// ══════════════════════════════════════════════════════════════
-
-const treeExpanded = new Set();
-let treeSearchTerm = '';
-let treeActiveModule = null;
-
-function renderFileTree() {
-  buildLegendStrip('tree-legend');
-
-  // Wire legend chips for tree filtering
-  document.querySelectorAll('#tree-legend .legend-chip').forEach(chip => {
-    chip.onclick = () => {
-      const mod = chip.dataset.mod;
-      if (treeActiveModule === mod) {
-        treeActiveModule = null;
-        chip.classList.remove('active');
-      } else {
-        document.querySelectorAll('#tree-legend .legend-chip').forEach(c=>c.classList.remove('active'));
-        treeActiveModule = mod;
-        chip.classList.add('active');
-        treeExpandAllNodes(DATA);
-      }
-      renderTreeDOM();
-    };
   });
 
-  treeExpanded.add('x-dl-vite-express-mongo');
-  treeExpanded.add('x-dl-vite-express-mongo/client');
-  treeExpanded.add('x-dl-vite-express-mongo/server');
-  renderTreeDOM();
-}
+  // Nodes
+  const nodes = [
+    // Client column
+    {id:'intake',    x:60,  y:80,  w:160, h:40, mod:'intake'},
+    {id:'dashboard', x:60,  y:140, w:160, h:40, mod:'dashboard'},
+    {id:'activity',  x:60,  y:200, w:160, h:40, mod:'activity'},
+    {id:'pages',     x:60,  y:260, w:160, h:40, mod:'pages'},
+    {id:'data-layer',x:60,  y:340, w:160, h:40, mod:'data-layer'},
+    {id:'app-shell', x:60,  y:420, w:160, h:40, mod:'app-shell'},
+    // API column
+    {id:'routes',    x:280, y:80,  w:160, h:40, mod:'routes'},
+    {id:'stubs',     x:280, y:160, w:160, h:40, mod:'stubs'},
+    {id:'shell',     x:280, y:240, w:160, h:40, mod:'shell'},
+    {id:'runtime',   x:280, y:320, w:160, h:40, mod:'runtime'},
+    {id:'config',    x:280, y:400, w:160, h:40, mod:'server-config'},
+    {id:'infra',     x:280, y:480, w:160, h:40, mod:'server-infra'},
+    // Core column
+    {id:'core',      x:500, y:80,  w:160, h:50, mod:'core'},
+    {id:'models',    x:500, y:160, w:160, h:40, mod:'models'},
+    {id:'platforms', x:500, y:240, w:160, h:40, mod:'platforms'},
+    {id:'utils',     x:500, y:340, w:160, h:40, mod:'server-utils'},
+    // Worker column
+    {id:'worker',    x:740, y:80,  w:160, h:40, mod:'worker'},
+    {id:'services',  x:740, y:180, w:160, h:40, mod:'services'},
+    // External column
+    {id:'mongodb',   x:1000,y:80,  w:140, h:40, color:'#47A248', label:'MongoDB'},
+    {id:'chromium',  x:1000,y:160, w:140, h:40, color:'#4285F4', label:'Chromium'},
+    {id:'ffmpeg',    x:1000,y:240, w:140, h:40, color:'#007808', label:'ffmpeg'},
+  ];
 
-function renderTreeDOM() {
-  document.getElementById('tree').innerHTML = '<ul>' + renderTreeNode(DATA, []) + '</ul>';
-}
-
-function renderTreeNode(node, path) {
-  const id = [...path, node.name].join('/');
-  const folder = isFolder(node);
-  const expanded = treeExpanded.has(id);
-  const mod = node.module && MODULES[node.module];
-  const color = mod ? mod.color : 'transparent';
-  const isMatch = treeSearchTerm && treeMatchesSearch(node, treeSearchTerm);
-  const inSubtree = treeSearchTerm ? treeSubtreeMatches(node, treeSearchTerm) : true;
-  const dimmed = (treeSearchTerm && !inSubtree) || (treeActiveModule && node.module !== treeActiveModule && !(folder && treeFolderContainsModule(node, treeActiveModule)));
-
-  let cls = 'tree-row';
-  if (folder) cls += ' is-folder';
-  if (isMatch && treeSearchTerm) cls += ' search-match';
-  if (dimmed) cls += ' search-dim';
-
-  let html = `<li class="tree-node">`;
-  html += `<div class="${cls}" ${folder ? `onclick="treeToggle('${id.replace(/'/g,"\\'")}')"` : ''}`;
-  if (!folder && node.desc) {
-    html += ` onmouseenter="showTip(event,'${esc(node.name)}','${esc(mod?mod.label:'')}','${esc(node.desc)}','${color}')" onmouseleave="hideTip()"`;
-  }
-  html += `>`;
-
-  if (folder) html += `<span class="chevron ${expanded?'open':''}">&#9654;</span>`;
-  else html += `<span class="chevron hidden">&#9654;</span>`;
-
-  html += `<span class="node-icon">${folder?(expanded?'&#128194;':'&#128193;'):'&#128196;'}</span>`;
-  if (node.module && mod) html += `<span class="mod-dot" style="color:${color};background:${color}"></span>`;
-  html += `<span class="node-label ${folder?'is-folder':''}">${esc(node.name)}</span>`;
-  if (!folder && node.desc) html += `<span class="node-desc">${esc(node.desc)}</span>`;
-  if (folder) { const fc=countFiles(node); html += `<span class="node-desc">${fc} file${fc!==1?'s':''}</span>`; }
-  html += `</div>`;
-
-  if (folder) {
-    html += `<div class="children-wrap ${expanded?'':'collapsed'}" style="max-height:${expanded?'9999px':'0'}"><ul>`;
-    node.children.forEach(c => { html += renderTreeNode(c, [...path, node.name]); });
-    html += `</ul></div>`;
-  }
-  html += `</li>`;
-  return html;
-}
-
-function treeToggle(id) { if(treeExpanded.has(id))treeExpanded.delete(id);else treeExpanded.add(id); renderTreeDOM(); }
-function treeExpandAllNodes(n,path=[]) { const id=[...path,n.name].join('/'); if(isFolder(n)){treeExpanded.add(id);n.children.forEach(c=>treeExpandAllNodes(c,[...path,n.name]));} }
-function treeExpandAll() { treeExpandAllNodes(DATA); renderTreeDOM(); }
-function treeCollapseAll() { treeExpanded.clear(); renderTreeDOM(); }
-function onTreeSearch(val) { treeSearchTerm=val.trim(); if(treeSearchTerm)treeExpandMatchingFolders(DATA,[]); renderTreeDOM(); }
-function clearTreeSearch() { treeSearchTerm=''; treeActiveModule=null; document.getElementById('searchBox').value=''; document.querySelectorAll('#tree-legend .legend-chip').forEach(c=>c.classList.remove('active')); renderTreeDOM(); }
-function treeMatchesSearch(n,t) { const l=t.toLowerCase(); return n.name.toLowerCase().includes(l)||(n.desc&&n.desc.toLowerCase().includes(l))||(n.module&&MODULES[n.module]&&MODULES[n.module].label.toLowerCase().includes(l)); }
-function treeSubtreeMatches(n,t) { if(treeMatchesSearch(n,t))return true; if(n.children)return n.children.some(c=>treeSubtreeMatches(c,t)); return false; }
-function treeFolderContainsModule(n,mod) { if(n.module===mod)return true; if(n.children)return n.children.some(c=>treeFolderContainsModule(c,mod)); return false; }
-function treeExpandMatchingFolders(n,path) { const id=[...path,n.name].join('/'); if(isFolder(n)&&treeSubtreeMatches(n,treeSearchTerm)){treeExpanded.add(id);n.children.forEach(c=>treeExpandMatchingFolders(c,[...path,n.name]));} }
-
-// ══════════════════════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════════════════════
-
-renderStats();
-renderTopDown();
-rendered['topdown'] = true;
-
-// Handle window resize for SVG views
-let resizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    // Re-render the active SVG view
-    if (currentView !== 'tree' && currentView !== 'matrix' && currentView !== 'filemap') {
-      rendered[currentView] = false;
-      renderView(currentView);
-      rendered[currentView] = true;
+  const nodeMap = {};
+  nodes.forEach(n => {
+    nodeMap[n.id] = n;
+    const info = n.mod ? getModuleInfo(n.mod) : {color:n.color,name:n.label};
+    const g = svgEl('g', {class:'dep-node'});
+    g.appendChild(svgEl('rect', {x:n.x, y:n.y, width:n.w, height:n.h, rx:8, fill:hexToRgba(info.color, 0.15), stroke:info.color, 'stroke-width':'1'}));
+    const t = svgEl('text', {x:n.x+n.w/2, y:n.y+n.h/2+4, fill:'#e2e8f0', 'font-size':'10', 'font-weight':'600', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif', 'pointer-events':'none'});
+    t.textContent = info.name;
+    g.appendChild(t);
+    if(n.mod) {
+      g.addEventListener('mousemove', e => showTooltipRaw(e, info.name, n.mod, `Module: ${info.name}`));
+      g.addEventListener('mouseleave', hideTooltip);
     }
-  }, 250);
-});
+    svg.appendChild(g);
+  });
+
+  // Edges
+  const edges = [
+    // Client internal
+    ['intake','data-layer'],['dashboard','data-layer'],['activity','data-layer'],
+    ['pages','intake'],['pages','dashboard'],['pages','activity'],
+    ['app-shell','pages'],
+    // Client -> API
+    ['data-layer','routes'],
+    // Server internal
+    ['shell','routes'],['shell','runtime'],
+    ['routes','models'],['routes','platforms'],['routes','utils'],['routes','infra'],
+    ['stubs','core',true],  // stub
+    ['models','core',true], // models/job -> core
+    ['runtime','shell'],
+    ['config','core'],
+    // Core -> everything
+    ['core','platforms'],['core','models'],
+    // Worker pipeline
+    ['worker','models'],['worker','services'],['worker','core'],
+    ['services','worker'],
+    // External
+    ['models','mongodb'],['services','chromium'],['services','ffmpeg'],
+    ['infra','mongodb'],
+  ];
+
+  edges.forEach(([fromId, toId, isStub]) => {
+    const from = nodeMap[fromId], to = nodeMap[toId];
+    if(!from || !to) return;
+    const x1 = from.x + from.w, y1 = from.y + from.h/2;
+    const x2 = to.x, y2 = to.y + to.h/2;
+    // If same column, draw differently
+    const sameCol = Math.abs(from.x - to.x) < 20;
+    let d;
+    if(sameCol) {
+      d = `M${from.x+from.w/2},${from.y+from.h} L${to.x+to.w/2},${to.y}`;
+    } else {
+      const mx = (x1 + x2) / 2;
+      d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    }
+    const info = from.mod ? getModuleInfo(from.mod) : {color:from.color||'#64748b'};
+    const path = svgEl('path', {d, class:'dep-edge' + (isStub?' stub':''), stroke:info.color, 'marker-end':'url(#dep-arrow)'});
+    svg.appendChild(path);
+  });
+
+  container.appendChild(svg);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 6: GRID MATRIX (Modules x Concerns)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.grid = function() {
+  const container = document.getElementById('view-grid');
+  container.innerHTML = '<div class="view-subtitle">12 modules mapped against architectural concerns. Filled cells = module participates in that concern.</div>';
+  buildLegend(container);
+
+  const concerns = [
+    'UI / Components',
+    'State / Hooks',
+    'CSS / Styles',
+    'HTTP Routes',
+    'Data / Models',
+    'Validation',
+    'Worker / Queue',
+    'Browser / Playwright',
+    'File Download',
+    'Platform System',
+    'Telemetry / Logging',
+    'Plugin System',
+    'Process Lifecycle',
+    'Configuration',
+  ];
+
+  // Matrix: which modules touch which concerns
+  const matrix = {
+    intake:     [1,1,1,0,0,1,0,0,0,1,0,0,0,0],
+    dashboard:  [1,1,1,0,0,0,0,0,0,0,0,0,0,0],
+    activity:   [1,0,1,0,0,0,0,0,0,0,1,0,0,0],
+    pages:      [1,1,0,0,0,0,0,0,0,0,0,0,0,0],
+    shell:      [0,0,0,1,0,0,0,0,0,0,1,0,1,1],
+    routes:     [0,0,0,1,1,1,0,0,1,0,0,0,0,0],
+    models:     [0,0,0,0,1,0,0,0,0,0,1,0,0,0],
+    platforms:  [0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    worker:     [0,0,0,0,1,0,1,0,1,0,1,1,0,0],
+    services:   [0,0,0,0,0,0,0,1,1,0,1,0,0,0],
+    core:       [0,0,0,1,1,1,0,0,0,1,0,1,1,0],
+    runtime:    [0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+  };
+
+  const table = document.createElement('table');
+  table.className = 'gm-table';
+
+  // Header
+  const thead = document.createElement('thead');
+  const hrow = document.createElement('tr');
+  hrow.innerHTML = '<th></th>';
+  concerns.forEach(c => { hrow.innerHTML += `<th>${c}</th>`; });
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement('tbody');
+  MODULES.forEach(mod => {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td class="gm-row-header"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${mod.color};margin-right:6px"></span>${mod.name}</td>`;
+    const vals = matrix[mod.id] || [];
+    concerns.forEach((c,i) => {
+      const filled = vals[i];
+      const td = document.createElement('td');
+      if(filled) {
+        td.className = 'filled';
+        td.style.background = hexToRgba(mod.color, 0.25);
+        td.style.color = mod.color;
+        td.textContent = '\u25CF';
+        td.addEventListener('mousemove', e => showTooltipRaw(e, `${mod.name} + ${c}`, mod.id, `${mod.name} participates in ${c}`));
+        td.addEventListener('mouseleave', hideTooltip);
+      } else {
+        td.className = 'empty';
+        td.textContent = '';
+      }
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 7: ARCHITECTURE LAYERS (horizontal stacked)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.layers = function() {
+  const container = document.getElementById('view-layers');
+  container.innerHTML = '<div class="view-subtitle">Horizontal architecture layers from UI (top) to Foundation (bottom), with Runtime orchestration on the side.</div>';
+  buildLegend(container);
+
+  const W = 1100, H = 750;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMidYMid meet'});
+
+  const layerData = [
+    {y:20,  h:70,  label:'Presentation Layer', sub:'React 19 + Framer Motion', color:'#3b82f6',
+     blocks:[
+       {x:40,w:200,label:'App Shell',color:'#3b82f6',mod:'app-shell'},
+       {x:260,w:160,label:'Intake',color:'#10b981',mod:'intake'},
+       {x:440,w:200,label:'Dashboard',color:'#f59e0b',mod:'dashboard'},
+       {x:660,w:160,label:'Activity',color:'#8b5cf6',mod:'activity'},
+     ]},
+    {y:110, h:55,  label:'Page / Data Layer', sub:'Polling + API calls', color:'#ec4899',
+     blocks:[
+       {x:40,w:250,label:'Page Components',color:'#ec4899',mod:'pages'},
+       {x:310,w:220,label:'Data Layer (hooks + api)',color:'#06b6d4',mod:'data-layer'},
+       {x:550,w:180,label:'Client Platforms',color:'#14b8a6',mod:'client-plat'},
+     ]},
+    {y:190, h:30, label:'', sub:'', color:'#475569', isBoundary:true, blocks:[
+      {x:40,w:770,label:'API BOUNDARY  ( /api/* proxy )',color:'#475569'},
+    ]},
+    {y:240, h:55,  label:'API Layer', sub:'Express 5', color:'#f97316',
+     blocks:[
+       {x:40,w:200,label:'Server Shell',color:'#3b82f6',mod:'shell'},
+       {x:260,w:250,label:'API Routes',color:'#f97316',mod:'routes'},
+       {x:530,w:160,label:'Middleware',color:'#9ca3af',mod:'stubs'},
+       {x:710,w:100,label:'Config',color:'#78716c',mod:'server-config'},
+     ]},
+    {y:320, h:55,  label:'Data & Platform Layer', sub:'Mongoose + Registry', color:'#eab308',
+     blocks:[
+       {x:40,w:200,label:'Data Models',color:'#eab308',mod:'models'},
+       {x:260,w:200,label:'Platform Registry',color:'#14b8a6',mod:'platforms'},
+       {x:480,w:200,label:'Infrastructure',color:'#f43f5e',mod:'server-infra'},
+       {x:700,w:110,label:'Utils',color:'#84cc16',mod:'server-utils'},
+     ]},
+    {y:400, h:55,  label:'Worker Layer', sub:'Background processing', color:'#6366f1',
+     blocks:[
+       {x:40,w:240,label:'Worker / Queue',color:'#6366f1',mod:'worker'},
+       {x:300,w:240,label:'Services',color:'#ef4444',mod:'services'},
+     ]},
+    {y:490, h:30, label:'', sub:'', color:'#e879f9', isBoundary:true, blocks:[
+      {x:40,w:770,label:'CORE KERNEL BOUNDARY',color:'#e879f9'},
+    ]},
+    {y:540, h:80,  label:'Core Kernel (Plugin Architecture)', sub:'Canonical data, dispatch, runtime', color:'#e879f9',
+     blocks:[
+       {x:40,w:130,label:'core/data',color:'#e879f9',mod:'core'},
+       {x:185,w:130,label:'core/domain',color:'#e879f9',mod:'core'},
+       {x:330,w:130,label:'core/http',color:'#e879f9',mod:'core'},
+       {x:475,w:150,label:'core/dispatch',color:'#e879f9',mod:'core'},
+       {x:640,w:170,label:'core/runtime',color:'#e879f9',mod:'core'},
+       {x:40,w:130,label:'core/platforms',color:'#e879f9',mod:'core',yOff:42},
+     ]},
+    {y:660, h:55,  label:'External Services', sub:'', color:'#47A248',
+     blocks:[
+       {x:40,w:200,label:'MongoDB (Atlas)',color:'#47A248'},
+       {x:260,w:200,label:'Chromium (Playwright)',color:'#4285F4'},
+       {x:480,w:200,label:'ffmpeg',color:'#007808'},
+     ]},
+  ];
+
+  // Runtime sidebar
+  const runtimeX = 860, runtimeY = 60, runtimeW = 200, runtimeH = 500;
+  svg.appendChild(svgEl('rect', {x:runtimeX, y:runtimeY, width:runtimeW, height:runtimeH, rx:12, fill:hexToRgba('#a78bfa',0.08), stroke:'#a78bfa', 'stroke-width':'1', 'stroke-dasharray':'6,3'}));
+  const rtLabel = svgEl('text', {x:runtimeX+runtimeW/2, y:runtimeY+20, fill:'#a78bfa', 'font-size':'12', 'font-weight':'700', 'text-anchor':'middle', 'font-family':'Segoe UI,system-ui,sans-serif'});
+  rtLabel.textContent = 'Process Runtime';
+  svg.appendChild(rtLabel);
+
+  const rtItems = [
+    {label:'register-shutdown.js', y:50, desc:'SIGINT/SIGTERM registry'},
+    {label:'start-api-runtime.js', y:80, desc:'API process startup'},
+    {label:'start-worker-runtime.js', y:110, desc:'Worker process startup'},
+  ];
+  rtItems.forEach(item => {
+    const g = svgEl('g',{class:'ly-layer',cursor:'pointer'});
+    g.appendChild(svgEl('rect', {x:runtimeX+15, y:runtimeY+item.y, width:runtimeW-30, height:24, rx:6, fill:hexToRgba('#a78bfa',0.15), stroke:'#a78bfa', 'stroke-width':'0.5'}));
+    const t = svgEl('text', {x:runtimeX+runtimeW/2, y:runtimeY+item.y+16, fill:'#e2e8f0', 'font-size':'8.5', 'text-anchor':'middle', 'font-family':'Cascadia Code,Fira Code,monospace','pointer-events':'none'});
+    t.textContent = item.label;
+    g.appendChild(t);
+    g.addEventListener('mousemove', e => showTooltipRaw(e, 'server/src/runtime/'+item.label, 'runtime', item.desc));
+    g.addEventListener('mouseleave', hideTooltip);
+    svg.appendChild(g);
+  });
+
+  // Arrow from runtime to layers
+  svg.appendChild(svgEl('line', {x1:runtimeX, y1:runtimeY+80, x2:830, y2:260, stroke:'#a78bfa', 'stroke-width':'1', 'stroke-dasharray':'4,3', opacity:'0.5', 'marker-end':'url(#dep-arrow)'}));
+  svg.appendChild(svgEl('line', {x1:runtimeX, y1:runtimeY+120, x2:830, y2:420, stroke:'#a78bfa', 'stroke-width':'1', 'stroke-dasharray':'4,3', opacity:'0.5', 'marker-end':'url(#dep-arrow)'}));
+
+  // Arrow defs
+  const defs = svgEl('defs');
+  const marker = svgEl('marker', {id:'ly-arrow',viewBox:'0 0 10 7',refX:'10',refY:'3.5',markerWidth:'7',markerHeight:'5',orient:'auto-start-reverse'});
+  marker.appendChild(svgEl('polygon', {points:'0 0, 10 3.5, 0 7', fill:'#64748b'}));
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  layerData.forEach(layer => {
+    // Layer background
+    if(!layer.isBoundary && layer.blocks.length > 0) {
+      const bg = svgEl('rect', {x:20, y:layer.y, width:820, height:layer.h, rx:10, fill:hexToRgba(layer.color, 0.03), stroke:hexToRgba(layer.color, 0.15), 'stroke-width':'0.5'});
+      svg.appendChild(bg);
+    }
+
+    layer.blocks.forEach(block => {
+      const by = layer.y + (block.yOff || 10);
+      const bh = layer.isBoundary ? layer.h : (block.yOff ? 28 : layer.h - 20);
+      const g = svgEl('g', {class:'ly-layer'});
+      g.appendChild(svgEl('rect', {
+        x:block.x, y:by, width:block.w, height:bh,
+        rx:layer.isBoundary ? 4 : 8,
+        fill: layer.isBoundary ? 'none' : hexToRgba(block.color, 0.2),
+        stroke: block.color,
+        'stroke-width': layer.isBoundary ? 1.5 : 1,
+        'stroke-dasharray': layer.isBoundary ? '8,4' : 'none',
+      }));
+      const labelY = by + bh/2 + (layer.isBoundary ? 4 : 1);
+      const t = svgEl('text', {x:block.x+block.w/2, y:labelY, class:'ly-label', 'font-size': layer.isBoundary ? '10' : '11'});
+      t.textContent = block.label;
+      g.appendChild(t);
+      if(block.mod) {
+        g.addEventListener('mousemove', e => showTooltipRaw(e, block.label, block.mod, `Layer: ${layer.label || block.label}`));
+        g.addEventListener('mouseleave', hideTooltip);
+      }
+      svg.appendChild(g);
+    });
+
+    // Layer label on the right
+    if(layer.label && !layer.isBoundary) {
+      const lt = svgEl('text', {x:835, y:layer.y+layer.h/2+4, fill:'#64748b', 'font-size':'9', 'font-weight':'600', 'text-anchor':'start', 'font-family':'Segoe UI,system-ui,sans-serif', 'writing-mode':'horizontal-tb'});
+      lt.textContent = '';
+      svg.appendChild(lt);
+    }
+  });
+
+  container.appendChild(svg);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  VIEW 8: FILE TREE (collapsible text)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+renderers.filetree = function() {
+  const container = document.getElementById('view-filetree');
+  container.innerHTML = '<div class="view-subtitle">Collapsible text-based file tree with module annotations.</div>';
+  buildLegend(container);
+
+  // Build a proper tree string
+  const lines = [];
+  const fileMap = {};
+  FILES.forEach(f => fileMap[f.path] = f);
+
+  function addLine(indent, prefix, name, file, isDir, isNew) {
+    const pad = '  '.repeat(indent);
+    let cls = isDir ? 'ft-dir' : 'ft-file';
+    if(file && file.isStub) cls = 'ft-stub';
+    if(isNew) cls = 'ft-new';
+    let tag = '';
+    if(file) {
+      const info = getModuleInfo(file.mod);
+      tag = `  <span class="ft-tag"># ${info.name} — ${file.desc}</span>`;
+    }
+    const stubMark = file && file.isStub ? ' <span class="ft-stub">(stub)</span>' : '';
+    const newMark = isNew ? ' <span class="ft-new">(NEW)</span>' : '';
+    lines.push(`<span class="ft-line"><span style="color:#475569">${pad}${prefix}</span><span class="${cls}">${name}${stubMark}${newMark}</span>${tag}</span>`);
+  }
+
+  // Hardcoded tree for precise control
+  addLine(0,'','x-dl-vite-express-mongo/', null, true);
+  addLine(1,'\u251C\u2500\u2500 ','package.json', {path:'package.json',mod:'',desc:'Root scripts: dev, build, test, verify'}, false);
+  addLine(1,'\u251C\u2500\u2500 ','CLAUDE.md', {path:'CLAUDE.md',mod:'',desc:'Project instructions and architecture'}, false);
+  addLine(1,'\u251C\u2500\u2500 ','README.md', {path:'README.md',mod:'',desc:'Project readme'}, false);
+  addLine(1,'\u2502', '', null, false);
+  addLine(1,'\u251C\u2500\u2500 ','client/', null, true);
+  addLine(2,'\u2502   \u251C\u2500\u2500 ','package.json', {path:'client/package.json',mod:'',desc:'Client dependencies'}, false);
+  addLine(2,'\u2502   \u251C\u2500\u2500 ','vite.config.js', {path:'client/vite.config.js',mod:'',desc:'Vite config with /api proxy to :4000'}, false);
+  addLine(2,'\u2502   \u2514\u2500\u2500 ','src/', null, true);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','App.jsx', fileMap['client/src/App.jsx'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','App.css', fileMap['client/src/App.css'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','main.jsx', fileMap['client/src/main.jsx'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','index.css', fileMap['client/src/index.css'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','features/', null, true);
+  addLine(4,'\u2502       \u2502   \u251C\u2500\u2500 ','intake/', null, true);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','IntakeForm.jsx', fileMap['client/src/features/intake/IntakeForm.jsx'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','useIntake.js', fileMap['client/src/features/intake/useIntake.js'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u2514\u2500\u2500 ','intake.css', fileMap['client/src/features/intake/intake.css'], false);
+  addLine(4,'\u2502       \u2502   \u251C\u2500\u2500 ','dashboard/', null, true);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','JobsList.jsx', fileMap['client/src/features/dashboard/JobsList.jsx'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','JobRow.jsx', fileMap['client/src/features/dashboard/JobRow.jsx'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','JobEditForm.jsx', fileMap['client/src/features/dashboard/JobEditForm.jsx'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','useJobActions.js', fileMap['client/src/features/dashboard/useJobActions.js'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u251C\u2500\u2500 ','useSelection.js', fileMap['client/src/features/dashboard/useSelection.js'], false);
+  addLine(5,'\u2502       \u2502   \u2502   \u2514\u2500\u2500 ','dashboard.css', fileMap['client/src/features/dashboard/dashboard.css'], false);
+  addLine(4,'\u2502       \u2502   \u2514\u2500\u2500 ','activity/', null, true);
+  addLine(5,'\u2502       \u2502       \u251C\u2500\u2500 ','ActivityPanel.jsx', fileMap['client/src/features/activity/ActivityPanel.jsx'], false);
+  addLine(5,'\u2502       \u2502       \u251C\u2500\u2500 ','eventTranslator.js', fileMap['client/src/features/activity/eventTranslator.js'], false);
+  addLine(5,'\u2502       \u2502       \u2514\u2500\u2500 ','activity.css', fileMap['client/src/features/activity/activity.css'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','components/', null, true);
+  addLine(4,'\u2502       \u2502   \u251C\u2500\u2500 ','JobsPage.jsx', fileMap['client/src/components/JobsPage.jsx'], false);
+  addLine(4,'\u2502       \u2502   \u251C\u2500\u2500 ','ContactProfilePage.jsx', fileMap['client/src/components/ContactProfilePage.jsx'], false);
+  addLine(4,'\u2502       \u2502   \u251C\u2500\u2500 ','ConfirmModal.jsx', fileMap['client/src/components/ConfirmModal.jsx'], false);
+  addLine(4,'\u2502       \u2502   \u2514\u2500\u2500 ','ActivityPanel.jsx', fileMap['client/src/components/ActivityPanel.jsx'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','hooks/', null, true);
+  addLine(4,'\u2502       \u2502   \u2514\u2500\u2500 ','useJobsPolling.js', fileMap['client/src/hooks/useJobsPolling.js'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','api/', null, true);
+  addLine(4,'\u2502       \u2502   \u2514\u2500\u2500 ','jobsApi.js', fileMap['client/src/api/jobsApi.js'], false);
+  addLine(3,'\u2502       \u251C\u2500\u2500 ','lib/', null, true);
+  addLine(4,'\u2502       \u2502   \u251C\u2500\u2500 ','contacts.js', fileMap['client/src/lib/contacts.js'], false);
+  addLine(4,'\u2502       \u2502   \u2514\u2500\u2500 ','eventTranslator.js', fileMap['client/src/lib/eventTranslator.js'], false);
+  addLine(3,'\u2502       \u2514\u2500\u2500 ','platforms/', null, true);
+  addLine(4,'\u2502           \u2514\u2500\u2500 ','index.js', fileMap['client/src/platforms/index.js'], false);
+  addLine(1,'\u2502', '', null, false);
+  addLine(1,'\u2514\u2500\u2500 ','server/', null, true);
+  addLine(2,'    \u251C\u2500\u2500 ','package.json', {path:'server/package.json',mod:'',desc:'Server dependencies'}, false);
+  addLine(2,'    \u251C\u2500\u2500 ','.env.example', {path:'server/.env.example',mod:'',desc:'Environment variable template'}, false);
+  addLine(2,'    \u2514\u2500\u2500 ','src/', null, true);
+  addLine(3,'        \u251C\u2500\u2500 ','index.js', fileMap['server/src/index.js'], false);
+  addLine(3,'        \u251C\u2500\u2500 ','app.js', fileMap['server/src/app.js'], false);
+  addLine(3,'        \u251C\u2500\u2500 ','start-api.js', fileMap['server/src/start-api.js'], false);
+  addLine(3,'        \u251C\u2500\u2500 ','start-worker.js', fileMap['server/src/start-worker.js'], false);
+  addLine(3,'        \u2502', '', null, false);
+  // Core Kernel (NEW)
+  addLine(3,'        \u251C\u2500\u2500 ','core/', null, true, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','data/', null, true, true);
+  addLine(5,'        \u2502   \u2502   \u251C\u2500\u2500 ','job-model.js', fileMap['server/src/core/data/job-model.js'], false, true);
+  addLine(5,'        \u2502   \u2502   \u2514\u2500\u2500 ','job-status.js', fileMap['server/src/core/data/job-status.js'], false, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','domain/', null, true, true);
+  addLine(5,'        \u2502   \u2502   \u2514\u2500\u2500 ','job-transitions.js', fileMap['server/src/core/domain/job-transitions.js'], false, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','http/', null, true, true);
+  addLine(5,'        \u2502   \u2502   \u2514\u2500\u2500 ','request-limits.js', fileMap['server/src/core/http/request-limits.js'], false, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','platforms/', null, true, true);
+  addLine(5,'        \u2502   \u2502   \u2514\u2500\u2500 ','registry.js', fileMap['server/src/core/platforms/registry.js'], false, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','dispatch/', null, true, true);
+  addLine(5,'        \u2502   \u2502   \u251C\u2500\u2500 ','resolve-domain-id.js', fileMap['server/src/core/dispatch/resolve-domain-id.js'], false, true);
+  addLine(5,'        \u2502   \u2502   \u2514\u2500\u2500 ','route-job-by-domain.js', fileMap['server/src/core/dispatch/route-job-by-domain.js'], false, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','runtime/', null, true, true);
+  addLine(5,'        \u2502       \u251C\u2500\u2500 ','domain-context.js', fileMap['server/src/core/runtime/domain-context.js'], false, true);
+  addLine(5,'        \u2502       \u2514\u2500\u2500 ','load-domains.js', fileMap['server/src/core/runtime/load-domains.js'], false, true);
+  addLine(3,'        \u2502', '', null, false);
+  // Runtime (NEW)
+  addLine(3,'        \u251C\u2500\u2500 ','runtime/', null, true, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','register-shutdown.js', fileMap['server/src/runtime/register-shutdown.js'], false, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','start-api-runtime.js', fileMap['server/src/runtime/start-api-runtime.js'], false, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','start-worker-runtime.js', fileMap['server/src/runtime/start-worker-runtime.js'], false, true);
+  addLine(3,'        \u2502', '', null, false);
+  // Routes
+  addLine(3,'        \u251C\u2500\u2500 ','routes/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','jobs.js', fileMap['server/src/routes/jobs.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','contacts.js', fileMap['server/src/routes/contacts.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','retry.js', fileMap['server/src/routes/retry.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','status.js', fileMap['server/src/routes/status.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','worker-health.js', fileMap['server/src/routes/worker-health.js'], false, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','helpers/', null, true);
+  addLine(5,'        \u2502       \u2514\u2500\u2500 ','route-utils.js', fileMap['server/src/routes/helpers/route-utils.js'], false);
+  // Services
+  addLine(3,'        \u251C\u2500\u2500 ','services/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','extractor-service.js', fileMap['server/src/services/extractor-service.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','downloader-service.js', fileMap['server/src/services/downloader-service.js'], false);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','playwright-adapter.js', fileMap['server/src/services/playwright-adapter.js'], false);
+  // Worker
+  addLine(3,'        \u251C\u2500\u2500 ','worker/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','queue.js', fileMap['server/src/worker/queue.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','process-job.js', fileMap['server/src/worker/process-job.js'], false);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','recovery.js', fileMap['server/src/worker/recovery.js'], false);
+  // Platforms
+  addLine(3,'        \u251C\u2500\u2500 ','platforms/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','registry.js', fileMap['server/src/platforms/registry.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','x/', null, true);
+  addLine(5,'        \u2502   \u2502   \u2514\u2500\u2500 ','index.js', fileMap['server/src/platforms/x/index.js'], false);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','tiktok/', null, true);
+  addLine(5,'        \u2502       \u2514\u2500\u2500 ','index.js', fileMap['server/src/platforms/tiktok/index.js'], false);
+  // Models
+  addLine(3,'        \u251C\u2500\u2500 ','models/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','job.js', fileMap['server/src/models/job.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','worker-heartbeat.js', fileMap['server/src/models/worker-heartbeat.js'], false, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','telemetry-event.js', fileMap['server/src/models/telemetry-event.js'], false, true);
+  // Constants (stub)
+  addLine(3,'        \u251C\u2500\u2500 ','constants/', null, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','job-status.js', fileMap['server/src/constants/job-status.js'], false);
+  // Domain (stub)
+  addLine(3,'        \u251C\u2500\u2500 ','domain/', null, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','job-transitions.js', fileMap['server/src/domain/job-transitions.js'], false);
+  // Middleware (stub)
+  addLine(3,'        \u251C\u2500\u2500 ','middleware/', null, true);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','request-limits.js', fileMap['server/src/middleware/request-limits.js'], false);
+  // Config
+  addLine(3,'        \u251C\u2500\u2500 ','config/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','env.js', fileMap['server/src/config/env.js'], false);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','platform-capabilities.js', fileMap['server/src/config/platform-capabilities.js'], false);
+  // Lib
+  addLine(3,'        \u251C\u2500\u2500 ','lib/', null, true);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','logger.js', fileMap['server/src/lib/logger.js'], false);
+  addLine(4,'        \u2502   \u251C\u2500\u2500 ','telemetry.js', fileMap['server/src/lib/telemetry.js'], false);
+  addLine(4,'        \u2502   \u2514\u2500\u2500 ','error-codes.js', fileMap['server/src/lib/error-codes.js'], false);
+  // Utils
+  addLine(3,'        \u2514\u2500\u2500 ','utils/', null, true);
+  addLine(4,'            \u251C\u2500\u2500 ','validation.js', fileMap['server/src/utils/validation.js'], false);
+  addLine(4,'            \u2514\u2500\u2500 ','account-profile.js', fileMap['server/src/utils/account-profile.js'], false);
+
+  const pre = document.createElement('div');
+  pre.className = 'ft-container';
+  pre.innerHTML = lines.join('\n');
+  container.appendChild(pre);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  INITIAL RENDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// View 1 (Top-Down) is already rendered inline above.
+// All other views are lazy-rendered on tab switch.
+
 </script>
 </body>
 </html>
