@@ -1,3 +1,3 @@
-const routePath = require.resolve('../api/routes/jobs');
+const routePath = require.resolve('../api/routes/contacts');
 delete require.cache[routePath];
 module.exports = require(routePath);
