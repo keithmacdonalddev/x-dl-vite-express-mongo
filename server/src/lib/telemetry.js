@@ -4,6 +4,8 @@ const emitter = new EventEmitter();
 const maxHistory = Number.parseInt(process.env.TELEMETRY_HISTORY_LIMIT || '4000', 10) || 4000;
 const history = [];
 let nextId = 0;
+const PROCESS_ID = String(process.pid);
+const PROCESS_ROLE = String(process.env.ROLE || 'combined');
 
 /**
  * HTTP-request telemetry events (generated every 3s by client polling) flood
@@ -43,8 +45,24 @@ function pushHistory(entry) {
 // IDENTICAL regardless of sink mode — callers never need to change.
 // ---------------------------------------------------------------------------
 
-const SINK_MODE = (process.env.TELEMETRY_SINK || 'memory').toLowerCase();
-const useMongo = SINK_MODE === 'mongo';
+function resolveSinkMode(input = process.env) {
+  const configuredMode = String(input.TELEMETRY_SINK || '').trim().toLowerCase();
+  if (configuredMode) {
+    return configuredMode;
+  }
+
+  const role = String(input.ROLE || '').trim().toLowerCase();
+  if (role === 'api' || role === 'worker') {
+    // Split runtimes use separate processes; default to shared Mongo sink so
+    // worker telemetry is visible in API SSE/history without extra env setup.
+    return 'mongo';
+  }
+
+  return 'memory';
+}
+
+const SINK_MODE = resolveSinkMode();
+const useMongo = SINK_MODE === 'mongo' || SINK_MODE === 'mongodb';
 
 // Batch buffer: events are held for up to 500ms then bulk-inserted.
 let mongoBatch = [];
@@ -56,11 +74,12 @@ function scheduleMongoFlush() {
   }
   mongoFlushTimer = setTimeout(() => {
     mongoFlushTimer = null;
-    flushMongooBatch();
+    flushMongoBatch();
   }, 500);
+  mongoFlushTimer.unref?.();
 }
 
-function flushMongooBatch() {
+function flushMongoBatch() {
   if (mongoBatch.length === 0) {
     return;
   }
@@ -94,10 +113,12 @@ function queueMongoWrite(payload) {
     level: payload.level || '',
     jobId: payload.jobId || '',
     traceId: payload.traceId || '',
+    sourceProcessId: payload.sourceProcessId || PROCESS_ID,
+    processRole: payload.processRole || PROCESS_ROLE,
     ts: payload.ts,
     data: Object.fromEntries(
       Object.entries(payload).filter(
-        ([k]) => !['id', 'event', 'level', 'jobId', 'traceId', 'ts'].includes(k)
+        ([k]) => !['id', 'event', 'level', 'jobId', 'traceId', 'sourceProcessId', 'processRole', 'ts'].includes(k)
       )
     ),
     createdAt: new Date(payload.ts),
@@ -112,57 +133,121 @@ function queueMongoWrite(payload) {
 // ---------------------------------------------------------------------------
 
 let mongoPollingHandle = null;
-let mongoLastPolledTs = null;
+let mongoLastPolledId = null;
+const seenMongoDocIds = new Set();
 
-function startMongoPolling() {
+function rememberSeenMongoDocId(id) {
+  seenMongoDocIds.add(id);
+  if (seenMongoDocIds.size > 5000) {
+    const first = seenMongoDocIds.values().next();
+    if (!first.done) {
+      seenMongoDocIds.delete(first.value);
+    }
+  }
+}
+
+async function hydrateHistoryFromMongo(TelemetryEvent) {
+  const bootstrap = await TelemetryEvent.find({}, null, { sort: { _id: -1 }, limit: maxHistory, lean: true });
+  if (!Array.isArray(bootstrap) || bootstrap.length === 0) {
+    return;
+  }
+
+  bootstrap.reverse();
+  for (const doc of bootstrap) {
+    const docId = String(doc._id || '');
+    if (docId) {
+      rememberSeenMongoDocId(docId);
+      mongoLastPolledId = docId;
+    }
+
+    const payload = {
+      id: ++nextId,
+      ts: doc.ts,
+      event: doc.event,
+      level: doc.level || '',
+      jobId: doc.jobId || '',
+      traceId: doc.traceId || '',
+      sourceProcessId: doc.sourceProcessId || '',
+      processRole: doc.processRole || '',
+      ...(doc.data || {}),
+    };
+
+    if (!isNoiseEvent(payload.event)) {
+      pushHistory(payload);
+    }
+  }
+}
+
+async function startMongoPolling() {
   if (!useMongo || mongoPollingHandle !== null) {
     return;
   }
-  mongoLastPolledTs = new Date().toISOString();
+
+  let TelemetryEvent;
+  try {
+    ({ TelemetryEvent } = require('../models/telemetry-event'));
+  } catch (_) {
+    return;
+  }
+
+  try {
+    await hydrateHistoryFromMongo(TelemetryEvent);
+  } catch (_) {
+    // Ignore hydration failures; polling may still succeed later.
+  }
 
   mongoPollingHandle = setInterval(async () => {
-    let TelemetryEvent;
     try {
-      ({ TelemetryEvent } = require('../models/telemetry-event'));
-    } catch (_) {
-      return;
-    }
-    try {
-      const since = mongoLastPolledTs;
-      const events = await TelemetryEvent.find(
-        { ts: { $gt: since } },
-        null,
-        { sort: { ts: 1 }, limit: 200, lean: true }
-      );
-      if (events.length > 0) {
-        mongoLastPolledTs = events[events.length - 1].ts;
-        for (const doc of events) {
-          const payload = {
-            id: ++nextId,
-            ts: doc.ts,
-            event: doc.event,
-            level: doc.level || '',
-            jobId: doc.jobId || '',
-            traceId: doc.traceId || '',
-            ...(doc.data || {}),
-          };
-          // Add to local ring buffer so listTelemetry stays consistent.
-          if (!isNoiseEvent(payload.event)) {
-            pushHistory(payload);
+      const filter = mongoLastPolledId ? { _id: { $gt: mongoLastPolledId } } : {};
+      const events = await TelemetryEvent.find(filter, null, { sort: { _id: 1 }, limit: 200, lean: true });
+      if (events.length === 0) {
+        return;
+      }
+
+      for (const doc of events) {
+        const docId = String(doc._id || '');
+        if (docId) {
+          if (seenMongoDocIds.has(docId)) {
+            continue;
           }
-          emitter.emit('event', payload);
+          rememberSeenMongoDocId(docId);
+          mongoLastPolledId = docId;
         }
+
+        // Skip local-process events to avoid duplicate emit/list behavior.
+        if ((doc.sourceProcessId || '') === PROCESS_ID) {
+          continue;
+        }
+
+        const payload = {
+          id: ++nextId,
+          ts: doc.ts,
+          event: doc.event,
+          level: doc.level || '',
+          jobId: doc.jobId || '',
+          traceId: doc.traceId || '',
+          sourceProcessId: doc.sourceProcessId || '',
+          processRole: doc.processRole || '',
+          ...(doc.data || {}),
+        };
+        if (!isNoiseEvent(payload.event)) {
+          pushHistory(payload);
+        }
+        emitter.emit('event', payload);
       }
     } catch (_) {
       // Silently skip if MongoDB is unavailable.
     }
   }, 2000);
+  mongoPollingHandle.unref?.();
 }
 
 // Start polling only in mongo mode.
 if (useMongo) {
   // Defer start until next tick so mongoose has a chance to connect.
-  setImmediate(startMongoPolling);
+  setImmediate(() => {
+    startMongoPolling().catch(() => {});
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +259,8 @@ function publishTelemetry(event, meta = {}) {
     id: ++nextId,
     ts: new Date().toISOString(),
     event: typeof event === 'string' ? event : 'unknown',
+    sourceProcessId: meta && meta.sourceProcessId ? meta.sourceProcessId : PROCESS_ID,
+    processRole: meta && meta.processRole ? meta.processRole : PROCESS_ROLE,
     ...meta,
   };
   // Only store meaningful events in the ring buffer.
@@ -220,4 +307,10 @@ module.exports = {
   publishTelemetry,
   subscribeTelemetry,
   listTelemetry,
+  __testHooks: {
+    useMongo,
+    sinkMode: SINK_MODE,
+    resolveSinkMode,
+    hydrateHistoryFromMongo,
+  },
 };

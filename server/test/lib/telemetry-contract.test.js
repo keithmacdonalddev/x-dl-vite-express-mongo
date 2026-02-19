@@ -13,6 +13,63 @@ function freshTelemetry() {
   return require('../../src/lib/telemetry');
 }
 
+function freshTelemetryWithSink(sinkValue, telemetryModelStub) {
+  process.env.TELEMETRY_SINK = sinkValue;
+  try {
+    delete require.cache[require.resolve('../../src/models/telemetry-event')];
+  } catch (_) {}
+  try {
+    delete require.cache[require.resolve('../../src/lib/telemetry')];
+  } catch (_) {}
+
+  if (telemetryModelStub) {
+    require.cache[require.resolve('../../src/models/telemetry-event')] = {
+      id: require.resolve('../../src/models/telemetry-event'),
+      filename: require.resolve('../../src/models/telemetry-event'),
+      loaded: true,
+      exports: telemetryModelStub,
+      parent: null,
+      children: [],
+    };
+  }
+
+  return require('../../src/lib/telemetry');
+}
+
+function freshTelemetryWithEnv({ sinkValue, roleValue, telemetryModelStub } = {}) {
+  if (typeof sinkValue === 'string') {
+    process.env.TELEMETRY_SINK = sinkValue;
+  } else {
+    delete process.env.TELEMETRY_SINK;
+  }
+
+  if (typeof roleValue === 'string') {
+    process.env.ROLE = roleValue;
+  } else {
+    delete process.env.ROLE;
+  }
+
+  try {
+    delete require.cache[require.resolve('../../src/models/telemetry-event')];
+  } catch (_) {}
+  try {
+    delete require.cache[require.resolve('../../src/lib/telemetry')];
+  } catch (_) {}
+
+  if (telemetryModelStub) {
+    require.cache[require.resolve('../../src/models/telemetry-event')] = {
+      id: require.resolve('../../src/models/telemetry-event'),
+      filename: require.resolve('../../src/models/telemetry-event'),
+      loaded: true,
+      exports: telemetryModelStub,
+      parent: null,
+      children: [],
+    };
+  }
+
+  return require('../../src/lib/telemetry');
+}
+
 test('telemetry.js exports publishTelemetry, subscribeTelemetry, listTelemetry', () => {
   const tel = freshTelemetry();
   assert.equal(typeof tel.publishTelemetry, 'function');
@@ -125,4 +182,157 @@ test('TELEMETRY_SINK=memory does not attempt MongoDB writes', () => {
     tel.publishTelemetry('memory.mode.test', { level: 'info' });
   }
   assert.ok(true, 'No error thrown in memory sink mode');
+});
+
+test('TELEMETRY_SINK=mongo enables mongo sink writes', async () => {
+  let insertCalls = 0;
+  const tel = freshTelemetryWithSink('mongo', {
+    TelemetryEvent: {
+      insertMany: async () => {
+        insertCalls += 1;
+      },
+    },
+  });
+  tel.publishTelemetry('job.mongo_sink.enabled', { level: 'info', traceId: 'sink-mongo' });
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.ok(insertCalls > 0, 'Expected mongo sink to write when TELEMETRY_SINK=mongo');
+});
+
+test('TELEMETRY_SINK=mongodb also enables mongo sink writes', async () => {
+  let insertCalls = 0;
+  const tel = freshTelemetryWithSink('mongodb', {
+    TelemetryEvent: {
+      insertMany: async () => {
+        insertCalls += 1;
+      },
+    },
+  });
+  tel.publishTelemetry('job.mongodb_sink.enabled', { level: 'info', traceId: 'sink-mongodb' });
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.ok(insertCalls > 0, 'Expected mongo sink to write when TELEMETRY_SINK=mongodb');
+});
+
+// Task 1: TELEMETRY_SINK alias normalization — both 'mongo' and 'mongodb' must
+// activate mongo mode.  The useMongo flag is internal, but we can observe it
+// via the exported __testHooks (added by Task 1 implementation) or by checking
+// that the module does NOT treat the value as memory mode when 'mongodb' is set.
+
+test('TELEMETRY_SINK=mongo activates mongo sink (useMongo flag)', () => {
+  const origSink = process.env.TELEMETRY_SINK;
+  process.env.TELEMETRY_SINK = 'mongo';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  const tel = require('../../src/lib/telemetry');
+  assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=mongo should set useMongo=true');
+  process.env.TELEMETRY_SINK = origSink || 'memory';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+});
+
+test('TELEMETRY_SINK=mongodb activates mongo sink (useMongo flag)', () => {
+  const origSink = process.env.TELEMETRY_SINK;
+  process.env.TELEMETRY_SINK = 'mongodb';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  const tel = require('../../src/lib/telemetry');
+  assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=mongodb should set useMongo=true');
+  process.env.TELEMETRY_SINK = origSink || 'memory';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+});
+
+test('TELEMETRY_SINK=MONGO (uppercase) activates mongo sink', () => {
+  const origSink = process.env.TELEMETRY_SINK;
+  process.env.TELEMETRY_SINK = 'MONGO';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  const tel = require('../../src/lib/telemetry');
+  assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=MONGO (uppercase) should set useMongo=true');
+  process.env.TELEMETRY_SINK = origSink || 'memory';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+});
+
+test('TELEMETRY_SINK=MONGODB (uppercase) activates mongo sink', () => {
+  const origSink = process.env.TELEMETRY_SINK;
+  process.env.TELEMETRY_SINK = 'MONGODB';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  const tel = require('../../src/lib/telemetry');
+  assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=MONGODB (uppercase) should set useMongo=true');
+  process.env.TELEMETRY_SINK = origSink || 'memory';
+  delete require.cache[require.resolve('../../src/lib/telemetry')];
+});
+
+test('split ROLE defaults telemetry sink to mongo when TELEMETRY_SINK is unset', () => {
+  const tel = freshTelemetryWithEnv({
+    sinkValue: null,
+    roleValue: 'api',
+  });
+  assert.equal(tel.__testHooks.useMongo, true, 'ROLE=api should default to mongo sink when TELEMETRY_SINK is unset');
+});
+
+test('combined role defaults telemetry sink to memory when TELEMETRY_SINK is unset', () => {
+  const tel = freshTelemetryWithEnv({
+    sinkValue: null,
+    roleValue: null,
+  });
+  assert.equal(tel.__testHooks.useMongo, false, 'Combined mode should keep memory sink when TELEMETRY_SINK is unset');
+});
+
+test('mongo sink bootstraps recent history into listTelemetry', async () => {
+  const doc = {
+    _id: '000000000000000000000111',
+    ts: new Date().toISOString(),
+    event: 'worker.job.completed',
+    level: 'info',
+    jobId: 'boot-job-1',
+    traceId: 'boot-trace-1',
+    sourceProcessId: 'worker-9999',
+    processRole: 'worker',
+    data: { note: 'bootstrapped' },
+  };
+
+  const tel = freshTelemetryWithSink('memory');
+  await tel.__testHooks.hydrateHistoryFromMongo({
+    find: async () => [doc],
+  });
+  const events = tel.listTelemetry({ traceId: 'boot-trace-1' });
+  assert.ok(events.length >= 1, 'Expected hydrated event in local history');
+  assert.equal(events[events.length - 1].event, 'worker.job.completed');
+});
+
+test('mongo polling skips re-emitting events from the same process id', async () => {
+  const selfPid = String(process.pid);
+  const pollDoc = {
+    _id: '000000000000000000000222',
+    ts: new Date().toISOString(),
+    event: 'worker.job.claimed',
+    level: 'info',
+    jobId: 'dedupe-job-1',
+    traceId: 'dedupe-trace-1',
+    sourceProcessId: selfPid,
+    processRole: 'api',
+    data: {},
+  };
+
+  let findCalls = 0;
+  const tel = freshTelemetryWithSink('mongo', {
+    TelemetryEvent: {
+      insertMany: async () => {},
+      find: async () => {
+        findCalls += 1;
+        if (findCalls === 1) {
+          return []; // hydrate
+        }
+        return [pollDoc]; // poll cycle
+      },
+    },
+  });
+
+  let received = 0;
+  const unsubscribe = tel.subscribeTelemetry((entry) => {
+    if (entry.traceId === 'dedupe-trace-1') {
+      received += 1;
+    }
+  });
+
+  tel.publishTelemetry('worker.job.claimed', { traceId: 'dedupe-trace-1' });
+  await new Promise((resolve) => setTimeout(resolve, 2300));
+  unsubscribe();
+
+  assert.equal(received, 1, 'Expected only local publish event, not duplicate polled self-event');
 });
