@@ -18,7 +18,6 @@ downloads/
 tmp/
 .playwright-profile/
 server/.playwright-profile/
-.worktrees/
 
 # Logs
 *.log
