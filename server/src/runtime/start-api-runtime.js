@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { app } = require('../app');
-const { getServerConfig } = require('../config/env');
+const { getServerConfig, isDomainKernelEnabled, isStrictPluginStartup } = require('../config/env');
+const { createDomainContext } = require('../core/runtime/domain-context');
+const { loadDomainsForRuntime } = require('../core/runtime/load-domains');
 const { registerShutdown } = require('./register-shutdown');
 
 async function startApiRuntime({ applyDnsOverride } = {}) {
@@ -9,10 +11,28 @@ async function startApiRuntime({ applyDnsOverride } = {}) {
   }
 
   const config = getServerConfig();
+  const domainKernelEnabled =
+    typeof isDomainKernelEnabled === 'function' ? isDomainKernelEnabled() : false;
+  const strictDomainStartup =
+    typeof isStrictPluginStartup === 'function' ? isStrictPluginStartup() : false;
+  let domainRuntime = { stopAll: async () => {} };
 
   const serverHandle = app.listen(config.port, () => {
     console.log(`API listening on http://localhost:${config.port}`);
   });
+
+  if (domainKernelEnabled) {
+    const domainCtx = createDomainContext({
+      role: 'api',
+      app,
+      config,
+    });
+    domainRuntime = await loadDomainsForRuntime({
+      role: 'api',
+      ctx: domainCtx,
+      strict: strictDomainStartup,
+    });
+  }
 
   if (config.mongoUri) {
     // Fire-and-forget: do not block HTTP startup on MongoDB handshake.
@@ -30,6 +50,8 @@ async function startApiRuntime({ applyDnsOverride } = {}) {
   }
 
   registerShutdown(async () => {
+    await domainRuntime.stopAll();
+
     await new Promise((resolve) => {
       serverHandle.close(() => resolve());
     });

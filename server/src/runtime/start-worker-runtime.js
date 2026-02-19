@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
-const { getServerConfig } = require('../config/env');
+const { getServerConfig, isDomainKernelEnabled, isStrictPluginStartup } = require('../config/env');
+const { createDomainContext } = require('../core/runtime/domain-context');
+const { loadDomainsForRuntime } = require('../core/runtime/load-domains');
 const { startQueueWorker, stopQueueWorker } = require('../worker/queue');
 const { processOneCycle } = require('../worker/process-job');
 const { recoverStaleJobs } = require('../worker/recovery');
@@ -12,6 +14,11 @@ async function startWorkerRuntime({ applyDnsOverride } = {}) {
   }
 
   const config = getServerConfig();
+  const domainKernelEnabled =
+    typeof isDomainKernelEnabled === 'function' ? isDomainKernelEnabled() : false;
+  const strictDomainStartup =
+    typeof isStrictPluginStartup === 'function' ? isStrictPluginStartup() : false;
+  let domainRuntime = { stopAll: async () => {} };
 
   if (!config.mongoUri) {
     console.error('MONGODB_URI is not set. Worker requires a database connection.');
@@ -27,6 +34,18 @@ async function startWorkerRuntime({ applyDnsOverride } = {}) {
     console.warn(`Recovered ${recoveredCount} stale running jobs after restart.`);
   }
 
+  if (domainKernelEnabled) {
+    const domainCtx = createDomainContext({
+      role: 'worker',
+      config,
+    });
+    domainRuntime = await loadDomainsForRuntime({
+      role: 'worker',
+      ctx: domainCtx,
+      strict: strictDomainStartup,
+    });
+  }
+
   startQueueWorker({
     intervalMs: 1000,
     onTick: async () => {
@@ -37,6 +56,8 @@ async function startWorkerRuntime({ applyDnsOverride } = {}) {
   console.log('Worker started');
 
   registerShutdown(async () => {
+    await domainRuntime.stopAll();
+
     stopQueueWorker();
 
     try {
