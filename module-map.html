@@ -54,13 +54,22 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .tooltip .tt-desc{color:var(--text)}
 
 /* ── View 1: Top-Down ────────────────── */
-#view-topdown svg{width:100%;height:auto;max-height:calc(100vh - 200px)}
+.td-zoom-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 200px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none}
+.td-zoom-viewport.is-dragging{cursor:grabbing}
+.td-zoom-viewport svg{width:100%;height:auto;transform-origin:0 0;pointer-events:all}
 .td-node{cursor:pointer;transition:filter 200ms}
 .td-node:hover{filter:brightness(1.2)}
 .td-arrow{fill:none;stroke:var(--bg4);stroke-width:1.5;marker-end:url(#arrowhead)}
 .td-arrow.stub{stroke-dasharray:5,4;stroke:var(--text-dim);opacity:0.5}
 .td-label{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-bright);font-size:11px;font-weight:600;text-anchor:middle;pointer-events:none}
 .td-sublabel{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-dim);font-size:9px;text-anchor:middle;pointer-events:none}
+
+/* ── Zoom Controls ──────────────────── */
+.td-zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;align-items:center;gap:4px;z-index:10;background:rgba(15,23,42,0.92);border:1px solid var(--bg4);border-radius:8px;padding:4px 6px;backdrop-filter:blur(6px);box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.td-zoom-controls button{background:var(--bg2);color:var(--text-bright);border:1px solid var(--bg4);border-radius:6px;width:30px;height:30px;font-size:1rem;font-weight:700;cursor:pointer;display:grid;place-items:center;transition:all 150ms ease;line-height:1}
+.td-zoom-controls button:hover{background:var(--bg3);border-color:#64748b}
+.td-zoom-controls button:active{background:var(--bg4)}
+.td-zoom-controls .td-zoom-pct{color:var(--text-dim);font-size:0.72rem;font-weight:600;min-width:42px;text-align:center;padding:0 4px;user-select:none}
 
 /* ── View 2: File Map ────────────────── */
 .fm-container{font-family:'Cascadia Code','Fira Code',monospace;font-size:0.8rem;line-height:1.8}
@@ -586,7 +595,102 @@ function hexToRgba(hex, a) {
   // Foundation line under core
   svg.appendChild(svgEl('line',{x1:80,y1:780,x2:960,y2:780,stroke:'#e879f9','stroke-width':'1','stroke-dasharray':'6,4',opacity:'0.4'}));
 
-  container.appendChild(svg);
+  // ── Zoom/Pan viewport ──
+  const viewport = document.createElement('div');
+  viewport.className = 'td-zoom-viewport';
+  viewport.appendChild(svg);
+
+  // Zoom controls
+  const controls = document.createElement('div');
+  controls.className = 'td-zoom-controls';
+  controls.innerHTML = `<button class="td-zin" title="Zoom in">+</button><button class="td-zout" title="Zoom out">\u2212</button><span class="td-zoom-pct">100%</span><button class="td-zreset" title="Reset zoom">&#x21bb;</button>`;
+  viewport.appendChild(controls);
+  container.appendChild(viewport);
+
+  // ── Zoom/Pan state ──
+  let scale = 1, panX = 0, panY = 0;
+  const MIN_SCALE = 0.25, MAX_SCALE = 3;
+  let isDragging = false, dragStartX = 0, dragStartY = 0, dragPanStartX = 0, dragPanStartY = 0;
+  const pctLabel = controls.querySelector('.td-zoom-pct');
+
+  function applyTransform(smooth) {
+    svg.style.transition = smooth ? 'transform 200ms ease' : 'none';
+    svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    pctLabel.textContent = Math.round(scale * 100) + '%';
+  }
+
+  function zoomAt(cx, cy, newScale, smooth) {
+    newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+    const rect = viewport.getBoundingClientRect();
+    // Point in viewport-relative coords
+    const vx = cx - rect.left;
+    const vy = cy - rect.top;
+    // Adjust pan so the point under the cursor stays fixed
+    panX = vx - (vx - panX) * (newScale / scale);
+    panY = vy - (vy - panY) * (newScale / scale);
+    scale = newScale;
+    applyTransform(smooth);
+  }
+
+  function resetZoom() {
+    scale = 1; panX = 0; panY = 0;
+    applyTransform(true);
+  }
+
+  // Mouse wheel zoom (centered on cursor)
+  viewport.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoomAt(e.clientX, e.clientY, scale * delta, false);
+  }, {passive: false});
+
+  // Click-and-drag to pan
+  viewport.addEventListener('mousedown', function(e) {
+    // Ignore right-click; allow node clicks through
+    if (e.button !== 0) return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragPanStartX = panX;
+    dragPanStartY = panY;
+    viewport.classList.add('is-dragging');
+  });
+  window.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    panX = dragPanStartX + (e.clientX - dragStartX);
+    panY = dragPanStartY + (e.clientY - dragStartY);
+    applyTransform(false);
+  });
+  window.addEventListener('mouseup', function() {
+    if (!isDragging) return;
+    isDragging = false;
+    viewport.classList.remove('is-dragging');
+  });
+
+  // Double-click to zoom in centered on click point
+  viewport.addEventListener('dblclick', function(e) {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, scale * 1.4, true);
+  });
+
+  // Button controls
+  controls.querySelector('.td-zin').addEventListener('click', function(e) {
+    e.stopPropagation();
+    const rect = viewport.getBoundingClientRect();
+    zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, scale * 1.25, true);
+  });
+  controls.querySelector('.td-zout').addEventListener('click', function(e) {
+    e.stopPropagation();
+    const rect = viewport.getBoundingClientRect();
+    zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, scale / 1.25, true);
+  });
+  controls.querySelector('.td-zreset').addEventListener('click', function(e) {
+    e.stopPropagation();
+    resetZoom();
+  });
+
+  // Prevent zoom controls from triggering viewport drag
+  controls.addEventListener('mousedown', function(e) { e.stopPropagation(); });
 })();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
