@@ -1,1 +1,1 @@
-module.exports = require('../core/data/job-status');
+module.exports = require('../core/constants/job-status');

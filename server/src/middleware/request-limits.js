@@ -1,1 +1,1 @@
-module.exports = require('../core/http/request-limits');
+module.exports = require('../core/middleware/request-limits');

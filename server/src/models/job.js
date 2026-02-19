@@ -1,1 +1,1 @@
-module.exports = require('../core/data/job-model');
+module.exports = require('../core/models/job');
