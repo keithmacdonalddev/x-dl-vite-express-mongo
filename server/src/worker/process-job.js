@@ -100,10 +100,15 @@ function isAccessDeniedDownloadError(error) {
   return /(?:status 403|denied access \(403\))/i.test(message);
 }
 
-function chooseRetryMediaUrl(previousUrl, extractedResult = {}) {
+function chooseRetryMediaUrl(previousUrl, extractedResult = {}, triedUrls = new Set()) {
   const primary = typeof extractedResult.mediaUrl === 'string' ? extractedResult.mediaUrl : '';
   const candidates = Array.isArray(extractedResult.candidateUrls) ? extractedResult.candidateUrls : [];
   const deduped = Array.from(new Set([primary, ...candidates].filter((value) => isHttpUrl(value))));
+
+  const untried = deduped.filter((value) => value !== previousUrl && !triedUrls.has(value));
+  if (untried.length > 0) {
+    return untried[0];
+  }
 
   const alternative = deduped.find((value) => value !== previousUrl);
   if (alternative) {
@@ -175,6 +180,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     fallback: async () => {
   const extractionTimeoutMs = Number.parseInt(process.env.EXTRACTION_TIMEOUT_MS || '180000', 10);
   try {
+    const triedUrls = new Set();
     let mediaUrl = '';
     let sourceType = job.sourceType || SOURCE_TYPES.UNKNOWN;
     let candidateUrls = Array.isArray(job.candidateUrls) ? job.candidateUrls : [];
@@ -273,6 +279,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
 
     const targetPath = buildTargetPath(job._id.toString(), accountSlug);
     let downloadUrl = mediaUrl;
+    triedUrls.add(downloadUrl);
     const downloadStartedAt = Date.now();
     logger.info('worker.job.download.started', {
       jobId,
@@ -311,7 +318,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
         `Retry extraction timed out after ${extractionTimeoutMs}ms`
       );
 
-      const refreshedMediaUrl = chooseRetryMediaUrl(downloadUrl, refreshed);
+      const refreshedMediaUrl = chooseRetryMediaUrl(downloadUrl, refreshed, triedUrls);
       if (!refreshedMediaUrl) {
         throw downloadError;
       }
@@ -337,6 +344,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       });
 
       downloadUrl = refreshedMediaUrl;
+      triedUrls.add(downloadUrl);
       downloaded = await downloader(downloadUrl, {
         targetPath,
         telemetryContext: { jobId, traceId, stage: 'download-retry' },
@@ -501,7 +509,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
           `Validation-retry extraction timed out after ${extractionTimeoutMs}ms`
         );
 
-        const freshMediaUrl = chooseRetryMediaUrl(downloadUrl, reExtracted);
+        const freshMediaUrl = chooseRetryMediaUrl(downloadUrl, reExtracted, triedUrls);
         if (!freshMediaUrl) {
           throw validationError;
         }
@@ -528,6 +536,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
 
         // Try fresh URL with authenticated download first, then fall back to plain fetch
         downloadUrl = freshMediaUrl;
+        triedUrls.add(downloadUrl);
         let freshDownloadValid = false;
 
         try {

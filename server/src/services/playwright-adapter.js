@@ -73,7 +73,7 @@ function getAdapterConfig(input = {}) {
     headless:
       typeof input.headless === 'boolean'
         ? input.headless
-        : parseBoolean(env.PLAYWRIGHT_HEADLESS, false),
+        : parseBoolean(env.PLAYWRIGHT_HEADLESS, true),
     settleMs: Number.isFinite(settleMs) && settleMs >= 0 ? settleMs : 3000,
     navigationTimeoutMs: Number.isFinite(navigationTimeoutMs) && navigationTimeoutMs > 0 ? navigationTimeoutMs : 45000,
     manualSolveTimeoutMs: Number.isFinite(manualSolveTimeoutMs) && manualSolveTimeoutMs >= 0 ? manualSolveTimeoutMs : 90000,
@@ -236,6 +236,94 @@ function extractMediaUrlsFromContent(content) {
 
   const mediaMatches = matches.filter((url) => isLikelyMediaUrl(url));
   return Array.from(new Set(mediaMatches));
+}
+
+async function extractTikTokRehydrationUrls(page) {
+  if (!page || typeof page.evaluate !== 'function') {
+    return [];
+  }
+
+  try {
+    const urls = await page.evaluate(() => {
+      const results = [];
+
+      // Strategy 1: __UNIVERSAL_DATA_FOR_REHYDRATION__ (modern TikTok pages)
+      const rehydrationScript = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
+      if (rehydrationScript) {
+        try {
+          const data = JSON.parse(rehydrationScript.textContent || '{}');
+          const defaultScope = data['__DEFAULT_SCOPE__'] || {};
+          const videoDetail = defaultScope['webapp.video-detail'] || {};
+          const itemInfo = videoDetail.itemInfo || {};
+          const itemStruct = itemInfo.itemStruct || {};
+          const video = itemStruct.video || {};
+
+          // play_addr = non-watermarked playback stream (preferred)
+          if (video.play_addr && Array.isArray(video.play_addr.url_list)) {
+            for (const u of video.play_addr.url_list) {
+              if (typeof u === 'string' && u.startsWith('http')) {
+                results.push({ url: u, source: 'play_addr' });
+              }
+            }
+          }
+
+          // bitrateInfo[].PlayAddr = quality variants (non-watermarked, up to 6x higher bitrate)
+          if (Array.isArray(video.bitrateInfo)) {
+            for (const variant of video.bitrateInfo) {
+              const playAddr = variant.PlayAddr || variant.play_addr;
+              if (playAddr && Array.isArray(playAddr.url_list)) {
+                for (const u of playAddr.url_list) {
+                  if (typeof u === 'string' && u.startsWith('http')) {
+                    results.push({ url: u, source: 'bitrate_variant' });
+                  }
+                }
+              }
+            }
+          }
+
+          // download_addr = watermarked "save video" stream (deprioritized by ranking)
+          if (video.download_addr && Array.isArray(video.download_addr.url_list)) {
+            for (const u of video.download_addr.url_list) {
+              if (typeof u === 'string' && u.startsWith('http')) {
+                results.push({ url: u, source: 'download_addr' });
+              }
+            }
+          }
+        } catch {
+          // JSON parse failure
+        }
+      }
+
+      // Strategy 2: SIGI_STATE (older TikTok pages)
+      const sigiScript = document.getElementById('SIGI_STATE');
+      if (sigiScript) {
+        try {
+          const data = JSON.parse(sigiScript.textContent || '{}');
+          const itemModule = data.ItemModule || {};
+          for (const key of Object.keys(itemModule)) {
+            const item = itemModule[key];
+            const video = item && item.video;
+            if (!video) continue;
+
+            if (video.playAddr && typeof video.playAddr === 'string' && video.playAddr.startsWith('http')) {
+              results.push({ url: video.playAddr, source: 'sigi_play_addr' });
+            }
+            if (video.downloadAddr && typeof video.downloadAddr === 'string' && video.downloadAddr.startsWith('http')) {
+              results.push({ url: video.downloadAddr, source: 'sigi_download_addr' });
+            }
+          }
+        } catch {
+          // JSON parse failure
+        }
+      }
+
+      return results;
+    });
+
+    return Array.isArray(urls) ? urls : [];
+  } catch {
+    return [];
+  }
 }
 
 async function readPostMetadata(page) {
@@ -547,6 +635,19 @@ function createPlaywrightPageFactory(options = {}) {
           }
         }
 
+        // Extract structured video URLs from TikTok's embedded JSON data.
+        // play_addr URLs from this source are non-watermarked HD.
+        try {
+          const rehydrationUrls = await extractTikTokRehydrationUrls(page);
+          for (const entry of rehydrationUrls) {
+            if (entry && typeof entry.url === 'string') {
+              combined.add(entry.url);
+            }
+          }
+        } catch {
+          // ignore rehydration extraction failures
+        }
+
         return Array.from(combined);
       },
       async collectImageUrls() {
@@ -569,4 +670,5 @@ module.exports = {
   closePersistentContext,
   getAdapterConfig,
   assessAccessState,
+  extractTikTokRehydrationUrls,
 };

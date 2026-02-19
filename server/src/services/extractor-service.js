@@ -128,6 +128,9 @@ function inferCodecFromPath(pathname) {
   if (pathValue.includes('/vp9/')) {
     return 'vp9';
   }
+  if (/\/bytevc2\//i.test(pathValue)) {
+    return 'bytevc2';
+  }
   return '';
 }
 
@@ -143,6 +146,7 @@ function getMediaCandidateFacts(url) {
     bt: 0,
     fps: 0,
     hasWatermark: false,
+    isLikelyClean: false,
     isSigned: false,
     mimeType: '',
     codec: '',
@@ -156,6 +160,15 @@ function getMediaCandidateFacts(url) {
     const watermarkParam = parsed.searchParams.get('watermark') || parsed.searchParams.get('is_watermark') || '';
     const mimeType = (parsed.searchParams.get('mime_type') || '').toLowerCase();
 
+    const hasWatermark =
+      watermarkParam === '1' ||
+      parsed.searchParams.get('is_watermark') === '1' ||
+      parsed.searchParams.has('logo_name') ||
+      /watermark/i.test(parsed.pathname) ||
+      /watermark/i.test(parsed.search) ||
+      /_watermark/i.test(parsed.pathname) ||
+      /[?&]wm=1/i.test(url);
+
     return {
       host: parsed.hostname,
       isDirect: isDirectVideoCandidate(url),
@@ -166,7 +179,8 @@ function getMediaCandidateFacts(url) {
       br: toPositiveInt(parsed.searchParams.get('br')),
       bt: toPositiveInt(parsed.searchParams.get('bt')),
       fps: toPositiveInt(parsed.searchParams.get('fps')),
-      hasWatermark: watermarkParam === '1' || /watermark/i.test(parsed.pathname) || /watermark/i.test(parsed.search),
+      hasWatermark,
+      isLikelyClean: !hasWatermark && !/watermark/i.test(url) && !/logo_name/i.test(url),
       isSigned: hasSignedMediaHints(parsed),
       mimeType,
       codec: inferCodecFromPath(parsed.pathname),
@@ -181,12 +195,13 @@ function getDirectQualityScore(url) {
 
   return {
     nonWatermark: facts.hasWatermark ? 0 : 1,
+    likelyClean: facts.isLikelyClean ? 1 : 0,
     signedPreference: facts.isSigned ? 1 : 0,
     area: facts.area,
     br: facts.br,
     bt: facts.bt,
     fps: facts.fps,
-    codecPreference: facts.codec === 'avc1' ? 2 : facts.codec ? 1 : 0,
+    codecPreference: facts.codec === 'bytevc2' ? -1 : facts.codec === 'avc1' ? 2 : facts.codec ? 1 : 0,
     mimePreference: facts.mimeType === 'video_mp4' ? 2 : facts.mimeType.startsWith('video_') ? 1 : 0,
   };
 }
@@ -197,6 +212,9 @@ function compareDirectQuality(leftUrl, rightUrl) {
 
   if (left.nonWatermark !== right.nonWatermark) {
     return right.nonWatermark - left.nonWatermark;
+  }
+  if (left.likelyClean !== right.likelyClean) {
+    return right.likelyClean - left.likelyClean;
   }
   if (left.signedPreference !== right.signedPreference) {
     return right.signedPreference - left.signedPreference;

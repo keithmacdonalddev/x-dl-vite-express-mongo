@@ -6,6 +6,8 @@ const { spawn } = require('node:child_process');
 const { logger } = require('../lib/logger');
 const { resolvePlatformByMediaHost } = require('../platforms/registry');
 
+const DOWNLOAD_TIMEOUT_MS = Number.parseInt(process.env.DOWNLOAD_TIMEOUT_MS || '120000', 10);
+
 function normalizeTelemetryContext(rawValue) {
   if (!rawValue || typeof rawValue !== 'object') {
     return {};
@@ -239,6 +241,7 @@ async function downloadDirect(
     targetPath,
     fetchImpl = globalThis.fetch,
     authenticatedDownloader = downloadDirectWithPlaywrightSession,
+    browserNavigationDownloader = downloadDirectWithBrowserNavigation,
     telemetryContext,
   } = {}
 ) {
@@ -271,7 +274,19 @@ async function downloadDirect(
     targetPath,
     hasReferer: Boolean(headers.referer),
   });
-  const response = await fetchImpl(mediaUrl, { headers });
+  const abortController = new AbortController();
+  const downloadTimeout = setTimeout(() => abortController.abort(), DOWNLOAD_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetchImpl(mediaUrl, { headers, signal: abortController.signal });
+  } catch (fetchError) {
+    clearTimeout(downloadTimeout);
+    if (fetchError.name === 'AbortError') {
+      throw new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS}ms for ${mediaUrl}`);
+    }
+    throw fetchError;
+  }
+  clearTimeout(downloadTimeout);
   const responseStatus = response && Number.isFinite(response.status) ? response.status : -1;
   const responseContentType = response && typeof response.headers?.get === 'function'
     ? (response.headers.get('content-type') || '').split(';')[0].trim()
@@ -315,6 +330,38 @@ async function downloadDirect(
           status: response.status,
           fallbackMessage,
         });
+
+        // Escalate to full browser navigation as the final anti-bot fallback.
+        if (typeof browserNavigationDownloader === 'function') {
+          logger.info('downloader.direct.browser_nav_fallback', {
+            ...contextMeta,
+            mediaUrl,
+            targetPath,
+            status: response.status,
+          });
+          try {
+            return await browserNavigationDownloader(mediaUrl, {
+              targetPath,
+              telemetryContext: contextMeta,
+            });
+          } catch (browserFallbackError) {
+            const browserFallbackMessage =
+              browserFallbackError instanceof Error ? browserFallbackError.message : String(browserFallbackError);
+            logger.error('downloader.direct.browser_nav_fallback.failed', {
+              ...contextMeta,
+              mediaUrl,
+              targetPath,
+              status: response.status,
+              fallbackMessage,
+              browserFallbackMessage,
+            });
+            throw new Error(
+              `Media host denied access (${response.status}). URL may be expired or blocked by origin protection. ` +
+              `Auth fallback failed: ${fallbackMessage}. Browser fallback failed: ${browserFallbackMessage}`
+            );
+          }
+        }
+
         throw new Error(
           `Media host denied access (${response.status}). URL may be expired or blocked by origin protection. ${fallbackMessage}`
         );
@@ -332,7 +379,18 @@ async function downloadDirect(
   }
 
   const output = fs.createWriteStream(targetPath);
-  await pipeline(Readable.fromWeb(response.body), output);
+  const pipelineAbortController = new AbortController();
+  const pipelineTimeout = setTimeout(() => pipelineAbortController.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    await pipeline(Readable.fromWeb(response.body), output, { signal: pipelineAbortController.signal });
+  } catch (pipelineError) {
+    clearTimeout(pipelineTimeout);
+    if (pipelineError.name === 'AbortError') {
+      throw new Error(`Download stream timed out after ${DOWNLOAD_TIMEOUT_MS}ms for ${mediaUrl}`);
+    }
+    throw pipelineError;
+  }
+  clearTimeout(pipelineTimeout);
   const fileStat = await fs.promises.stat(targetPath);
   const bytes = Number.isFinite(fileStat.size) ? fileStat.size : 0;
   if (bytes > 0 && bytes < 10000) {
