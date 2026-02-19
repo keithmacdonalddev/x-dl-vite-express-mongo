@@ -1,128 +1,25 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { Job } = require('../models/job');
-const { isTweetUrl, isHttpUrl } = require('../utils/validation');
-const { canTransition } = require('../domain/job-transitions');
-const { JOB_STATUS_VALUES, JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
+const { getPostUrlInfo, isTweetUrl } = require('../utils/validation');
+const { JOB_STATUSES } = require('../constants/job-status');
 const { ERROR_CODES } = require('../lib/error-codes');
 const { logger } = require('../lib/logger');
+const { getPlatformCapabilities } = require('../config/platform-capabilities');
+const { PLATFORMS } = require('../platforms/registry');
+const { resolveDomainId } = require('../core/dispatch/resolve-domain-id');
+const {
+  sendError,
+  getRequestTraceId,
+  getUrlFacts,
+  isValidObjectId,
+  deleteJobFiles,
+  normalizeBulkDeleteIds,
+  sanitizeDisplayName,
+  ensureEnabledPlatform,
+} = require('./helpers/route-utils');
 
 const jobsRouter = express.Router();
-const DOWNLOADS_ROOT = path.resolve(process.cwd(), 'downloads');
-
-function sendError(res, status, code, error) {
-  return res.status(status).json({
-    ok: false,
-    code,
-    error,
-  });
-}
-
-function inferSourceTypeFromMediaUrl(mediaUrl) {
-  if (typeof mediaUrl !== 'string') {
-    return SOURCE_TYPES.UNKNOWN;
-  }
-  if (/\.m3u8(\?.*)?$/i.test(mediaUrl)) {
-    return SOURCE_TYPES.HLS;
-  }
-  if (/\.mp4(\?.*)?$/i.test(mediaUrl)) {
-    return SOURCE_TYPES.DIRECT;
-  }
-  return SOURCE_TYPES.UNKNOWN;
-}
-
-function isValidObjectId(value) {
-  return typeof value === 'string' && mongoose.Types.ObjectId.isValid(value);
-}
-
-function toSafeAbsoluteDownloadPath(inputPath) {
-  if (typeof inputPath !== 'string' || !inputPath.trim()) {
-    return '';
-  }
-
-  const trimmed = inputPath.trim().replace(/\\/g, '/');
-
-  let absolutePath = '';
-  if (path.isAbsolute(trimmed)) {
-    absolutePath = path.resolve(trimmed);
-  } else if (trimmed.startsWith('downloads/')) {
-    absolutePath = path.resolve(process.cwd(), trimmed);
-  } else {
-    return '';
-  }
-
-  const relativeToDownloads = path.relative(DOWNLOADS_ROOT, absolutePath);
-  if (!relativeToDownloads || relativeToDownloads.startsWith('..') || path.isAbsolute(relativeToDownloads)) {
-    return '';
-  }
-
-  return absolutePath;
-}
-
-async function removeEmptyParentDirs(filePath) {
-  let currentDir = path.dirname(filePath);
-
-  while (currentDir && currentDir !== DOWNLOADS_ROOT) {
-    try {
-      const entries = await fs.readdir(currentDir);
-      if (entries.length > 0) {
-        break;
-      }
-      await fs.rmdir(currentDir);
-      currentDir = path.dirname(currentDir);
-    } catch {
-      break;
-    }
-  }
-}
-
-async function deleteJobFiles(job) {
-  const candidates = [job && job.outputPath, job && job.thumbnailPath];
-
-  for (const candidate of candidates) {
-    const absolutePath = toSafeAbsoluteDownloadPath(candidate);
-    if (!absolutePath) {
-      continue;
-    }
-
-    try {
-      await fs.rm(absolutePath, { force: true });
-      await removeEmptyParentDirs(absolutePath);
-    } catch {
-      // Ignore file deletion failures; DB delete is authoritative.
-    }
-  }
-}
-
-function normalizeBulkDeleteIds(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const asStrings = value
-    .filter((entry) => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-
-  const deduped = Array.from(new Set(asStrings));
-  return deduped.filter((entry) => isValidObjectId(entry));
-}
-
-function normalizeContactSlug(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  return value.trim().toLowerCase();
-}
-
-function sanitizeDisplayName(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  return value.trim().slice(0, 120);
-}
 
 jobsRouter.get('/', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
@@ -172,175 +69,90 @@ jobsRouter.get('/:id', async (req, res) => {
 });
 
 jobsRouter.post('/', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+  const startedAt = Date.now();
   const tweetUrl = typeof req.body?.tweetUrl === 'string' ? req.body.tweetUrl.trim() : '';
+  const postInfo = getPostUrlInfo(tweetUrl);
+  const urlFacts = getUrlFacts(tweetUrl);
 
-  if (!isTweetUrl(tweetUrl)) {
+  logger.info('jobs.create.request_received', {
+    traceId,
+    postUrlLength: tweetUrl.length,
+    ...urlFacts,
+    platformDetected: postInfo.platform || 'unknown',
+    platformValid: postInfo.isValid === true,
+  });
+
+  if (!postInfo.isValid || !isTweetUrl(tweetUrl)) {
+    logger.info('jobs.create.invalid_url', {
+      traceId,
+      postUrlLength: tweetUrl.length,
+      ...urlFacts,
+    });
     return sendError(
       res,
       400,
       ERROR_CODES.INVALID_TWEET_URL,
-      'Invalid tweetUrl. Expected X or TikTok URL, for example: https://x.com/<user>/status/<id> or https://www.tiktok.com/@<user>/video/<id>'
+      `Invalid postUrl. Expected a supported platform URL. Supported: ${PLATFORMS.map((p) => p.label).join(', ')}.`
     );
   }
 
+  const platformError = ensureEnabledPlatform(postInfo, res);
+  if (platformError) {
+    logger.info('jobs.create.platform_disabled', {
+      traceId,
+      tweetUrl,
+      platform: postInfo.platform,
+      capabilities: getPlatformCapabilities(),
+    });
+    return platformError;
+  }
+
   if (mongoose.connection.readyState !== 1) {
+    logger.error('jobs.create.db_not_connected', {
+      traceId,
+      readyState: mongoose.connection.readyState,
+    });
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
   try {
+    const domainId = resolveDomainId({
+      platformId: postInfo.platform,
+      tweetUrl,
+    });
+
     const job = await Job.create({
       tweetUrl,
+      domainId,
+      traceId,
       status: JOB_STATUSES.QUEUED,
+    });
+
+    logger.info('jobs.create.queued', {
+      traceId,
+      jobId: job._id.toString(),
+      status: job.status,
+      domainId: job.domainId || '',
+      platform: postInfo.platform || 'unknown',
+      durationMs: Date.now() - startedAt,
+      createdAt: job.createdAt,
     });
 
     return res.status(201).json({
       ok: true,
       job,
+      traceId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error('jobs.create.failed', { message, tweetUrl });
+    logger.error('jobs.create.failed', {
+      traceId,
+      message,
+      tweetUrl,
+      durationMs: Date.now() - startedAt,
+    });
     return sendError(res, 500, ERROR_CODES.CREATE_JOB_FAILED, `Failed to create job: ${message}`);
-  }
-});
-
-jobsRouter.post('/bulk-delete', async (req, res) => {
-  if (mongoose.connection.readyState !== 1) {
-    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
-  }
-
-  const jobIds = normalizeBulkDeleteIds(req.body?.jobIds);
-  if (jobIds.length === 0) {
-    return sendError(res, 400, ERROR_CODES.INVALID_BULK_DELETE_IDS, 'Provide one or more valid job IDs.');
-  }
-
-  try {
-    const jobs = await Job.find({ _id: { $in: jobIds } }).lean();
-    await Promise.all(jobs.map((job) => deleteJobFiles(job)));
-    const result = await Job.deleteMany({ _id: { $in: jobIds } });
-
-    return res.json({
-      ok: true,
-      deletedCount: result.deletedCount || 0,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error('jobs.bulk_delete.failed', { message, jobIds });
-    return sendError(res, 500, ERROR_CODES.BULK_DELETE_FAILED, `Failed to bulk delete jobs: ${message}`);
-  }
-});
-
-jobsRouter.patch('/contact/:slug', async (req, res) => {
-  if (mongoose.connection.readyState !== 1) {
-    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
-  }
-
-  const slug = normalizeContactSlug(req.params.slug);
-  if (!slug) {
-    return sendError(res, 400, ERROR_CODES.INVALID_CONTACT_SLUG, 'Invalid contact slug.');
-  }
-
-  const displayName = sanitizeDisplayName(req.body?.displayName);
-  if (!displayName) {
-    return sendError(res, 400, ERROR_CODES.UPDATE_CONTACT_FAILED, 'Display name is required.');
-  }
-
-  try {
-    const result = await Job.updateMany(
-      { accountSlug: slug },
-      {
-        $set: {
-          accountDisplayName: displayName,
-        },
-      }
-    );
-
-    return res.json({
-      ok: true,
-      matchedCount: result.matchedCount || 0,
-      modifiedCount: result.modifiedCount || 0,
-      contactSlug: slug,
-      displayName,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error('jobs.contact.update.failed', { message, slug });
-    return sendError(res, 500, ERROR_CODES.UPDATE_CONTACT_FAILED, `Failed to update contact: ${message}`);
-  }
-});
-
-jobsRouter.delete('/contact/:slug', async (req, res) => {
-  if (mongoose.connection.readyState !== 1) {
-    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
-  }
-
-  const slug = normalizeContactSlug(req.params.slug);
-  if (!slug) {
-    return sendError(res, 400, ERROR_CODES.INVALID_CONTACT_SLUG, 'Invalid contact slug.');
-  }
-
-  try {
-    const jobs = await Job.find({ accountSlug: slug }).lean();
-    await Promise.all(jobs.map((job) => deleteJobFiles(job)));
-    const result = await Job.deleteMany({ accountSlug: slug });
-
-    return res.json({
-      ok: true,
-      deletedCount: result.deletedCount || 0,
-      contactSlug: slug,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error('jobs.contact.delete.failed', { message, slug });
-    return sendError(res, 500, ERROR_CODES.DELETE_CONTACT_FAILED, `Failed to delete contact jobs: ${message}`);
-  }
-});
-
-jobsRouter.post('/:id/manual-retry', async (req, res) => {
-  if (mongoose.connection.readyState !== 1) {
-    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid job id.');
-  }
-
-  const mediaUrl = typeof req.body?.mediaUrl === 'string' ? req.body.mediaUrl.trim() : '';
-  if (!isHttpUrl(mediaUrl)) {
-    return sendError(res, 400, ERROR_CODES.INVALID_MEDIA_URL, 'Invalid media URL.');
-  }
-
-  try {
-    const original = await Job.findById(req.params.id).lean();
-    if (!original) {
-      return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
-    }
-
-    const retryJob = await Job.create({
-      tweetUrl: original.tweetUrl,
-      status: JOB_STATUSES.QUEUED,
-      extractedUrl: mediaUrl,
-      sourceType: inferSourceTypeFromMediaUrl(mediaUrl),
-      candidateUrls: [mediaUrl],
-      imageUrls: Array.isArray(original.imageUrls) ? original.imageUrls : [],
-      metadata: original.metadata && typeof original.metadata === 'object' ? original.metadata : {},
-      accountPlatform: typeof original.accountPlatform === 'string' ? original.accountPlatform : 'unknown',
-      accountHandle: typeof original.accountHandle === 'string' ? original.accountHandle : '',
-      accountDisplayName: typeof original.accountDisplayName === 'string' ? original.accountDisplayName : '',
-      accountSlug: typeof original.accountSlug === 'string' ? original.accountSlug : '',
-      thumbnailUrl: typeof original.thumbnailUrl === 'string' ? original.thumbnailUrl : '',
-      thumbnailPath: typeof original.thumbnailPath === 'string' ? original.thumbnailPath : '',
-    });
-
-    return res.status(201).json({
-      ok: true,
-      job: retryJob,
-      fromJobId: original._id.toString(),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error('jobs.manual_retry.failed', { message, jobId: req.params.id });
-    return sendError(res, 500, ERROR_CODES.MANUAL_RETRY_FAILED, `Failed to create manual retry: ${message}`);
   }
 });
 
@@ -356,15 +168,25 @@ jobsRouter.patch('/:id', async (req, res) => {
   const updates = {};
   if (typeof req.body?.tweetUrl === 'string') {
     const tweetUrl = req.body.tweetUrl.trim();
-    if (!isTweetUrl(tweetUrl)) {
+    const postInfo = getPostUrlInfo(tweetUrl);
+    if (!postInfo.isValid || !isTweetUrl(tweetUrl)) {
       return sendError(
         res,
         400,
         ERROR_CODES.INVALID_TWEET_URL,
-        'Invalid tweetUrl. Expected X or TikTok URL.'
+        `Invalid postUrl. Expected a supported platform URL. Supported: ${PLATFORMS.map((p) => p.label).join(', ')}.`
       );
     }
+    const platformError = ensureEnabledPlatform(postInfo, res);
+    if (platformError) {
+      logger.info('jobs.update.platform_disabled', { tweetUrl, platform: postInfo.platform, jobId: req.params.id });
+      return platformError;
+    }
     updates.tweetUrl = tweetUrl;
+    updates.domainId = resolveDomainId({
+      platformId: postInfo.platform,
+      tweetUrl,
+    });
   }
 
   if (typeof req.body?.accountDisplayName === 'string') {
@@ -421,61 +243,29 @@ jobsRouter.delete('/:id', async (req, res) => {
   }
 });
 
-jobsRouter.patch('/:id/status', async (req, res) => {
+jobsRouter.post('/bulk-delete', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid job id.');
-  }
-
-  const nextStatus = typeof req.body?.status === 'string' ? req.body.status.trim().toLowerCase() : '';
-  if (!JOB_STATUS_VALUES.includes(nextStatus)) {
-    return sendError(
-      res,
-      400,
-      ERROR_CODES.INVALID_STATUS,
-      `Invalid status. Allowed: ${JOB_STATUS_VALUES.join(', ')}`
-    );
+  const jobIds = normalizeBulkDeleteIds(req.body?.jobIds);
+  if (jobIds.length === 0) {
+    return sendError(res, 400, ERROR_CODES.INVALID_BULK_DELETE_IDS, 'Provide one or more valid job IDs.');
   }
 
   try {
-    const job = await Job.findById(req.params.id);
-    if (!job) {
-      return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
-    }
-
-    if (!canTransition(job.status, nextStatus)) {
-      return sendError(
-        res,
-        409,
-        ERROR_CODES.INVALID_STATUS_TRANSITION,
-        `Invalid status transition: ${job.status} -> ${nextStatus}`
-      );
-    }
-
-    job.status = nextStatus;
-    if (nextStatus === JOB_STATUSES.RUNNING && !job.startedAt) {
-      job.startedAt = new Date();
-    }
-    if (nextStatus === JOB_STATUSES.COMPLETED) {
-      job.completedAt = new Date();
-    }
-    if (nextStatus === JOB_STATUSES.FAILED) {
-      job.failedAt = new Date();
-    }
-
-    await job.save();
+    const jobs = await Job.find({ _id: { $in: jobIds } }).lean();
+    await Promise.all(jobs.map((job) => deleteJobFiles(job)));
+    const result = await Job.deleteMany({ _id: { $in: jobIds } });
 
     return res.json({
       ok: true,
-      job: job.toObject(),
+      deletedCount: result.deletedCount || 0,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error('jobs.status.update.failed', { message, jobId: req.params.id });
-    return sendError(res, 500, ERROR_CODES.UPDATE_STATUS_FAILED, `Failed to update status: ${message}`);
+    logger.error('jobs.bulk_delete.failed', { message, jobIds });
+    return sendError(res, 500, ERROR_CODES.BULK_DELETE_FAILED, `Failed to bulk delete jobs: ${message}`);
   }
 });
 

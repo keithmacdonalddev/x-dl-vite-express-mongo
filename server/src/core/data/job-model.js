@@ -13,6 +13,11 @@ const jobSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    domainId: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     traceId: {
       type: String,
       default: '',

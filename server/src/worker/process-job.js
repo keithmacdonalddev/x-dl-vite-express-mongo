@@ -12,6 +12,7 @@ const {
 } = require('../utils/account-profile');
 const { isHttpUrl } = require('../utils/validation');
 const { platformNeeds403Refresh } = require('../platforms/registry');
+const { routeJobByDomain } = require('../core/dispatch/route-job-by-domain');
 const { claimNextQueuedJob } = require('./queue');
 const { logger } = require('../lib/logger');
 
@@ -168,6 +169,10 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     attemptCount: job.attemptCount,
   });
 
+  return routeJobByDomain({
+    job,
+    routes: {},
+    fallback: async () => {
   const extractionTimeoutMs = Number.parseInt(process.env.EXTRACTION_TIMEOUT_MS || '180000', 10);
   try {
     let mediaUrl = '';
@@ -662,6 +667,8 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
 
     return job.toObject();
   }
+    },
+  });
 }
 
 module.exports = {
