@@ -1,5 +1,6 @@
 const { SOURCE_TYPES } = require('../constants/job-status');
 const { isSupportedPostUrl } = require('../utils/validation');
+const { logger } = require('../lib/logger');
 
 function isAccessChallengeError(error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -23,6 +24,25 @@ function isDirectVideoCandidate(url) {
     return false;
   }
 
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+    const mimeType = (parsed.searchParams.get('mime_type') || '').toLowerCase();
+
+    // Exclude obvious static/login assets that are not post media candidates.
+    if (hostname.includes('ttwstatic.com') || pathname.includes('/webapp-desktop/playback')) {
+      return false;
+    }
+
+    // Exclude audio-only variants that occasionally appear in TikTok captures.
+    if (mimeType.startsWith('audio_')) {
+      return false;
+    }
+  } catch {
+    // Ignore parse failures and fall back to string checks below.
+  }
+
   if (/^https?:\/\/.+\.(mp4|webm|mov|m4v|gif)(\?.*)?$/i.test(url)) {
     return true;
   }
@@ -36,6 +56,24 @@ function isDirectVideoCandidate(url) {
   }
 
   return false;
+}
+
+function hasSignedMediaHints(parsedUrl) {
+  if (!parsedUrl || typeof parsedUrl !== 'object' || !parsedUrl.searchParams) {
+    return false;
+  }
+
+  const hasExpiry =
+    parsedUrl.searchParams.has('expire') ||
+    parsedUrl.searchParams.has('x-expires') ||
+    parsedUrl.searchParams.has('X-Expires');
+  const hasSignature =
+    parsedUrl.searchParams.has('signature') ||
+    parsedUrl.searchParams.has('sig') ||
+    parsedUrl.searchParams.has('tk') ||
+    parsedUrl.searchParams.has('policy');
+
+  return hasExpiry || hasSignature;
 }
 
 function toPositiveInt(value) {
@@ -105,6 +143,7 @@ function getMediaCandidateFacts(url) {
     bt: 0,
     fps: 0,
     hasWatermark: false,
+    isSigned: false,
     mimeType: '',
     codec: '',
   };
@@ -128,6 +167,7 @@ function getMediaCandidateFacts(url) {
       bt: toPositiveInt(parsed.searchParams.get('bt')),
       fps: toPositiveInt(parsed.searchParams.get('fps')),
       hasWatermark: watermarkParam === '1' || /watermark/i.test(parsed.pathname) || /watermark/i.test(parsed.search),
+      isSigned: hasSignedMediaHints(parsed),
       mimeType,
       codec: inferCodecFromPath(parsed.pathname),
     };
@@ -141,6 +181,7 @@ function getDirectQualityScore(url) {
 
   return {
     nonWatermark: facts.hasWatermark ? 0 : 1,
+    signedPreference: facts.isSigned ? 1 : 0,
     area: facts.area,
     br: facts.br,
     bt: facts.bt,
@@ -156,6 +197,9 @@ function compareDirectQuality(leftUrl, rightUrl) {
 
   if (left.nonWatermark !== right.nonWatermark) {
     return right.nonWatermark - left.nonWatermark;
+  }
+  if (left.signedPreference !== right.signedPreference) {
+    return right.signedPreference - left.signedPreference;
   }
   if (left.area !== right.area) {
     return right.area - left.area;
@@ -251,7 +295,9 @@ function pickMediaUrl(urls) {
   return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls };
 }
 
-async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
+async function extractFromTweet(tweetUrl, { pageFactory, telemetryContext } = {}) {
+  const contextMeta = telemetryContext && typeof telemetryContext === 'object' ? telemetryContext : {};
+  const startedAt = Date.now();
   if (!isSupportedPostUrl(tweetUrl)) {
     throw new Error('Invalid post URL');
   }
@@ -262,18 +308,54 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
 
   const page = await pageFactory();
   let shouldClosePage = true;
+  logger.info('extractor.request.started', {
+    ...contextMeta,
+    tweetUrl,
+  });
 
   try {
     if (typeof page.goto === 'function') {
+      const gotoStartedAt = Date.now();
       await page.goto(tweetUrl);
+      logger.info('extractor.page.goto.completed', {
+        ...contextMeta,
+        tweetUrl,
+        durationMs: Date.now() - gotoStartedAt,
+      });
     }
 
+    const mediaStartedAt = Date.now();
     const mediaUrls = typeof page.collectMediaUrls === 'function' ? await page.collectMediaUrls() : [];
+    logger.info('extractor.collect.media_urls.completed', {
+      ...contextMeta,
+      tweetUrl,
+      durationMs: Date.now() - mediaStartedAt,
+      mediaUrlCount: Array.isArray(mediaUrls) ? mediaUrls.length : 0,
+    });
+    const imageStartedAt = Date.now();
     const imageUrls = typeof page.collectImageUrls === 'function' ? await page.collectImageUrls() : [];
+    logger.info('extractor.collect.image_urls.completed', {
+      ...contextMeta,
+      tweetUrl,
+      durationMs: Date.now() - imageStartedAt,
+      imageUrlCount: Array.isArray(imageUrls) ? imageUrls.length : 0,
+    });
+    const metadataStartedAt = Date.now();
     const metadata = typeof page.collectPostMetadata === 'function' ? await page.collectPostMetadata() : {};
+    logger.info('extractor.collect.metadata.completed', {
+      ...contextMeta,
+      tweetUrl,
+      durationMs: Date.now() - metadataStartedAt,
+      metadataKeys: metadata && typeof metadata === 'object' ? Object.keys(metadata) : [],
+    });
     const { mediaUrl, sourceType, candidateUrls } = pickMediaUrl(mediaUrls);
 
     if (!mediaUrl) {
+      logger.error('extractor.pick_media.failed', {
+        ...contextMeta,
+        tweetUrl,
+        mediaUrlCount: Array.isArray(mediaUrls) ? mediaUrls.length : 0,
+      });
       throw new Error('No media URL extracted from post');
     }
 
@@ -283,6 +365,15 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
       ...getMediaCandidateFacts(candidateUrl),
     }));
     const safeMetadata = metadata && typeof metadata === 'object' ? metadata : {};
+    logger.info('extractor.request.completed', {
+      ...contextMeta,
+      tweetUrl,
+      selectedMediaUrl: mediaUrl,
+      sourceType,
+      candidateCount: candidateSummaries.length,
+      imageCount: Array.isArray(imageUrls) ? imageUrls.length : 0,
+      durationMs: Date.now() - startedAt,
+    });
 
     return {
       mediaUrl,
@@ -299,14 +390,39 @@ async function extractFromTweet(tweetUrl, { pageFactory } = {}) {
       },
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     if (isAccessChallengeError(error)) {
       // Keep the browser tab open for manual challenge/login completion.
       shouldClosePage = false;
+      logger.error('extractor.access_challenge', {
+        ...contextMeta,
+        tweetUrl,
+        message,
+        durationMs: Date.now() - startedAt,
+      });
+    } else {
+      logger.error('extractor.request.failed', {
+        ...contextMeta,
+        tweetUrl,
+        message,
+        durationMs: Date.now() - startedAt,
+      });
     }
     throw error;
   } finally {
     if (shouldClosePage && page && typeof page.close === 'function') {
       await page.close();
+      logger.info('extractor.page.closed', {
+        ...contextMeta,
+        tweetUrl,
+        durationMs: Date.now() - startedAt,
+      });
+    } else {
+      logger.info('extractor.page.kept_open', {
+        ...contextMeta,
+        tweetUrl,
+        durationMs: Date.now() - startedAt,
+      });
     }
   }
 }
