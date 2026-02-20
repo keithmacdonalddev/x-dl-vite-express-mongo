@@ -103,37 +103,25 @@ cd server && npm install
 | `client/src/App.css` | Global styles |
 | `client/vite.config.js` | Vite config with `/api` proxy to :4000 |
 
-### Server
+### Server (Domain Architecture)
 
+The server is organized into 5 autonomous domains. Each domain has its own `CLAUDE.md` with detailed file inventories, dependency maps, and interface contracts. See `server/CLAUDE.md` for the hub document.
+
+| Domain | Path | CLAUDE.md | Purpose |
+|--------|------|-----------|---------|
+| **API** | `server/src/api/` | [api/CLAUDE.md](server/src/api/CLAUDE.md) | Express route handlers (jobs, contacts, retry, status, worker-health) |
+| **Worker** | `server/src/worker/` | [worker/CLAUDE.md](server/src/worker/CLAUDE.md) | Background job processing (queue, process-job, recovery) |
+| **Services** | `server/src/services/` | [services/CLAUDE.md](server/src/services/CLAUDE.md) | Playwright extraction + media download |
+| **Platforms** | `server/src/platforms/` | [platforms/CLAUDE.md](server/src/platforms/CLAUDE.md) | Platform definitions (X, TikTok) |
+| **Core** | `server/src/core/` | [core/CLAUDE.md](server/src/core/CLAUDE.md) | Foundation: config, models, runtime, middleware, lib, utils, dispatch |
+
+Key server entry points:
 | File | Purpose |
 |------|---------|
-| `server/src/index.js` | Entry point: MongoDB connect, HTTP listen, queue start, graceful shutdown |
-| `server/src/app.js` | Express app: middleware, routes, telemetry SSE, static downloads |
-| `server/src/models/job.js` | Mongoose Job schema (statuses, paths, metadata, timestamps) |
-| `server/src/constants/job-status.js` | `JOB_STATUSES` and `SOURCE_TYPES` enums |
-| `server/src/routes/jobs.js` | CRUD: list, get, create, update, delete, bulk-delete |
-| `server/src/routes/contacts.js` | Contact aggregation routes |
-| `server/src/routes/retry.js` | Job retry endpoint |
-| `server/src/routes/status.js` | Job status transition endpoint |
-| `server/src/routes/helpers/route-utils.js` | Shared route helpers (sendError, file deletion, validation) |
-| `server/src/worker/queue.js` | Queue worker: 1s interval, atomic job claim |
-| `server/src/worker/process-job.js` | Job processing: extract → pick media → download → save |
-| `server/src/worker/recovery.js` | Recover stale `running` jobs after server restart |
-| `server/src/services/extractor-service.js` | Playwright-based media URL extraction |
-| `server/src/services/downloader-service.js` | Direct fetch + ffmpeg HLS download |
-| `server/src/services/playwright-adapter.js` | Singleton persistent Chromium context |
-| `server/src/platforms/registry.js` | Platform registry (X, TikTok) with host resolution |
-| `server/src/platforms/x/index.js` | X (Twitter) platform definition |
-| `server/src/platforms/tiktok/index.js` | TikTok platform definition |
-| `server/src/config/env.js` | `getServerConfig()` — port, mongoUri |
-| `server/src/config/platform-capabilities.js` | Runtime enable/disable per platform |
-| `server/src/lib/logger.js` | Structured logger (publishes to telemetry ring buffer) |
-| `server/src/lib/telemetry.js` | In-memory ring buffer + SSE pub/sub |
-| `server/src/lib/error-codes.js` | Standardized error code constants |
-| `server/src/utils/validation.js` | URL validation, `isTweetUrl`, `getPostUrlInfo` |
-| `server/src/utils/account-profile.js` | Account slug derivation, path normalization |
-| `server/src/middleware/request-limits.js` | CORS, JSON body parser, URL length enforcement |
-| `server/src/domain/job-transitions.js` | Valid state transition definitions |
+| `server/src/core/runtime/entrypoints/index.js` | Main entry point: combined/split runtime |
+| `server/src/core/runtime/entrypoints/app.js` | Express app: middleware, routes, telemetry SSE |
+| `server/src/core/runtime/entrypoints/start-api.js` | Split-mode API entry |
+| `server/src/core/runtime/entrypoints/start-worker.js` | Split-mode Worker entry |
 
 ## Commands
 
@@ -149,7 +137,7 @@ npm run dev:server             # Nodemon on :4000
 npm run build                  # Vite production build (client only)
 
 # Production
-npm start                      # node server/src/index.js
+npm start                      # node server/src/core/runtime/entrypoints/index.js
 
 # Linting
 npm run lint                   # ESLint (client only)
@@ -226,8 +214,8 @@ UUID generated per HTTP request → stored on Job document → flows through wor
 
 ### Platform Registry
 Pluggable platform system. To add a new platform:
-1. Create `server/src/platforms/<name>/index.js` (follow X/TikTok template)
-2. Register in `server/src/platforms/registry.js`
+1. Create `server/src/platforms/<name>/index.js` (follow X/TikTok template) -- via /platforms-work skill
+2. Register in `server/src/core/platforms/registry.js` -- via /core-work skill
 3. Add `ENABLE_<NAME>=true` to `server/.env.example`
 4. Add hosts to client intake classifier (`client/src/features/intake/useIntake.js`)
 
@@ -268,19 +256,28 @@ Copy `server/.env.example` to `server/.env`:
 | `PLAYWRIGHT_MANUAL_SOLVE_POLL_MS` | 1000 | Poll interval during manual solve |
 | `FFMPEG_PATH` | (empty) | Custom ffmpeg binary path (empty = system PATH) |
 
-## File Ownership (Agent Teams)
+## Domain Ownership (Agent Teams)
 
-Avoid conflicts when using agent teams:
+### Server Domains (Strict Boundaries)
 
-- `server/src/app.js` + `server/src/index.js` → Backend teammate
-- `server/src/routes/**` → Routes teammate
-- `server/src/worker/**` + `server/src/services/**` → Worker/pipeline teammate
-- `server/src/platforms/**` → Platform teammate
+Each server domain is owned by a dedicated steward agent with exclusive write access. No agent outside the domain team may create, modify, or delete files in that domain's directory. Changes must go through the domain's skill gate.
+
+| Domain | Directory | Steward | Skill |
+|--------|-----------|---------|-------|
+| API | `server/src/api/**` | api-steward | /api-work |
+| Worker | `server/src/worker/**` | worker-steward | /worker-work |
+| Services | `server/src/services/**` | services-steward | /services-work |
+| Platforms | `server/src/platforms/**` | platforms-steward | /platforms-work |
+| Core | `server/src/core/**` | core-steward | /core-work |
+
+Cross-domain changes require notification to the consuming domain's steward. Interface changes require acknowledgment before merging.
+
+### Client (File-Level Ownership)
+
 - `client/src/App.jsx` + `client/src/App.css` → Client shell teammate
 - `client/src/features/**` → Features teammate
 - `client/src/components/**` → Components teammate
 - `client/src/hooks/**` + `client/src/api/**` → Data layer teammate
-- `server/src/models/**` → Shared (coordinate with routes + worker teammates)
 
 ## Important Notes
 
@@ -338,4 +335,8 @@ Types: `add` (new feature), `update` (enhance existing), `fix` (bug fix), `refac
 
 ## Reference Documentation
 
-For detailed patterns and rules, see `.claude/rules/` directory (if present).
+- **Rules**: `.claude/rules/` -- coding rules, agent teams, guardrails, confidence checklists, design system, intent enforcement
+- **Domain CLAUDE.md files**: Each `server/src/<domain>/CLAUDE.md` contains the authoritative file inventory, dependency map, interface contract, and coding rules for that domain
+- **Agent stewards**: `.claude/agents/<domain>-steward.md` -- agent definitions with boundary enforcement
+- **Domain skills**: `.claude/skills/<domain>-work/SKILL.md` -- procedural skill gates for domain access
+- **Memory**: `.claude/memory/` -- architecture decisions, team playbooks, common mistakes

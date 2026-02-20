@@ -42,18 +42,44 @@ Task-specific completion criteria:
 
 Never assign two teammates to the same file. Conflicts cause overwrites.
 
-File ownership map:
-- client/src/App.jsx → App teammate
-- client/src/components/** → Frontend teammate
-- client/src/features/** → Feature teammate
-- client/src/App.css → Styles teammate
-- server/src/routes/** → API teammate
-- server/src/services/** → Service teammate
-- server/src/worker/** → Worker teammate
-- server/src/app.js → Server app teammate
-- server/src/models/** → Model teammate (shared — coordinate with Routes + Worker)
-- server/src/platforms/** → Platform teammate
-- server/src/middleware/** → Middleware teammate
+### Server Domains (Strict Boundaries)
+
+Server code is organized into 5 autonomous domains with exclusive ownership. Each domain has a steward agent, a skill gate, and a CLAUDE.md with authoritative documentation. No agent outside the domain team may touch files in another domain's directory.
+
+| Domain | Directory | Steward | Skill Gate | CLAUDE.md |
+|--------|-----------|---------|------------|-----------|
+| API | `server/src/api/**` | api-steward | /api-work | `server/src/api/CLAUDE.md` |
+| Worker | `server/src/worker/**` | worker-steward | /worker-work | `server/src/worker/CLAUDE.md` |
+| Services | `server/src/services/**` | services-steward | /services-work | `server/src/services/CLAUDE.md` |
+| Platforms | `server/src/platforms/**` | platforms-steward | /platforms-work | `server/src/platforms/CLAUDE.md` |
+| Core | `server/src/core/**` | core-steward | /core-work | `server/src/core/CLAUDE.md` |
+
+### Client (File-Level Ownership)
+
+Client has no domain architecture yet. Use file-level ownership:
+
+- client/src/App.jsx + client/src/App.css -> Client shell teammate
+- client/src/components/** -> Frontend teammate
+- client/src/features/** -> Feature teammate
+- client/src/hooks/** + client/src/api/** -> Data layer teammate
+
+### Cross-Domain Change Protocol
+
+When a change in one domain affects another domain's interface:
+
+1. **Identify affected consumers** -- read the "Consumers" section of your domain's CLAUDE.md
+2. **Notify steward** -- message the consuming domain's steward agent BEFORE making the change
+3. **Get acknowledgment** -- steward must confirm the change is compatible or request adjustments
+4. **Update both CLAUDE.md files** -- both the producing and consuming domain docs must reflect the change
+5. **Never bypass** -- even "small" changes to exports, response shapes, or model fields require notification
+
+### Domain Team Rules
+
+- Each domain team operates independently within its boundary
+- The domain's CLAUDE.md is the single source of truth for file inventory, dependencies, and contracts
+- The domain's skill gate (/api-work, /worker-work, etc.) must be invoked for any file changes
+- Cross-domain questions, explorations, and contributions must go through the domain steward
+- After any change, the steward updates the domain CLAUDE.md
 
 ## Platform Limitations
 
