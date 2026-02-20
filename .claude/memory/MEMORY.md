@@ -20,6 +20,8 @@ Each domain has:
 
 Key rule: No agent outside a domain's team may modify files in that domain's directory. Cross-domain interface changes require steward notification and acknowledgment.
 
+PM dispatch enforcement: The PM hook (`pm-rules.sh`) and guardrails both require the PM to route any server modification work to the correct domain steward agent (api-steward, worker-steward, services-steward, platforms-steward, or core-steward). Generic agents are never allowed to modify server/src/ files. Cross-domain tasks use a team with one steward per affected domain. Read-only agents may read any file.
+
 Dependency flow: Platforms -> Core -> API, Worker, Services. Worker also imports Services.
 
 ### Runtime Split (2026-02-20)

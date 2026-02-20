@@ -34,6 +34,15 @@
 19. Test the user's actual click path (click buttons, fill forms) — NOT just eval commands
 20. If feature requires Playwright worker, ensure worker process is running
 
+## Domain Dispatch
+
+21. BEFORE spawning any agent that modifies server/ files, identify the target domain
+22. Route to the correct steward agent: api-steward, worker-steward, services-steward, platforms-steward, or core-steward
+23. Cross-domain work MUST use a team with one steward per affected domain
+24. NEVER spawn a generic agent to modify server/src/ files — always use the domain steward
+25. Read-only agents (exploration, review, audit) may read any file across domains
+26. If unsure which domain a file belongs to, check server/CLAUDE.md for the domain map
+
 ## Pre-Flight Checklist (Run BEFORE Any Agent-Browser Test)
 
 Run these commands IN ORDER. If ANY step fails, STOP and fix before proceeding:
