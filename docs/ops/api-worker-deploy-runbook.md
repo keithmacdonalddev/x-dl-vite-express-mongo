@@ -12,7 +12,7 @@ the target split configuration once Tasks 2–5 are merged.
 | API only | `api` | Express HTTP server only — no queue polling |
 | Worker only | `worker` | Queue worker only — no HTTP server |
 
-> **Note:** There is no `ROLE=combined` value. Combined mode is selected by leaving `ROLE` unset (or absent from the environment). Setting `ROLE` to any unrecognised string falls back to combined mode.
+> **Note:** There is no required `ROLE=combined` value for normal operation. Combined mode is selected by leaving `ROLE` unset (or absent from the environment). If you explicitly set `ROLE=combined`, current runtime treats it as combined mode.
 
 ## Startup Commands
 
@@ -100,7 +100,7 @@ is not processing.
 ## Rollback
 
 To revert to combined mode:
-1. Unset `ROLE` env var (remove it entirely — do NOT set it to `combined`).
+1. Unset `ROLE` env var (recommended), or set `ROLE=combined`.
 2. Restart the process.
 3. Both API and worker start in the same process — no coordination needed.
 

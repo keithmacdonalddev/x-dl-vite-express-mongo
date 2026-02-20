@@ -30,3 +30,21 @@ npm --prefix server exec node -- --test server/test/config/runtime-role.test.js
 - No test framework dependency — uses `node:test` and `node:assert/strict` (built-in since Node 18)
 - Tests verify module contracts (existence, exports, config shape) rather than spawning child processes
 - Integration tests (full process lifecycle) are deferred — see `docs/plans/` for future work
+
+## 2026-02-19 Split Remediation Verification
+
+Automated verification gate passed with the following commands:
+
+1. `npm run check`
+2. `npm run check:boundaries`
+3. `node --test scripts/test/check-module-boundaries.test.mjs`
+4. `npm --prefix server exec node -- --test server/test/config/runtime-role.test.js`
+5. `npm --prefix server exec node -- --test server/test/runtime/runtime-lifecycle.test.js`
+6. `npm --prefix server exec node -- --test server/test/runtime/entrypoint-contract.test.js`
+7. `npm --prefix server exec node -- --test server/test/lib/telemetry-contract.test.js`
+8. `npm --prefix server exec node -- --test server/test/routes/telemetry-stream.test.js`
+9. `npm --prefix server exec node -- --test server/test/routes/worker-health.test.js`
+
+Manual split smoke test status:
+
+- Not yet recorded in this file. Run API + worker + client in split mode and verify worker health + telemetry stream behavior end-to-end.

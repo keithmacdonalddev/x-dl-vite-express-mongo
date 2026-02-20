@@ -2,10 +2,10 @@
 
 ## 2026-02-18
 
-- Status: Resolved (docs fix)
-- Title: `ROLE=combined` was documented as a valid env value — it is not
-- Details: Combined mode is triggered by leaving `ROLE` unset. There is no `combined` string value. The runbook previously listed `ROLE=combined` in the modes table and rollback section.
-- Fix: Runbook updated to say "unset" only. Rollback section now explicitly says "do NOT set it to `combined`".
+- Status: Resolved (runtime + docs)
+- Title: `ROLE=combined` runtime/docs mismatch
+- Details: Docs and runtime disagreed on whether explicit `ROLE=combined` should be accepted.
+- Fix: Runtime now accepts `ROLE=combined` explicitly, while preserving the default behavior where combined mode also works when `ROLE` is unset. Runbook note updated to match.
 
 - Status: Resolved (docs fix)
 - Title: `/api/health` response shape in runbook was wrong
@@ -37,12 +37,13 @@
   - add auth/role checks before allowing flag mutation in production
 
 - Status: Open
-- Title: Telemetry stream is in-memory only and unauthenticated
-- Details: `/api/telemetry` and `/api/telemetry/stream` keep event history in process memory (`TELEMETRY_HISTORY_LIMIT`) and are currently open to any client with API access.
-- Impact: Debug visibility is strong for local/dev, but events reset on restart and should be secured before internet-exposed deployments.
+- Title: Telemetry endpoints are unauthenticated; persistence is now configurable
+- Details: `/api/telemetry` and `/api/telemetry/stream` remain open to any API client. Telemetry persistence now supports `TELEMETRY_SINK=mongo` (alias `mongodb`) for cross-process history/streaming, but retention/security controls are still minimal.
+- Impact: Split-runtime visibility is improved, but production deployments still need auth and tighter data-governance controls.
 - Suggested follow-up:
   - enforce auth/role checks for telemetry endpoints
-  - add optional persisted telemetry sink (file/db) for post-restart auditing
+  - define retention policy and caps for `TelemetryEvent` collection beyond TTL default
+  - add redaction rules for sensitive fields in telemetry metadata
 
 - Status: Open
 - Title: X extraction depends on manual challenge/login completion in persistent browser profile
