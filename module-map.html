@@ -16,7 +16,7 @@
 html{font-size:14px}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;line-height:1.5;overflow-x:hidden}
 
-/* ── Header ─────────────────────────── */
+/* -- Header ----------------------------- */
 .header{padding:20px 28px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;max-width:1440px;margin:0 auto}
 .header h1{font-size:1.4rem;font-weight:700;color:var(--text-bright);display:flex;align-items:center;gap:10px}
 .header h1 .icon{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:grid;place-items:center;font-size:14px;color:#fff;font-weight:700}
@@ -25,41 +25,41 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .stat-val{font-size:1.15rem;font-weight:700;color:var(--text-bright)}
 .stat-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim)}
 
-/* ── Tabs ───────────────────────────── */
+/* -- Tabs ------------------------------- */
 .tabs{display:flex;gap:4px;padding:14px 28px 0;max-width:1440px;margin:0 auto;flex-wrap:wrap}
 .tab{background:var(--bg2);color:var(--text-dim);border:1px solid var(--border);padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all var(--transition);display:flex;align-items:center;gap:6px;user-select:none;border-bottom:2px solid transparent}
 .tab:hover{background:var(--bg3);color:var(--text)}
 .tab.active{background:var(--bg);color:var(--text-bright);border-color:var(--bg4);border-bottom-color:var(--bg);position:relative;z-index:2}
 .tab .tab-icon{font-size:1rem}
 
-/* ── Scope Bar ─────────────────────── */
+/* -- Scope Bar -------------------------- */
 .scope-bar{display:flex;gap:4px;padding:10px 28px;max-width:1440px;margin:0 auto;background:var(--bg2);border-bottom:1px solid var(--border)}
 .scope-btn{background:var(--bg);color:var(--text-dim);border:1px solid var(--border);padding:6px 18px;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:600;transition:all var(--transition);user-select:none}
 .scope-btn:hover{background:var(--bg3);color:var(--text)}
 .scope-btn.active{background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(59,130,246,0.3)}
 
-/* ── View container ─────────────────── */
+/* -- View container --------------------- */
 .view-wrap{max-width:1440px;margin:0 auto;border-top:1px solid var(--bg4);min-height:calc(100vh - 190px);position:relative}
 .view{display:none;padding:20px 28px 40px;animation:fadeIn 300ms ease}
 .view.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .view-subtitle{font-size:0.82rem;color:var(--text-dim);margin-bottom:16px;font-style:italic}
 
-/* ── Legend strip ───────────────────── */
+/* -- Legend strip ----------------------- */
 .legend-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding:10px 14px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
 .legend-strip-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--bg4);font-weight:700;width:100%;margin-bottom:4px}
 .legend-chip{display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);cursor:default;padding:2px 8px;border-radius:20px;transition:all var(--transition);border:1px solid transparent}
 .legend-chip:hover{background:rgba(255,255,255,0.06);color:var(--text)}
 .legend-chip .lc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
-/* ── Tooltip ────────────────────────── */
+/* -- Tooltip ---------------------------- */
 .tooltip{position:fixed;pointer-events:none;z-index:9999;background:#1a1e2e;border:1px solid var(--bg4);border-radius:var(--radius);padding:8px 12px;max-width:340px;font-size:0.78rem;line-height:1.45;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,0.5);opacity:0;transition:opacity 150ms ease}
 .tooltip.visible{opacity:1}
 .tooltip .tt-path{color:var(--text-dim);font-size:0.7rem;margin-bottom:3px;font-family:'Cascadia Code','Fira Code',monospace}
 .tooltip .tt-mod{display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:600;color:#fff;margin-bottom:3px}
 .tooltip .tt-desc{color:var(--text)}
 
-/* ── Zoom Viewport (shared) ─────────── */
+/* -- Zoom Viewport (shared) ------------- */
 .zoom-viewport{position:relative;overflow:hidden;max-height:calc(100vh - 240px);border:1px solid var(--border);border-radius:var(--radius);cursor:grab;user-select:none;background:#0c1322}
 .zoom-viewport.is-dragging{cursor:grabbing}
 .zoom-viewport svg{width:100%;height:auto;transform-origin:0 0;pointer-events:all}
@@ -69,30 +69,30 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .zoom-controls button:active{background:var(--bg4)}
 .zoom-controls .zoom-pct{color:var(--text-dim);font-size:0.72rem;font-weight:600;min-width:42px;text-align:center;padding:0 4px;user-select:none}
 
-/* ── View 1: Top-Down ────────────────── */
+/* -- View 1: Top-Down ------------------- */
 .td-node{cursor:pointer;transition:filter 200ms}
 .td-node:hover{filter:brightness(1.2)}
 .td-arrow{fill:none;stroke:var(--bg4);stroke-width:1.5;marker-end:url(#arrowhead)}
 .td-label{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-bright);font-size:11px;font-weight:600;text-anchor:middle;pointer-events:none}
 .td-sublabel{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-dim);font-size:9px;text-anchor:middle;pointer-events:none}
 
-/* ── View 3: Sunburst ────────────────── */
+/* -- View 3: Sunburst ------------------- */
 .sb-viewport{display:flex;justify-content:center;align-items:center;min-height:500px}
 .sb-viewport svg{max-width:700px;max-height:700px}
 .sb-arc{cursor:pointer;transition:opacity 200ms}
 .sb-arc:hover{opacity:0.8}
 
-/* ── View 4: Bubble Map ──────────────── */
+/* -- View 4: Bubble Map ----------------- */
 .bub-circle{cursor:pointer;transition:opacity 200ms}
 .bub-circle:hover{opacity:0.85}
 .bub-label{font-family:'Segoe UI',system-ui,sans-serif;fill:var(--text-bright);font-weight:600;text-anchor:middle;pointer-events:none}
 
-/* ── View 5: Dependency Flow ─────────── */
+/* -- View 5: Dependency Flow ------------ */
 .dep-node{cursor:pointer;transition:filter 200ms}
 .dep-node:hover{filter:brightness(1.15)}
 .dep-edge{fill:none;stroke-width:1.2;opacity:0.5}
 
-/* ── View 6: Grid Matrix ────────────── */
+/* -- View 6: Grid Matrix ---------------- */
 .grid-table{width:100%;border-collapse:collapse;font-size:0.78rem}
 .grid-table th,.grid-table td{padding:8px 12px;border:1px solid var(--border);text-align:left}
 .grid-table th{background:var(--bg2);color:var(--text-bright);font-weight:700;text-transform:uppercase;font-size:0.68rem;letter-spacing:0.06em;position:sticky;top:0;z-index:2}
@@ -102,7 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .grid-file{display:inline-block;padding:2px 6px;margin:1px 2px;border-radius:4px;font-size:0.7rem;font-family:'Cascadia Code','Fira Code',monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);cursor:default;transition:all 150ms}
 .grid-file:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.15)}
 
-/* ── View 7: Architecture Layers ────── */
+/* -- View 7: Architecture Layers -------- */
 .arch-layer{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;transition:all var(--transition)}
 .arch-layer-header{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none}
 .arch-layer-header:hover{background:rgba(255,255,255,0.03)}
@@ -114,7 +114,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .arch-file{font-size:0.72rem;font-family:'Cascadia Code','Fira Code',monospace;padding:3px 8px;border-radius:4px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);cursor:default;transition:all 150ms}
 .arch-file:hover{background:rgba(255,255,255,0.1)}
 
-/* ── View 8: File Tree ──────────────── */
+/* -- View 8: File Tree ------------------ */
 .ftree{font-family:'Cascadia Code','Fira Code',monospace;font-size:0.78rem;line-height:1.7;white-space:pre;overflow-x:auto;padding:10px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);max-height:calc(100vh - 280px);overflow-y:auto}
 .ftree-line{display:flex;align-items:center;gap:0}
 .ftree-indent{color:var(--bg4);flex-shrink:0;white-space:pre}
@@ -125,18 +125,18 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .ftree-annotation{color:var(--text-dim);margin-left:12px;font-size:0.7rem;font-family:'Segoe UI',system-ui,sans-serif;font-style:italic}
 .ftree-team-tag{display:inline-block;padding:0 5px;border-radius:3px;font-size:0.62rem;font-weight:600;color:#fff;margin-left:8px;font-family:'Segoe UI',system-ui,sans-serif}
 
-/* ── View 9: Mind Map ────────────────── */
+/* -- View 9: Mind Map ------------------- */
 .mm-node{cursor:pointer;transition:filter 200ms}
 .mm-node:hover{filter:brightness(1.15)}
 .mm-edge{fill:none;stroke-width:1.5;opacity:0.4}
 
-/* ── View 10: Network ────────────────── */
+/* -- View 10: Network ------------------- */
 .net-node{cursor:grab;transition:filter 200ms}
 .net-node:hover{filter:brightness(1.2)}
 .net-node.dragging{cursor:grabbing}
 .net-edge{stroke-width:1;opacity:0.3}
 
-/* ── View 11: Teams ──────────────────── */
+/* -- View 11: Teams --------------------- */
 .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
 .team-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;transition:all var(--transition);position:relative;overflow:hidden}
 .team-card:hover{border-color:var(--bg4);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
@@ -150,7 +150,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .team-card-file:hover{background:rgba(255,255,255,0.1)}
 .team-card-count{position:absolute;top:14px;right:16px;font-size:0.68rem;color:var(--text-dim);font-weight:600}
 
-/* ── Responsive ─────────────────────── */
+/* -- Responsive ------------------------- */
 @media(max-width:980px){
   .tabs{padding:10px 14px 0;gap:3px}
   .tab{padding:6px 10px;font-size:0.75rem}
@@ -181,9 +181,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 <div class="tooltip" id="tooltip"></div>
 
 <script>
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    DATA MODEL
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 const MODULES = {
   'api':        { label:'API Team',            color:'#f97316', side:'server', path:'server/src/api/' },
@@ -202,7 +202,7 @@ const MODULES = {
   'root':       { label:'Root',                color:'#9ca3af', side:'root',   path:'' },
 };
 
-/* ── File tree data ────────────────────────────────────── */
+/* -- File tree data -------------------------------------------- */
 const FILES = [
   // Root
   { path:'package.json', mod:'root', desc:'Root orchestration scripts' },
@@ -254,7 +254,7 @@ const FILES = [
   // Client Platforms
   { path:'client/src/platforms/index.js', mod:'client-plat', desc:'Client-side platform definitions' },
 
-  // ─── SERVER ───────────────────────────────────
+  // --- SERVER ---
 
   // API Team
   { path:'server/src/api/routes/jobs.js', mod:'api', desc:'CRUD for jobs' },
@@ -309,7 +309,7 @@ const FILES = [
   { path:'server/src/worker/recovery.js', mod:'worker', desc:'Recover stale running jobs on restart' },
 ];
 
-/* ── Dependency edges ──────────────────────────────── */
+/* -- Dependency edges ------------------------------------------ */
 const DEPS = [
   // Client internal
   { from:'shell', to:'pages', label:'renders' },
@@ -333,9 +333,9 @@ const DEPS = [
   { from:'api', to:'worker', label:'enqueues jobs', cross:true },
 ];
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    GLOBAL STATE
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 let currentScope = 'full';
 let currentView = 0;
@@ -355,9 +355,9 @@ const VIEWS = [
   { id:'teams',      label:'Teams',            icon:'\uD83D\uDC65' },
 ];
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    HELPERS
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function fileSide(f) {
   if (f.path.startsWith('server/')) return 'server';
@@ -401,6 +401,10 @@ function filesByMod(scope) {
 
 function basename(p) { return p.split('/').pop(); }
 
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function svgEl(tag, attrs) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
   if (attrs) Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
@@ -414,11 +418,41 @@ function htmlEl(tag, cls, html) {
   return el;
 }
 
-/* ── Tooltip ─────────────────────────── */
-const ttEl = document.getElementById('tooltip');
-function showTip(e, file) {
+/* -- Tooltip registry (avoids inline event handler quoting issues) -- */
+const _tipRegistry = {};
+let _tipSeq = 0;
+
+function regTip(htmlContent) {
+  const id = 't' + (++_tipSeq);
+  _tipRegistry[id] = htmlContent;
+  return id;
+}
+
+function regFileTip(file) {
   const m = MODULES[file.mod];
-  ttEl.innerHTML = `<div class="tt-path">${file.path}</div><span class="tt-mod" style="background:${m.color}">${m.label}</span><div class="tt-desc">${file.desc}</div>`;
+  const html = '<div class="tt-path">' + escHtml(file.path) + '</div>' +
+    '<span class="tt-mod" style="background:' + m.color + '">' + escHtml(m.label) + '</span>' +
+    '<div class="tt-desc">' + escHtml(file.desc) + '</div>';
+  return regTip(html);
+}
+
+function regRawTip(html) {
+  return regTip(html);
+}
+
+/* -- Tooltip display -------------------------------- */
+const ttEl = document.getElementById('tooltip');
+function showTipById(e, tipId) {
+  const html = _tipRegistry[tipId];
+  if (!html) return;
+  ttEl.innerHTML = html;
+  ttEl.classList.add('visible');
+  moveTip(e);
+}
+function showTip(e, file) {
+  if (!file) return;
+  const m = MODULES[file.mod];
+  ttEl.innerHTML = '<div class="tt-path">' + escHtml(file.path) + '</div><span class="tt-mod" style="background:' + m.color + '">' + escHtml(m.label) + '</span><div class="tt-desc">' + escHtml(file.desc) + '</div>';
   ttEl.classList.add('visible');
   moveTip(e);
 }
@@ -437,11 +471,34 @@ function moveTip(e) {
 function hideTip() { ttEl.classList.remove('visible'); }
 document.addEventListener('mousemove', e => { if (ttEl.classList.contains('visible')) moveTip(e); });
 
-/* ── Zoom+Pan helper ─────────────────── */
+/* -- Event delegation for data-tip attributes ----------- */
+document.addEventListener('mouseenter', function(e) {
+  const el = e.target.closest('[data-tip]');
+  if (el) showTipById(e, el.getAttribute('data-tip'));
+}, true);
+document.addEventListener('mouseleave', function(e) {
+  const el = e.target.closest('[data-tip]');
+  if (el) hideTip();
+}, true);
+
+/* -- Event delegation for data-file-path (file tooltips via FILES lookup) -- */
+document.addEventListener('mouseenter', function(e) {
+  const el = e.target.closest('[data-fpath]');
+  if (el) {
+    const f = FILES.find(ff => ff.path === el.getAttribute('data-fpath'));
+    if (f) showTip(e, f);
+  }
+}, true);
+document.addEventListener('mouseleave', function(e) {
+  const el = e.target.closest('[data-fpath]');
+  if (el) hideTip();
+}, true);
+
+/* -- Zoom+Pan helper -------------------------------- */
 function setupZoomPan(viewport, svgElement, pctEl) {
   let scale = 1, tx = 0, ty = 0, dragging = false, sx, sy, stx, sty;
   const update = () => {
-    svgElement.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+    svgElement.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
     if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
   };
   viewport.addEventListener('wheel', e => {
@@ -482,48 +539,48 @@ function setupZoomPan(viewport, svgElement, pctEl) {
   };
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    STATS BAR
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function updateStats() {
   const ff = filterFiles(currentScope);
   const mods = new Set(ff.map(f => f.mod));
   const bar = document.getElementById('stats-bar');
-  let html = `<div class="stat"><span class="stat-val">${ff.length}</span><span class="stat-label">Files</span></div>`;
-  html += `<div class="stat"><span class="stat-val">${mods.size}</span><span class="stat-label">Modules</span></div>`;
+  let html = '<div class="stat"><span class="stat-val">' + ff.length + '</span><span class="stat-label">Files</span></div>';
+  html += '<div class="stat"><span class="stat-val">' + mods.size + '</span><span class="stat-label">Modules</span></div>';
   if (currentScope === 'full') {
     const sc = ff.filter(f => fileSide(f) === 'client').length;
     const ss = ff.filter(f => fileSide(f) === 'server').length;
-    html += `<div class="stat"><span class="stat-val">${sc}</span><span class="stat-label">Client</span></div>`;
-    html += `<div class="stat"><span class="stat-val">${ss}</span><span class="stat-label">Server</span></div>`;
+    html += '<div class="stat"><span class="stat-val">' + sc + '</span><span class="stat-label">Client</span></div>';
+    html += '<div class="stat"><span class="stat-val">' + ss + '</span><span class="stat-label">Server</span></div>';
   }
   bar.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    LEGEND
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function buildLegend(scope) {
   const mods = filterModules(scope);
   let html = '<span class="legend-strip-title">Team / Module Ownership</span>';
   mods.forEach(([k, m]) => {
-    html += `<span class="legend-chip"><span class="lc-dot" style="background:${m.color}"></span>${m.label}</span>`;
+    html += '<span class="legend-chip"><span class="lc-dot" style="background:' + m.color + '"></span>' + escHtml(m.label) + '</span>';
   });
   return html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    TAB BAR + VIEW CONTAINERS
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function buildUI() {
   const tabBar = document.getElementById('tab-bar');
   const viewWrap = document.getElementById('view-wrap');
   VIEWS.forEach((v, i) => {
     const tab = htmlEl('div', 'tab' + (i === 0 ? ' active' : ''));
-    tab.innerHTML = `<span class="tab-icon">${v.icon}</span>${v.label}`;
+    tab.innerHTML = '<span class="tab-icon">' + v.icon + '</span>' + v.label;
     tab.addEventListener('click', () => switchView(i));
     tabBar.appendChild(tab);
 
@@ -546,8 +603,10 @@ function setScope(s) {
   currentScope = s;
   document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === s));
   updateStats();
-  // Force re-render
+  // Force re-render and clear tip registry
   Object.keys(viewRendered).forEach(k => viewRendered[k] = false);
+  _tipSeq = 0;
+  Object.keys(_tipRegistry).forEach(k => delete _tipRegistry[k]);
   renderView(currentView);
 }
 
@@ -559,9 +618,9 @@ function renderView(i) {
   renderers[i](currentScope);
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 1: TOP-DOWN
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderTopDown(scope) {
   const container = document.getElementById('view-topdown');
@@ -593,11 +652,11 @@ function renderTopDown(scope) {
   const H = layers.length * (nodeH + gap) + 40;
   const cx = W / 2;
 
-  let html = `<div class="view-subtitle">Vertical architecture flow \u2014 data flows top to bottom</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="zoom-viewport" id="td-vp" style="max-height:calc(100vh - 280px)">`;
-  html += `<svg id="td-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-  html += `<defs><marker id="arrowhead" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="8" markerHeight="6" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>`;
+  let html = '<div class="view-subtitle">Vertical architecture flow \u2014 data flows top to bottom</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="zoom-viewport" id="td-vp" style="max-height:calc(100vh - 280px)">';
+  html += '<svg id="td-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+  html += '<defs><marker id="arrowhead" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="8" markerHeight="6" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>';
 
   layers.forEach((l, i) => {
     const y = 20 + i * (nodeH + gap);
@@ -606,24 +665,26 @@ function renderTopDown(scope) {
     // Arrow from previous
     if (i > 0) {
       const py = 20 + (i - 1) * (nodeH + gap) + nodeH;
-      html += `<path class="td-arrow" d="M${cx},${py} L${cx},${y}" />`;
+      html += '<path class="td-arrow" d="M' + cx + ',' + py + ' L' + cx + ',' + y + '" />';
     }
 
     const isBoundary = l.id === 'boundary';
     const rx = isBoundary ? 0 : 10;
     const fillOp = isBoundary ? 0.15 : 0.12;
-    const strokeDash = isBoundary ? 'stroke-dasharray="6,4"' : '';
+    const strokeDash = isBoundary ? ' stroke-dasharray="6,4"' : '';
 
-    html += `<g class="td-node" data-layer="${l.id}" onmouseenter="showTipRaw(event,'<b>${l.label}</b><br>${l.sub}')" onmouseleave="hideTip()">`;
-    html += `<rect x="${x}" y="${y}" width="${nodeW}" height="${nodeH}" rx="${rx}" fill="${l.color}" fill-opacity="${fillOp}" stroke="${l.color}" stroke-width="1.5" ${strokeDash}/>`;
-    html += `<text class="td-label" x="${cx}" y="${y + 22}">${l.label}</text>`;
-    html += `<text class="td-sublabel" x="${cx}" y="${y + 38}">${l.sub}</text>`;
-    html += `</g>`;
+    const tipId = regTip('<b>' + escHtml(l.label) + '</b><br>' + escHtml(l.sub));
+
+    html += '<g class="td-node" data-layer="' + l.id + '" data-tip="' + tipId + '">';
+    html += '<rect x="' + x + '" y="' + y + '" width="' + nodeW + '" height="' + nodeH + '" rx="' + rx + '" fill="' + l.color + '" fill-opacity="' + fillOp + '" stroke="' + l.color + '" stroke-width="1.5"' + strokeDash + '/>';
+    html += '<text class="td-label" x="' + cx + '" y="' + (y + 22) + '">' + escHtml(l.label) + '</text>';
+    html += '<text class="td-sublabel" x="' + cx + '" y="' + (y + 38) + '">' + escHtml(l.sub) + '</text>';
+    html += '</g>';
   });
 
-  html += `</svg>`;
-  html += `<div class="zoom-controls"><button onclick="tdZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="td-pct">100%</span><button onclick="tdZoom.zoomIn()">+</button><button onclick="tdZoom.reset()" title="Reset">\u21BA</button></div>`;
-  html += `</div>`;
+  html += '</svg>';
+  html += '<div class="zoom-controls"><button onclick="tdZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="td-pct">100%</span><button onclick="tdZoom.zoomIn()">+</button><button onclick="tdZoom.reset()" title="Reset">\u21BA</button></div>';
+  html += '</div>';
 
   container.innerHTML = html;
 
@@ -635,16 +696,16 @@ function renderTopDown(scope) {
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 2: FILE MAP (SVG Node Graph)
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderFileMap(scope) {
   const container = document.getElementById('view-filemap');
   const ff = filterFiles(scope);
 
   // Build tree
-  const root = { name:'x-dl-vite-express-mongo', children:{}, _files:[] };
+  const root = { name:'x-dl-vite-express-mono', children:{}, _files:[] };
   ff.forEach(f => {
     const parts = f.path.split('/');
     let node = root;
@@ -661,44 +722,56 @@ function renderFileMap(scope) {
   const folderW = 180, folderH = 44, fileW = 160, fileH = 34;
   const hGap = 30, vGap = 90;
 
+  // Determine initial expand depth based on scope
+  // BUG 2 FIX: For scoped views, expand deeper so children are visible
+  // full: root(0) -> client/server(1) -> src(2) = depth < 3
+  // server: root(0) -> server(1) -> src(2) -> children(3) = depth < 4
+  // client: root(0) -> client(1) -> src(2) -> children(3) = depth < 4
+  var initialExpandDepth;
+  if (scope === 'full') {
+    initialExpandDepth = 3;
+  } else {
+    initialExpandDepth = 4;
+  }
+
   // Flatten for layout
   let nodeId = 0;
   const nodes = [];
   const edges = [];
-  const expandState = {};
 
-  function layoutTree(treeNode, depth, startDepth) {
+  function layoutTree(treeNode, depth) {
     const id = nodeId++;
     const isFolder = Object.keys(treeNode.children).length > 0 || treeNode._files.length > 0;
-    const expanded = depth < startDepth + 2;
+    const expanded = depth < initialExpandDepth;
     const w = isFolder ? folderW : fileW;
     const h = isFolder ? folderH : fileH;
     const mod = treeNode._files.length > 0 ? treeNode._files[0].mod : null;
-    const n = { id, name:treeNode.name, isFolder, w, h, x:0, y:depth * vGap, depth, children:[], mod, files:treeNode._files, expanded };
+    const n = { id:id, name:treeNode.name, isFolder:isFolder, w:w, h:h, x:0, y:depth * vGap, depth:depth, children:[], mod:mod, files:treeNode._files, expanded:expanded };
     nodes.push(n);
 
     if (expanded) {
-      const childKeys = Object.keys(treeNode.children);
-      const fileNodes = treeNode._files.map(f => {
-        const fid = nodeId++;
-        const fn = { id:fid, name:basename(f.path), isFolder:false, w:fileW, h:fileH, x:0, y:(depth+1)*vGap, depth:depth+1, children:[], mod:f.mod, files:[f], expanded:false };
+      // Child directories
+      var childKeys = Object.keys(treeNode.children);
+      childKeys.forEach(function(k) {
+        var child = layoutTree(treeNode.children[k], depth + 1);
+        edges.push({ from:id, to:child.id });
+        n.children.push(child);
+      });
+
+      // File leaf nodes
+      treeNode._files.forEach(function(f) {
+        var fid = nodeId++;
+        var fn = { id:fid, name:basename(f.path), isFolder:false, w:fileW, h:fileH, x:0, y:(depth+1)*vGap, depth:depth+1, children:[], mod:f.mod, files:[f], expanded:false };
         nodes.push(fn);
         edges.push({ from:id, to:fid });
         n.children.push(fn);
-        return fn;
-      });
-
-      childKeys.forEach(k => {
-        const child = layoutTree(treeNode.children[k], depth + 1, startDepth);
-        edges.push({ from:id, to:child.id });
-        n.children.push(child);
       });
     }
 
     return n;
   }
 
-  layoutTree(root, 0, 0);
+  layoutTree(root, 0);
 
   // Calculate widths bottom-up
   function calcWidth(n) {
@@ -740,43 +813,52 @@ function renderFileMap(scope) {
   const svgW = totalW + 60;
   const svgH = (maxDepth + 1) * vGap + 60;
 
-  let html = `<div class="view-subtitle">Top-down visual node graph \u2014 click folders to explore</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="zoom-viewport" id="fm-vp">`;
-  html += `<svg id="fm-svg" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">`;
+  let html = '<div class="view-subtitle">Top-down visual node graph \u2014 click folders to explore</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="zoom-viewport" id="fm-vp">';
+  html += '<svg id="fm-svg" viewBox="0 0 ' + svgW + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg">';
 
-  // Draw edges
-  edges.forEach(e => {
+  // BUG 3 FIX: Draw L-shaped stepped connector lines instead of bezier curves
+  edges.forEach(function(e) {
     const from = nodes.find(n => n.id === e.from);
     const to = nodes.find(n => n.id === e.to);
     if (!from || !to) return;
-    const x1 = from.x + from.w / 2, y1 = from.y + from.h;
-    const x2 = to.x + to.w / 2, y2 = to.y;
-    const my = (y1 + y2) / 2;
-    html += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}" fill="none" stroke="#475569" stroke-width="1.2" opacity="0.4"/>`;
+    const x1 = from.x + from.w / 2;
+    const y1 = from.y + from.h;
+    const x2 = to.x + to.w / 2;
+    const y2 = to.y;
+    const midY = (y1 + y2) / 2;
+    // L-shaped stepped connector: down from parent center-bottom, horizontal, then down to child center-top
+    const color = from.mod && MODULES[from.mod] ? MODULES[from.mod].color : '#64748b';
+    html += '<path d="M' + x1 + ',' + y1 + ' L' + x1 + ',' + midY + ' L' + x2 + ',' + midY + ' L' + x2 + ',' + y2 + '" fill="none" stroke="' + color + '" stroke-width="2" opacity="0.55"/>';
   });
 
   // Draw nodes
-  nodes.forEach(n => {
+  nodes.forEach(function(n) {
     const m = n.mod ? MODULES[n.mod] : null;
     const color = m ? m.color : '#64748b';
     const fillOp = n.isFolder ? 0.15 : 0.1;
     const rx = n.isFolder ? 8 : 6;
     const desc = n.files.length > 0 ? n.files[0].desc : (n.isFolder ? 'Folder' : '');
     const modLabel = m ? m.label : '';
-    const ttHtml = `<b>${n.name}</b>${modLabel ? '<br><span style="color:'+color+'">'+modLabel+'</span>' : ''}${desc ? '<br>'+desc : ''}`;
 
-    html += `<g class="td-node" onmouseenter="showTipRaw(event,\`${ttHtml.replace(/`/g,"'")}\`)" onmouseleave="hideTip()">`;
-    html += `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${rx}" fill="${color}" fill-opacity="${fillOp}" stroke="${color}" stroke-width="1"/>`;
-    const label = n.name.length > 20 ? n.name.substring(0, 18) + '..' : n.name;
-    const icon = n.isFolder ? '\uD83D\uDCC1 ' : '';
-    html += `<text x="${n.x + n.w/2}" y="${n.y + n.h/2 + 4}" text-anchor="middle" fill="${n.isFolder ? '#f8fafc' : '#e2e8f0'}" font-size="${n.isFolder ? 11 : 10}" font-weight="${n.isFolder ? 600 : 400}" font-family="'Segoe UI',system-ui,sans-serif">${icon}${label}</text>`;
-    html += `</g>`;
+    // BUG 1 FIX: Use data-tip registry instead of inline event handlers with problematic quoting
+    var tipHtml = '<b>' + escHtml(n.name) + '</b>';
+    if (modLabel) tipHtml += '<br><span style="color:' + color + '">' + escHtml(modLabel) + '</span>';
+    if (desc) tipHtml += '<br>' + escHtml(desc);
+    const tipId = regTip(tipHtml);
+
+    html += '<g class="td-node" data-tip="' + tipId + '">';
+    html += '<rect x="' + n.x + '" y="' + n.y + '" width="' + n.w + '" height="' + n.h + '" rx="' + rx + '" fill="' + color + '" fill-opacity="' + fillOp + '" stroke="' + color + '" stroke-width="1"/>';
+    var label = n.name.length > 20 ? n.name.substring(0, 18) + '..' : n.name;
+    var icon = n.isFolder ? '\uD83D\uDCC1 ' : '';
+    html += '<text x="' + (n.x + n.w/2) + '" y="' + (n.y + n.h/2 + 4) + '" text-anchor="middle" fill="' + (n.isFolder ? '#f8fafc' : '#e2e8f0') + '" font-size="' + (n.isFolder ? 11 : 10) + '" font-weight="' + (n.isFolder ? 600 : 400) + '" font-family="\'Segoe UI\',system-ui,sans-serif">' + icon + escHtml(label) + '</text>';
+    html += '</g>';
   });
 
-  html += `</svg>`;
-  html += `<div class="zoom-controls"><button onclick="fmZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="fm-pct">100%</span><button onclick="fmZoom.zoomIn()">+</button><button onclick="fmZoom.reset()" title="Reset">\u21BA</button></div>`;
-  html += `</div>`;
+  html += '</svg>';
+  html += '<div class="zoom-controls"><button onclick="fmZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="fm-pct">100%</span><button onclick="fmZoom.zoomIn()">+</button><button onclick="fmZoom.reset()" title="Reset">\u21BA</button></div>';
+  html += '</div>';
 
   container.innerHTML = html;
 
@@ -791,9 +873,9 @@ function renderFileMap(scope) {
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 3: SUNBURST
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderSunburst(scope) {
   const container = document.getElementById('view-sunburst');
@@ -845,9 +927,12 @@ function renderSunburst(scope) {
       const y2o = cy + outerR * Math.sin(endAngle);
       const largeArc = angleSpan > Math.PI ? 1 : 0;
 
-      const d = `M${x1i},${y1i} A${innerR},${innerR} 0 ${largeArc},1 ${x2i},${y2i} L${x2o},${y2o} A${outerR},${outerR} 0 ${largeArc},0 ${x1o},${y1o} Z`;
+      const d = 'M' + x1i + ',' + y1i + ' A' + innerR + ',' + innerR + ' 0 ' + largeArc + ',1 ' + x2i + ',' + y2i + ' L' + x2o + ',' + y2o + ' A' + outerR + ',' + outerR + ' 0 ' + largeArc + ',0 ' + x1o + ',' + y1o + ' Z';
       const modLabel = m ? m.label : '';
-      svgContent += `<path class="sb-arc" d="${d}" fill="${color}" fill-opacity="0.6" stroke="#0f172a" stroke-width="1" onmouseenter="showTipRaw(event,'<b>${node.name}</b>${modLabel ? '<br>'+modLabel : ''}')" onmouseleave="hideTip()"/>`;
+      var tipHtml = '<b>' + escHtml(node.name) + '</b>';
+      if (modLabel) tipHtml += '<br>' + escHtml(modLabel);
+      const tipId = regTip(tipHtml);
+      svgContent += '<path class="sb-arc" d="' + d + '" fill="' + color + '" fill-opacity="0.6" stroke="#0f172a" stroke-width="1" data-tip="' + tipId + '"/>';
     }
 
     // Children
@@ -866,19 +951,19 @@ function renderSunburst(scope) {
   drawArc(root, 0, 0, 2 * Math.PI);
 
   // Center label
-  svgContent += `<circle cx="${cx}" cy="${cy}" r="${minR}" fill="#0f172a"/>`;
-  svgContent += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Media Vault</text>`;
-  svgContent += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="'Segoe UI',system-ui,sans-serif">${ff.length} files</text>`;
+  svgContent += '<circle cx="' + cx + '" cy="' + cy + '" r="' + minR + '" fill="#0f172a"/>';
+  svgContent += '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="700" font-family="\'Segoe UI\',system-ui,sans-serif">Media Vault</text>';
+  svgContent += '<text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="\'Segoe UI\',system-ui,sans-serif">' + ff.length + ' files</text>';
 
-  let html = `<div class="view-subtitle">Concentric rings \u2014 center is root, depth increases outward</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="sb-viewport"><svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">${svgContent}</svg></div>`;
+  let html = '<div class="view-subtitle">Concentric rings \u2014 center is root, depth increases outward</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="sb-viewport"><svg viewBox="0 0 ' + size + ' ' + size + '" xmlns="http://www.w3.org/2000/svg">' + svgContent + '</svg></div>';
   container.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 4: BUBBLE MAP
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderBubble(scope) {
   const container = document.getElementById('view-bubble');
@@ -889,7 +974,7 @@ function renderBubble(scope) {
   const W = 800, H = 600;
   const bubbles = mods.map(([k, m]) => {
     const count = (byMod[k] || []).length;
-    return { id:k, label:m.label, color:m.color, count, r:Math.max(30, Math.sqrt(count) * 28) };
+    return { id:k, label:m.label, color:m.color, count:count, r:Math.max(30, Math.sqrt(count) * 28) };
   }).filter(b => b.count > 0);
 
   // Position with simple force
@@ -925,32 +1010,33 @@ function renderBubble(scope) {
 
   let svg = '';
   bubbles.forEach(b => {
-    svg += `<g class="bub-circle" onmouseenter="showTipRaw(event,'<b>${b.label}</b><br>${b.count} files')" onmouseleave="hideTip()">`;
-    svg += `<circle cx="${b.x}" cy="${b.y}" r="${b.r}" fill="${b.color}" fill-opacity="0.2" stroke="${b.color}" stroke-width="1.5"/>`;
+    const tipId = regTip('<b>' + escHtml(b.label) + '</b><br>' + b.count + ' files');
+    svg += '<g class="bub-circle" data-tip="' + tipId + '">';
+    svg += '<circle cx="' + b.x + '" cy="' + b.y + '" r="' + b.r + '" fill="' + b.color + '" fill-opacity="0.2" stroke="' + b.color + '" stroke-width="1.5"/>';
     const fontSize = Math.max(9, Math.min(13, b.r / 3));
-    svg += `<text class="bub-label" x="${b.x}" y="${b.y - 4}" font-size="${fontSize}">${b.label}</text>`;
-    svg += `<text x="${b.x}" y="${b.y + fontSize}" text-anchor="middle" fill="#94a3b8" font-size="${fontSize - 2}" font-family="'Segoe UI',system-ui,sans-serif">${b.count} files</text>`;
-    svg += `</g>`;
+    svg += '<text class="bub-label" x="' + b.x + '" y="' + (b.y - 4) + '" font-size="' + fontSize + '">' + escHtml(b.label) + '</text>';
+    svg += '<text x="' + b.x + '" y="' + (b.y + fontSize) + '" text-anchor="middle" fill="#94a3b8" font-size="' + (fontSize - 2) + '" font-family="\'Segoe UI\',system-ui,sans-serif">' + b.count + ' files</text>';
+    svg += '</g>';
   });
 
-  let html = `<div class="view-subtitle">Nested circles sized by file count per team</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="zoom-viewport" id="bub-vp"><svg id="bub-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
-  html += `<div class="zoom-controls"><button onclick="bubZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="bub-pct">100%</span><button onclick="bubZoom.zoomIn()">+</button><button onclick="bubZoom.reset()" title="Reset">\u21BA</button></div>`;
-  html += `</div>`;
+  let html = '<div class="view-subtitle">Nested circles sized by file count per team</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="zoom-viewport" id="bub-vp"><svg id="bub-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+  html += '<div class="zoom-controls"><button onclick="bubZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="bub-pct">100%</span><button onclick="bubZoom.zoomIn()">+</button><button onclick="bubZoom.reset()" title="Reset">\u21BA</button></div>';
+  html += '</div>';
   container.innerHTML = html;
 
   requestAnimationFrame(() => {
     const vp = document.getElementById('bub-vp');
-    const svg = document.getElementById('bub-svg');
+    const svgEl = document.getElementById('bub-svg');
     const pct = document.getElementById('bub-pct');
-    if (vp && svg) window.bubZoom = setupZoomPan(vp, svg, pct);
+    if (vp && svgEl) window.bubZoom = setupZoomPan(vp, svgEl, pct);
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 5: DEPENDENCY FLOW
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderDepFlow(scope) {
   const container = document.getElementById('view-depflow');
@@ -967,9 +1053,9 @@ function renderDepFlow(scope) {
   const positions = {};
   const colX = { client: 100, root: 430, server: 650 };
   const all = [
-    ...rootMods.map(([k]) => ({ k, col:'root' })),
-    ...clientMods.map(([k]) => ({ k, col:'client' })),
-    ...serverMods.map(([k]) => ({ k, col:'server' })),
+    ...rootMods.map(([k]) => ({ k:k, col:'root' })),
+    ...clientMods.map(([k]) => ({ k:k, col:'client' })),
+    ...serverMods.map(([k]) => ({ k:k, col:'server' })),
   ];
 
   // Group by column and distribute vertically
@@ -988,7 +1074,7 @@ function renderDepFlow(scope) {
   const maxY = Math.max(...Object.values(positions).map(p => p.y)) + nodeH + 40;
   const H = Math.max(500, maxY);
 
-  let svg = `<defs><marker id="dep-arrow" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="7" markerHeight="5" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>`;
+  let svg = '<defs><marker id="dep-arrow" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="7" markerHeight="5" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>';
 
   // Draw edges
   deps.forEach(d => {
@@ -998,8 +1084,9 @@ function renderDepFlow(scope) {
     const x2 = p2.x, y2 = p2.y + nodeH / 2;
     const mx = (x1 + x2) / 2;
     const color = d.cross ? '#f43f5e' : '#64748b';
-    const dash = d.cross ? 'stroke-dasharray="6,4"' : '';
-    svg += `<path class="dep-edge" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" stroke="${color}" ${dash} marker-end="url(#dep-arrow)" onmouseenter="showTipRaw(event,'${d.from} \u2192 ${d.to}<br>${d.label}')" onmouseleave="hideTip()"/>`;
+    const dash = d.cross ? ' stroke-dasharray="6,4"' : '';
+    const tipId = regTip(escHtml(d.from) + ' \u2192 ' + escHtml(d.to) + '<br>' + escHtml(d.label));
+    svg += '<path class="dep-edge" d="M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2 + '" stroke="' + color + '"' + dash + ' marker-end="url(#dep-arrow)" data-tip="' + tipId + '"/>';
   });
 
   // Draw nodes
@@ -1008,37 +1095,38 @@ function renderDepFlow(scope) {
     if (!p) return;
     const byMd = filesByMod(scope);
     const count = (byMd[k] || []).length;
-    svg += `<g class="dep-node" onmouseenter="showTipRaw(event,'<b>${m.label}</b><br>${m.path}<br>${count} files')" onmouseleave="hideTip()">`;
-    svg += `<rect x="${p.x}" y="${p.y}" width="${nodeW}" height="${nodeH}" rx="8" fill="${m.color}" fill-opacity="0.15" stroke="${m.color}" stroke-width="1.5"/>`;
-    svg += `<text x="${p.x + nodeW/2}" y="${p.y + nodeH/2 + 4}" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">${m.label}</text>`;
-    svg += `</g>`;
+    const tipId = regTip('<b>' + escHtml(m.label) + '</b><br>' + escHtml(m.path) + '<br>' + count + ' files');
+    svg += '<g class="dep-node" data-tip="' + tipId + '">';
+    svg += '<rect x="' + p.x + '" y="' + p.y + '" width="' + nodeW + '" height="' + nodeH + '" rx="8" fill="' + m.color + '" fill-opacity="0.15" stroke="' + m.color + '" stroke-width="1.5"/>';
+    svg += '<text x="' + (p.x + nodeW/2) + '" y="' + (p.y + nodeH/2 + 4) + '" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">' + escHtml(m.label) + '</text>';
+    svg += '</g>';
   });
 
   // Column headers
   if (scope === 'full') {
     [['CLIENT', colX.client + nodeW/2], ['SERVER', colX.server + nodeW/2]].forEach(([label, x]) => {
-      svg += `<text x="${x}" y="30" text-anchor="middle" fill="#64748b" font-size="11" font-weight="700" letter-spacing="0.1em" font-family="'Segoe UI',system-ui,sans-serif">${label}</text>`;
+      svg += '<text x="' + x + '" y="30" text-anchor="middle" fill="#64748b" font-size="11" font-weight="700" letter-spacing="0.1em" font-family="\'Segoe UI\',system-ui,sans-serif">' + label + '</text>';
     });
   }
 
-  let html = `<div class="view-subtitle">Left-to-right dependency flow \u2014 dashed lines cross the API boundary</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="zoom-viewport" id="dep-vp"><svg id="dep-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
-  html += `<div class="zoom-controls"><button onclick="depZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="dep-pct">100%</span><button onclick="depZoom.zoomIn()">+</button><button onclick="depZoom.reset()" title="Reset">\u21BA</button></div>`;
-  html += `</div>`;
+  let html = '<div class="view-subtitle">Left-to-right dependency flow \u2014 dashed lines cross the API boundary</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="zoom-viewport" id="dep-vp"><svg id="dep-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+  html += '<div class="zoom-controls"><button onclick="depZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="dep-pct">100%</span><button onclick="depZoom.zoomIn()">+</button><button onclick="depZoom.reset()" title="Reset">\u21BA</button></div>';
+  html += '</div>';
   container.innerHTML = html;
 
   requestAnimationFrame(() => {
     const vp = document.getElementById('dep-vp');
-    const svg = document.getElementById('dep-svg');
+    const svgEl = document.getElementById('dep-svg');
     const pct = document.getElementById('dep-pct');
-    if (vp && svg) window.depZoom = setupZoomPan(vp, svg, pct);
+    if (vp && svgEl) window.depZoom = setupZoomPan(vp, svgEl, pct);
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 6: GRID MATRIX
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderGrid(scope) {
   const container = document.getElementById('view-grid');
@@ -1057,35 +1145,35 @@ function renderGrid(scope) {
     return 'Logic / Services';
   }
 
-  let html = `<div class="view-subtitle">Teams crossed with architectural concerns</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div style="overflow-x:auto;max-height:calc(100vh - 280px);overflow-y:auto">`;
-  html += `<table class="grid-table"><thead><tr><th>Team</th>`;
-  concerns.forEach(c => html += `<th>${c}</th>`);
-  html += `</tr></thead><tbody>`;
+  let html = '<div class="view-subtitle">Teams crossed with architectural concerns</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div style="overflow-x:auto;max-height:calc(100vh - 280px);overflow-y:auto">';
+  html += '<table class="grid-table"><thead><tr><th>Team</th>';
+  concerns.forEach(c => html += '<th>' + c + '</th>');
+  html += '</tr></thead><tbody>';
 
   mods.forEach(([k, m]) => {
     const files = byMod[k] || [];
     if (files.length === 0) return;
-    html += `<tr><td><span class="grid-team"><span class="gt-dot" style="background:${m.color}"></span>${m.label}</span></td>`;
+    html += '<tr><td><span class="grid-team"><span class="gt-dot" style="background:' + m.color + '"></span>' + escHtml(m.label) + '</span></td>';
     concerns.forEach(c => {
       const cf = files.filter(f => classifyFile(f) === c);
-      html += `<td>`;
+      html += '<td>';
       cf.forEach(f => {
-        html += `<span class="grid-file" onmouseenter="showTip(event,FILES.find(ff=>ff.path==='${f.path}'))" onmouseleave="hideTip()">${basename(f.path)}</span>`;
+        html += '<span class="grid-file" data-fpath="' + escHtml(f.path) + '">' + escHtml(basename(f.path)) + '</span>';
       });
-      html += `</td>`;
+      html += '</td>';
     });
-    html += `</tr>`;
+    html += '</tr>';
   });
 
-  html += `</tbody></table></div>`;
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 7: ARCHITECTURE LAYERS
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderArchLayers(scope) {
   const container = document.getElementById('view-archlayers');
@@ -1114,29 +1202,29 @@ function renderArchLayers(scope) {
     });
   });
 
-  let html = `<div class="view-subtitle">Horizontal stacks \u2014 click to expand and see files</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
+  let html = '<div class="view-subtitle">Horizontal stacks \u2014 click to expand and see files</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
 
   layers.forEach((l, i) => {
     const files = l.mods.flatMap(mk => byMod[mk] || []);
     if (files.length === 0) return;
     const color = l.mods.length > 0 && MODULES[l.mods[0]] ? MODULES[l.mods[0]].color : '#64748b';
-    html += `<div class="arch-layer${i < 3 ? ' open' : ''}" onclick="this.classList.toggle('open')">`;
-    html += `<div class="arch-layer-header"><span class="arch-layer-dot" style="background:${color}"></span><span class="arch-layer-title">${l.label}</span><span class="arch-layer-desc">${l.desc} (${files.length} files)</span></div>`;
-    html += `<div class="arch-layer-body">`;
+    html += '<div class="arch-layer' + (i < 3 ? ' open' : '') + '" onclick="this.classList.toggle(\'open\')">';
+    html += '<div class="arch-layer-header"><span class="arch-layer-dot" style="background:' + color + '"></span><span class="arch-layer-title">' + escHtml(l.label) + '</span><span class="arch-layer-desc">' + escHtml(l.desc) + ' (' + files.length + ' files)</span></div>';
+    html += '<div class="arch-layer-body">';
     files.forEach(f => {
       const m = MODULES[f.mod];
-      html += `<span class="arch-file" style="border-left:3px solid ${m.color}" onmouseenter="showTip(event,FILES.find(ff=>ff.path==='${f.path}'))" onmouseleave="hideTip()">${basename(f.path)}</span>`;
+      html += '<span class="arch-file" style="border-left:3px solid ' + m.color + '" data-fpath="' + escHtml(f.path) + '">' + escHtml(basename(f.path)) + '</span>';
     });
-    html += `</div></div>`;
+    html += '</div></div>';
   });
 
   container.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 8: FILE TREE
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderFileTree(scope) {
   const container = document.getElementById('view-filetree');
@@ -1174,17 +1262,17 @@ function renderFileTree(scope) {
       const f = child.file;
       const m = f ? MODULES[f.mod] : null;
 
-      let line = `<div class="ftree-line">`;
-      line += `<span class="ftree-indent">${prefix}${connector}</span>`;
-      line += `<span class="ftree-icon">${isDir ? '\uD83D\uDCC1' : '\uD83D\uDCC4'}</span>`;
-      line += `<span class="ftree-name${isDir ? ' is-folder' : ''}" style="${m ? 'color:'+m.color : ''}">${k}</span>`;
+      let line = '<div class="ftree-line">';
+      line += '<span class="ftree-indent">' + prefix + connector + '</span>';
+      line += '<span class="ftree-icon">' + (isDir ? '\uD83D\uDCC1' : '\uD83D\uDCC4') + '</span>';
+      line += '<span class="ftree-name' + (isDir ? ' is-folder' : '') + '"' + (m ? ' style="color:' + m.color + '"' : '') + '>' + escHtml(k) + '</span>';
       if (m) {
-        line += `<span class="ftree-team-tag" style="background:${m.color}">${m.label}</span>`;
+        line += '<span class="ftree-team-tag" style="background:' + m.color + '">' + escHtml(m.label) + '</span>';
       }
       if (f && f.desc) {
-        line += `<span class="ftree-annotation">${f.desc}</span>`;
+        line += '<span class="ftree-annotation">' + escHtml(f.desc) + '</span>';
       }
-      line += `</div>`;
+      line += '</div>';
       lines += line;
 
       if (isDir) {
@@ -1195,18 +1283,18 @@ function renderFileTree(scope) {
     return lines;
   }
 
-  let html = `<div class="view-subtitle">Monospace file tree with team annotations</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="ftree">`;
-  html += `<div class="ftree-line"><span class="ftree-icon">\uD83D\uDCC1</span><span class="ftree-name is-folder" style="color:#f8fafc">x-dl-vite-express-mongo</span></div>`;
+  let html = '<div class="view-subtitle">Monospace file tree with team annotations</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="ftree">';
+  html += '<div class="ftree-line"><span class="ftree-icon">\uD83D\uDCC1</span><span class="ftree-name is-folder" style="color:#f8fafc">x-dl-vite-express-mongo</span></div>';
   html += renderTreeNode(root, '', false, 0);
-  html += `</div>`;
+  html += '</div>';
   container.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 9: MIND MAP
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderMindMap(scope) {
   const container = document.getElementById('view-mindmap');
@@ -1220,8 +1308,8 @@ function renderMindMap(scope) {
   let svg = '';
 
   // Center node
-  svg += `<circle cx="${cx}" cy="${cy}" r="40" fill="#3b82f6" fill-opacity="0.2" stroke="#3b82f6" stroke-width="2"/>`;
-  svg += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Media Vault</text>`;
+  svg += '<circle cx="' + cx + '" cy="' + cy + '" r="40" fill="#3b82f6" fill-opacity="0.2" stroke="#3b82f6" stroke-width="2"/>';
+  svg += '<text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="700" font-family="\'Segoe UI\',system-ui,sans-serif">Media Vault</text>';
 
   // Group by side
   const sides = { client:[], server:[], root:[] };
@@ -1229,9 +1317,6 @@ function renderMindMap(scope) {
     const s = m.side === 'root' ? 'root' : m.side;
     sides[s].push([k, m]);
   });
-
-  let allNodes = [];
-  let angleOffset = 0;
 
   // Client on left, server on right
   const sideConfig = scope === 'server' ?
@@ -1253,15 +1338,16 @@ function renderMindMap(scope) {
       const files = byMod[k] || [];
 
       // Edge to center
-      svg += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${m.color}" stroke-width="1.5" opacity="0.3"/>`;
+      svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x + '" y2="' + y + '" stroke="' + m.color + '" stroke-width="1.5" opacity="0.3"/>';
 
       // Module node
       const nodeW = 110, nodeH = 36;
-      svg += `<g class="mm-node" onmouseenter="showTipRaw(event,'<b>${m.label}</b><br>${m.path}<br>${files.length} files')" onmouseleave="hideTip()">`;
-      svg += `<rect x="${x - nodeW/2}" y="${y - nodeH/2}" width="${nodeW}" height="${nodeH}" rx="8" fill="${m.color}" fill-opacity="0.15" stroke="${m.color}" stroke-width="1.2"/>`;
+      const tipId = regTip('<b>' + escHtml(m.label) + '</b><br>' + escHtml(m.path) + '<br>' + files.length + ' files');
+      svg += '<g class="mm-node" data-tip="' + tipId + '">';
+      svg += '<rect x="' + (x - nodeW/2) + '" y="' + (y - nodeH/2) + '" width="' + nodeW + '" height="' + nodeH + '" rx="8" fill="' + m.color + '" fill-opacity="0.15" stroke="' + m.color + '" stroke-width="1.2"/>';
       const shortLabel = m.label.length > 14 ? m.label.substring(0, 12) + '..' : m.label;
-      svg += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="#f8fafc" font-size="10" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">${shortLabel}</text>`;
-      svg += `</g>`;
+      svg += '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" fill="#f8fafc" font-size="10" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">' + escHtml(shortLabel) + '</text>';
+      svg += '</g>';
 
       // File nodes
       if (files.length <= 8) {
@@ -1270,31 +1356,32 @@ function renderMindMap(scope) {
           const fr = r + 80;
           const fx = cx + fr * Math.cos(fAngle);
           const fy = cy + fr * Math.sin(fAngle);
-          svg += `<line x1="${x}" y1="${y}" x2="${fx}" y2="${fy}" stroke="${m.color}" stroke-width="0.8" opacity="0.2"/>`;
-          svg += `<circle cx="${fx}" cy="${fy}" r="4" fill="${m.color}" fill-opacity="0.5" onmouseenter="showTip(event,FILES.find(ff=>ff.path==='${f.path}'))" onmouseleave="hideTip()"/>`;
+          svg += '<line x1="' + x + '" y1="' + y + '" x2="' + fx + '" y2="' + fy + '" stroke="' + m.color + '" stroke-width="0.8" opacity="0.2"/>';
+          const ftipId = regFileTip(f);
+          svg += '<circle cx="' + fx + '" cy="' + fy + '" r="4" fill="' + m.color + '" fill-opacity="0.5" data-tip="' + ftipId + '"/>';
         });
       }
     });
   });
 
-  let html = `<div class="view-subtitle">Radial mind map \u2014 center is project root, branches are teams</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="zoom-viewport" id="mm-vp"><svg id="mm-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
-  html += `<div class="zoom-controls"><button onclick="mmZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="mm-pct">100%</span><button onclick="mmZoom.zoomIn()">+</button><button onclick="mmZoom.reset()" title="Reset">\u21BA</button></div>`;
-  html += `</div>`;
+  let html = '<div class="view-subtitle">Radial mind map \u2014 center is project root, branches are teams</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="zoom-viewport" id="mm-vp"><svg id="mm-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+  html += '<div class="zoom-controls"><button onclick="mmZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="mm-pct">100%</span><button onclick="mmZoom.zoomIn()">+</button><button onclick="mmZoom.reset()" title="Reset">\u21BA</button></div>';
+  html += '</div>';
   container.innerHTML = html;
 
   requestAnimationFrame(() => {
     const vp = document.getElementById('mm-vp');
-    const svg = document.getElementById('mm-svg');
+    const svgEl = document.getElementById('mm-svg');
     const pct = document.getElementById('mm-pct');
-    if (vp && svg) window.mmZoom = setupZoomPan(vp, svg, pct);
+    if (vp && svgEl) window.mmZoom = setupZoomPan(vp, svgEl, pct);
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 10: NETWORK (Force-directed)
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderNetwork(scope) {
   const container = document.getElementById('view-network');
@@ -1305,27 +1392,27 @@ function renderNetwork(scope) {
   const W = 900, H = 600;
 
   // Create nodes
-  const nodes = mods.map(([k, m], i) => {
+  const netNodes = mods.map(([k, m], i) => {
     const count = (byMod[k] || []).length;
     const r = Math.max(18, Math.sqrt(count) * 10);
     const angle = (i / mods.length) * 2 * Math.PI;
     return {
-      id: k, label: m.label, color: m.color, r,
+      id: k, label: m.label, color: m.color, r:r,
       x: W / 2 + Math.cos(angle) * 180 + (Math.random() - 0.5) * 40,
       y: H / 2 + Math.sin(angle) * 180 + (Math.random() - 0.5) * 40,
-      vx: 0, vy: 0, count
+      vx: 0, vy: 0, count:count
     };
   });
 
   const nodeMap = {};
-  nodes.forEach(n => nodeMap[n.id] = n);
+  netNodes.forEach(n => nodeMap[n.id] = n);
 
   // Simple force simulation
   for (let iter = 0; iter < 100; iter++) {
     // Repulsion
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i], b = nodes[j];
+    for (let i = 0; i < netNodes.length; i++) {
+      for (let j = i + 1; j < netNodes.length; j++) {
+        const a = netNodes[i], b = netNodes[j];
         let dx = b.x - a.x, dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const force = 3000 / (dist * dist);
@@ -1348,7 +1435,7 @@ function renderNetwork(scope) {
     });
 
     // Center gravity
-    nodes.forEach(n => {
+    netNodes.forEach(n => {
       n.vx += (W / 2 - n.x) * 0.005;
       n.vy += (H / 2 - n.y) * 0.005;
       n.vx *= 0.85; n.vy *= 0.85;
@@ -1365,38 +1452,40 @@ function renderNetwork(scope) {
     const a = nodeMap[d.from], b = nodeMap[d.to];
     if (!a || !b) return;
     const color = d.cross ? '#f43f5e' : '#64748b';
-    const dash = d.cross ? 'stroke-dasharray="6,3"' : '';
-    svg += `<line class="net-edge" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${color}" ${dash} onmouseenter="showTipRaw(event,'${d.from} \u2192 ${d.to}<br>${d.label}')" onmouseleave="hideTip()"/>`;
+    const dash = d.cross ? ' stroke-dasharray="6,3"' : '';
+    const tipId = regTip(escHtml(d.from) + ' \u2192 ' + escHtml(d.to) + '<br>' + escHtml(d.label));
+    svg += '<line class="net-edge" x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="' + color + '"' + dash + ' data-tip="' + tipId + '"/>';
   });
 
   // Nodes
-  nodes.forEach(n => {
-    svg += `<g class="net-node" onmouseenter="showTipRaw(event,'<b>${n.label}</b><br>${n.count} files')" onmouseleave="hideTip()">`;
-    svg += `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${n.color}" fill-opacity="0.2" stroke="${n.color}" stroke-width="1.5"/>`;
+  netNodes.forEach(n => {
+    const tipId = regTip('<b>' + escHtml(n.label) + '</b><br>' + n.count + ' files');
+    svg += '<g class="net-node" data-tip="' + tipId + '">';
+    svg += '<circle cx="' + n.x + '" cy="' + n.y + '" r="' + n.r + '" fill="' + n.color + '" fill-opacity="0.2" stroke="' + n.color + '" stroke-width="1.5"/>';
     const fontSize = Math.max(8, Math.min(11, n.r / 2.5));
     const shortLabel = n.label.length > 14 ? n.label.substring(0, 12) + '..' : n.label;
-    svg += `<text x="${n.x}" y="${n.y + 3}" text-anchor="middle" fill="#f8fafc" font-size="${fontSize}" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">${shortLabel}</text>`;
-    svg += `</g>`;
+    svg += '<text x="' + n.x + '" y="' + (n.y + 3) + '" text-anchor="middle" fill="#f8fafc" font-size="' + fontSize + '" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">' + escHtml(shortLabel) + '</text>';
+    svg += '</g>';
   });
 
-  let html = `<div class="view-subtitle">Force-directed network graph \u2014 edges represent imports/dependencies</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
-  html += `<div class="zoom-viewport" id="net-vp"><svg id="net-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
-  html += `<div class="zoom-controls"><button onclick="netZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="net-pct">100%</span><button onclick="netZoom.zoomIn()">+</button><button onclick="netZoom.reset()" title="Reset">\u21BA</button></div>`;
-  html += `</div>`;
+  let html = '<div class="view-subtitle">Force-directed network graph \u2014 edges represent imports/dependencies</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
+  html += '<div class="zoom-viewport" id="net-vp"><svg id="net-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+  html += '<div class="zoom-controls"><button onclick="netZoom.zoomOut()">\u2212</button><span class="zoom-pct" id="net-pct">100%</span><button onclick="netZoom.zoomIn()">+</button><button onclick="netZoom.reset()" title="Reset">\u21BA</button></div>';
+  html += '</div>';
   container.innerHTML = html;
 
   requestAnimationFrame(() => {
     const vp = document.getElementById('net-vp');
-    const svg = document.getElementById('net-svg');
+    const svgEl = document.getElementById('net-svg');
     const pct = document.getElementById('net-pct');
-    if (vp && svg) window.netZoom = setupZoomPan(vp, svg, pct);
+    if (vp && svgEl) window.netZoom = setupZoomPan(vp, svgEl, pct);
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    VIEW 11: TEAMS
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 function renderTeams(scope) {
   const container = document.getElementById('view-teams');
@@ -1408,8 +1497,8 @@ function renderTeams(scope) {
   const clientTeams = ['intake','dashboard','activity','pages'];
   const supportMods = ['shell','data','client-lib','client-plat','root'];
 
-  let html = `<div class="view-subtitle">Team ownership cards \u2014 hover files for details</div>`;
-  html += `<div class="legend-strip">${buildLegend(scope)}</div>`;
+  let html = '<div class="view-subtitle">Team ownership cards \u2014 hover files for details</div>';
+  html += '<div class="legend-strip">' + buildLegend(scope) + '</div>';
 
   function renderSection(title, keys) {
     const filtered = keys.filter(k => {
@@ -1421,22 +1510,22 @@ function renderTeams(scope) {
     }).filter(k => (byMod[k] || []).length > 0);
 
     if (filtered.length === 0) return '';
-    let s = `<h3 style="color:var(--text-dim);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">${title}</h3>`;
-    s += `<div class="teams-grid">`;
+    let s = '<h3 style="color:var(--text-dim);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">' + escHtml(title) + '</h3>';
+    s += '<div class="teams-grid">';
     filtered.forEach(k => {
       const m = MODULES[k];
       const files = byMod[k] || [];
-      s += `<div class="team-card" style="border-top:3px solid ${m.color}">`;
-      s += `<div class="team-card-header"><span class="team-card-dot" style="background:${m.color}"></span><span class="team-card-name">${m.label}</span></div>`;
-      s += `<div class="team-card-path">${m.path || 'various'}</div>`;
-      s += `<div class="team-card-count">${files.length} files</div>`;
-      s += `<div class="team-card-files">`;
+      s += '<div class="team-card" style="border-top:3px solid ' + m.color + '">';
+      s += '<div class="team-card-header"><span class="team-card-dot" style="background:' + m.color + '"></span><span class="team-card-name">' + escHtml(m.label) + '</span></div>';
+      s += '<div class="team-card-path">' + escHtml(m.path || 'various') + '</div>';
+      s += '<div class="team-card-count">' + files.length + ' files</div>';
+      s += '<div class="team-card-files">';
       files.forEach(f => {
-        s += `<span class="team-card-file" onmouseenter="showTip(event,FILES.find(ff=>ff.path==='${f.path}'))" onmouseleave="hideTip()">${basename(f.path)}</span>`;
+        s += '<span class="team-card-file" data-fpath="' + escHtml(f.path) + '">' + escHtml(basename(f.path)) + '</span>';
       });
-      s += `</div></div>`;
+      s += '</div></div>';
     });
-    s += `</div>`;
+    s += '</div>';
     return s;
   }
 
@@ -1451,9 +1540,9 @@ function renderTeams(scope) {
   container.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ==================================================================
    BOOT
-   ══════════════════════════════════════════════════════════════════ */
+   ================================================================== */
 
 buildUI();
 </script>
