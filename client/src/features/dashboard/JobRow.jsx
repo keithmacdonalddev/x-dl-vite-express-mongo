@@ -3,6 +3,7 @@ import {
   toAssetHref,
 } from '../../lib/contacts'
 import { JobEditForm } from './JobEditForm'
+import { getJobStatusNote } from './jobPresentation'
 import { OverflowMenu } from '../../components/OverflowMenu'
 
 export function JobRow({
@@ -65,7 +66,7 @@ export function JobRow({
               </a>
             </div>
           ) : (
-            <p className="job-status-note">Download not ready yet.</p>
+            <p className={`job-status-note${job.status === 'failed' ? ' is-failed' : ''}`}>{getJobStatusNote(job)}</p>
           )}
         </div>
         {thumbnailSrc && (

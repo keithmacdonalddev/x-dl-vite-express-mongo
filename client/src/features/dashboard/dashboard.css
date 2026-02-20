@@ -101,6 +101,10 @@
   font-size: 13px;
 }
 
+.job-status-note.is-failed {
+  color: #b62b2b;
+}
+
 .job-media-preview {
   display: grid;
   gap: 8px;
