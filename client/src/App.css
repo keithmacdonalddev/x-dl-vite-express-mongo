@@ -245,6 +245,10 @@ h1 {
   background: #d7e3ee;
 }
 
+.profile-card-placeholder {
+  background: linear-gradient(135deg, #e3eaee 0%, #d0dae4 100%);
+}
+
 .profile-card-content {
   padding: 10px;
 }

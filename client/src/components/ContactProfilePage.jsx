@@ -11,7 +11,6 @@ import {
   buildContacts,
   formatTimestamp,
   makeContactSlug,
-  parseQualityLabel,
   toAssetHref,
 } from '../lib/contacts'
 import { useSelection } from '../features/dashboard/useSelection'
@@ -234,12 +233,14 @@ export function ContactProfilePage({ contactSlug, onBack }) {
             <ul className="profile-grid">
               {visibleContactJobs.map((job) => (
                 <li key={job._id} className="profile-card">
-                  {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) && (
+                  {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) ? (
                     <img
                       className="profile-card-thumb"
                       src={toAssetHref(job.thumbnailPath || job.imageUrls[0])}
                       alt={job.accountDisplayName || job.accountHandle || contactSlug}
                     />
+                  ) : (
+                    <div className="profile-card-thumb profile-card-placeholder" />
                   )}
                   <div className="profile-card-content">
                     <div className="row-actions-top">
@@ -253,20 +254,6 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                       </label>
                       <OverflowMenu items={buildMenuItems(job)} />
                     </div>
-                    <p className="profile-card-status">
-                      <span className={`status-chip is-${job.status}`}>{job.status}</span>
-                      <span className="profile-card-date">{formatTimestamp(job.createdAt)}</span>
-                    </p>
-                    <p className="profile-card-url">
-                      <a href={job.tweetUrl} target="_blank" rel="noreferrer">{job.tweetUrl}</a>
-                    </p>
-                    {job.outputPath && (
-                      <p>
-                        <a href={toAssetHref(job.outputPath)} target="_blank" rel="noreferrer" className="profile-card-file-link">
-                          Open downloaded file
-                        </a>
-                      </p>
-                    )}
                     {actions.editingJobId === job._id && (
                       <JobEditForm
                         job={job}
@@ -277,35 +264,6 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                         onCancel={actions.cancelEdit}
                         idPrefix="profile-"
                       />
-                    )}
-                    {job.metadata && (
-                      <details>
-                        <summary>Metadata</summary>
-                        <p><strong>Title:</strong> {job.metadata.title || 'n/a'}</p>
-                        <p><strong>Description:</strong> {job.metadata.description || 'n/a'}</p>
-                        <p><strong>Author:</strong> {job.metadata.author || 'n/a'}</p>
-                        <p><strong>Published:</strong> {job.metadata.publishedAt || 'n/a'}</p>
-                        <p><strong>Duration (sec):</strong> {job.metadata.durationSeconds || 'n/a'}</p>
-                        <p>
-                          <strong>Resolution:</strong>{' '}
-                          {job.metadata.videoWidth && job.metadata.videoHeight
-                            ? `${job.metadata.videoWidth}x${job.metadata.videoHeight}`
-                            : 'n/a'}
-                        </p>
-                      </details>
-                    )}
-                    {Array.isArray(job.candidateUrls) && job.candidateUrls.length > 0 && (
-                      <details>
-                        <summary>Captured media options ({job.candidateUrls.length})</summary>
-                        <ul className="assets-list">
-                          {job.candidateUrls.map((candidateUrl, index) => (
-                            <li key={candidateUrl}>
-                              <p>{parseQualityLabel(candidateUrl, index)}</p>
-                              <a href={candidateUrl} target="_blank" rel="noreferrer">{candidateUrl}</a>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
                     )}
                   </div>
                 </li>
