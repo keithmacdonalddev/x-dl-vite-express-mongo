@@ -22,8 +22,7 @@ function extractHandleFromTikTokUrl(tweetUrl) {
 
 async function scrapeProfileVideos(handle, { traceId } = {}) {
   const profileUrl = `https://www.tiktok.com/${handle}`;
-  const { getPersistentContext, getAdapterConfig } = require('./playwright-adapter');
-  const config = getAdapterConfig({ headless: true });
+  const { getPersistentContext } = require('./playwright-adapter');
 
   logger.info('discovery.scrape.started', { traceId, handle, profileUrl });
 
@@ -31,7 +30,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
   let context = null;
 
   try {
-    context = await getPersistentContext(config);
+    context = await getPersistentContext();
     page = await context.newPage();
 
     await page.goto(profileUrl, {
@@ -68,6 +67,36 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
           if (href && !results.some((r) => r.postUrl === href)) {
             results.push({ postUrl: href, thumbnailUrl: thumbUrl, title: alt });
           }
+        }
+      }
+
+      // Strategy 3: __UNIVERSAL_DATA_FOR_REHYDRATION__ profile data
+      if (results.length === 0) {
+        const rehydrationScript = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
+        if (rehydrationScript) {
+          try {
+            const data = JSON.parse(rehydrationScript.textContent || '{}');
+            const defaultScope = data['__DEFAULT_SCOPE__'] || {};
+            const userDetail = defaultScope['webapp.user-detail'] || {};
+            const userPage = defaultScope['webapp.user-page'] || {};
+
+            // Try userPage.itemList for video items
+            const itemList = userPage.itemList || userDetail.itemList || [];
+            if (Array.isArray(itemList)) {
+              for (const item of itemList) {
+                if (!item || !item.id) continue;
+                const author = item.author || {};
+                const handle = author.uniqueId || '';
+                const videoId = item.id;
+                const postUrl = handle ? 'https://www.tiktok.com/@' + handle + '/video/' + videoId : '';
+                const thumbUrl = (item.video && item.video.cover) || (item.video && item.video.originCover) || '';
+                const title = item.desc || '';
+                if (postUrl) {
+                  results.push({ postUrl, thumbnailUrl: thumbUrl, title });
+                }
+              }
+            }
+          } catch { /* ignore */ }
         }
       }
 
