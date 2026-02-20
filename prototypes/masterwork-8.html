@@ -1,0 +1,1557 @@
+<!--
+  Media Vault — Masterwork
+  Agent: 8
+  Concept: Chronoscape — Time replaces status. A living sky maps the temporal continuum: future twilight above, the luminous present at the horizon, and the fading past below. Jobs drift through this atmosphere like celestial events.
+-->
+<!-- SPECIAL FEATURE: Memory Fade — Jobs progressively dissolve from vivid full-color into monochrome whispers as they age. Hovering any faded job triggers a "remembering" bloom that temporarily restores full clarity with a warm radiance, making time's passage feel physical and reversible. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Chronoscape</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:root {
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', 'SF Mono', monospace;
+
+  --deep-night: #060a10;
+  --twilight: #101828;
+  --dawn-blue: #1c3358;
+  --dawn-gold: #d4915e;
+  --dawn-rose: #b86e7a;
+  --horizon-glow: #e8b06a;
+
+  --surface: rgba(12, 18, 32, 0.78);
+  --surface-hover: rgba(18, 28, 48, 0.88);
+  --surface-elevated: rgba(16, 24, 44, 0.92);
+  --border: rgba(100, 140, 200, 0.12);
+  --border-warm: rgba(212, 145, 94, 0.2);
+  --border-focus: rgba(232, 176, 106, 0.45);
+
+  --text-primary: #e4dcd0;
+  --text-secondary: rgba(200, 190, 175, 0.6);
+  --text-dim: rgba(170, 160, 145, 0.3);
+  --text-bright: #f0e8dc;
+
+  --now-glow: #e8b06a;
+  --approaching: #6a94c0;
+  --recent: #c47a8a;
+  --receding: #6b5a7a;
+
+  --success: #5ea87a;
+  --error: #c45a5a;
+  --warn: #c9a84c;
+  --processing: #6a9ec8;
+}
+
+html { height: 100%; }
+body {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--deep-night);
+  color: var(--text-primary);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ================================================================
+   SKY — the atmospheric foundation
+   ================================================================ */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    #04060c 0%,
+    #080e1a 12%,
+    #0e1828 30%,
+    #162848 48%,
+    #1e3a68 56%,
+    #3a5a80 62%,
+    #7a6a56 68%,
+    #c08a58 74%,
+    #d49860 77%,
+    #c88a54 80%,
+    #8a6848 84%,
+    #3a3040 90%,
+    #1a1828 95%,
+    #0c0e18 100%
+  );
+}
+
+/* Horizon radiance */
+.sky::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 100% 18% at 50% 75%, rgba(232, 176, 106, 0.2) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 8% at 50% 76%, rgba(232, 160, 90, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Upper sky nebula */
+.sky::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 30% at 25% 20%, rgba(40, 60, 120, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 25% at 70% 15%, rgba(60, 40, 90, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Stars */
+.stars {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.star-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: #d8d0c0;
+  animation: twinkle var(--dur) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+@keyframes twinkle {
+  0%, 100% { opacity: var(--lo); }
+  50% { opacity: var(--hi); }
+}
+
+/* Horizon line */
+.horizon-line {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 75%;
+  height: 1px;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    transparent 5%,
+    rgba(232, 176, 106, 0.15) 20%,
+    rgba(232, 176, 106, 0.5) 40%,
+    rgba(232, 176, 106, 0.7) 50%,
+    rgba(232, 176, 106, 0.5) 60%,
+    rgba(232, 176, 106, 0.15) 80%,
+    transparent 95%
+  );
+}
+.horizon-line::after {
+  content: '';
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  top: -6px;
+  height: 13px;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, rgba(232, 176, 106, 0.1) 0%, transparent 70%);
+  filter: blur(2px);
+}
+
+/* ================================================================
+   LAYOUT
+   ================================================================ */
+.app-shell {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+/* ================================================================
+   HEADER — brand + intake beacon + panel nav
+   ================================================================ */
+.header {
+  grid-column: 1 / -1;
+  padding: 18px 28px 14px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: -0.02em;
+}
+.brand-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* === INTAKE (the beacon) === */
+.intake-form {
+  flex: 1;
+  max-width: 560px;
+}
+
+.intake-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(8, 14, 28, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 4px;
+  backdrop-filter: blur(16px);
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.intake-shell::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(232, 176, 106, 0.06) 0%, transparent 50%, rgba(100, 148, 200, 0.04) 100%);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.intake-shell:focus-within::before { opacity: 1; }
+
+.intake-shell:focus-within {
+  border-color: var(--border-focus);
+  box-shadow:
+    0 0 0 3px rgba(232, 176, 106, 0.08),
+    0 8px 32px rgba(232, 176, 106, 0.06),
+    inset 0 1px 0 rgba(232, 176, 106, 0.05);
+}
+
+.intake-shell.is-valid {
+  border-color: rgba(94, 168, 122, 0.35);
+}
+.intake-shell.is-valid:focus-within {
+  border-color: rgba(94, 168, 122, 0.5);
+  box-shadow:
+    0 0 0 3px rgba(94, 168, 122, 0.08),
+    0 8px 32px rgba(94, 168, 122, 0.06);
+}
+
+.intake-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: clamp(13px, 1.2vw, 15px);
+  padding: 11px 14px;
+  font-weight: 450;
+  min-width: 0;
+}
+.intake-input::placeholder {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.intake-detected {
+  display: none;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-right: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.intake-detected.show { display: flex; }
+.intake-detected.x { background: rgba(106, 158, 200, 0.15); color: #80b0d8; }
+.intake-detected.tiktok { background: rgba(160, 90, 180, 0.15); color: #b88acc; }
+
+.intake-submit {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #d49860, #b87050);
+  color: #18100a;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 20px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+}
+.intake-submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.intake-submit:active:not(:disabled) { transform: translateY(0); filter: brightness(0.95); }
+.intake-submit:disabled { opacity: 0.35; cursor: not-allowed; }
+.intake-submit:focus-visible { outline: 2px solid var(--now-glow); outline-offset: 2px; }
+
+/* Submit ceremony animation */
+@keyframes intake-flash {
+  0% { box-shadow: 0 0 0 0 rgba(212, 152, 96, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(212, 152, 96, 0); }
+  100% { box-shadow: none; }
+}
+.intake-shell.submitted {
+  animation: intake-flash 0.6s ease-out;
+}
+
+/* Header panel nav */
+.header-nav {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.header-nav-btn {
+  background: rgba(12, 18, 32, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+}
+.header-nav-btn:hover { color: var(--text-secondary); background: var(--surface); }
+.header-nav-btn.active { color: var(--now-glow); border-color: rgba(232, 176, 106, 0.2); }
+.header-nav-btn:focus-visible { outline: 2px solid var(--now-glow); outline-offset: 2px; }
+
+/* ================================================================
+   MAIN TIMELINE
+   ================================================================ */
+.timeline {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 24px 24px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100,140,200,0.15) transparent;
+}
+
+/* Temporal sections */
+.chrono-section {
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.chrono-heading {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+}
+.chrono-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+}
+
+.chrono-heading[data-era="approaching"] { color: var(--approaching); }
+.chrono-heading[data-era="approaching"]::after { background: linear-gradient(90deg, rgba(106,148,192,0.3), transparent); }
+
+.chrono-heading[data-era="now"] { color: var(--now-glow); font-size: 10px; }
+.chrono-heading[data-era="now"]::after { background: linear-gradient(90deg, rgba(232,176,106,0.35), transparent); }
+
+.chrono-heading[data-era="moments"] { color: var(--recent); }
+.chrono-heading[data-era="moments"]::after { background: linear-gradient(90deg, rgba(196,122,138,0.2), transparent); }
+
+.chrono-heading[data-era="earlier"] { color: var(--receding); }
+.chrono-heading[data-era="earlier"]::after { background: linear-gradient(90deg, rgba(107,90,122,0.15), transparent); }
+
+/* Job list */
+.chrono-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ================================================================
+   JOB CARDS — the celestial bodies
+   ================================================================ */
+.job {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 11px;
+  align-items: center;
+  backdrop-filter: blur(8px);
+  transition:
+    opacity 0.5s ease,
+    filter 0.5s ease,
+    box-shadow 0.4s ease,
+    border-color 0.3s ease,
+    background 0.3s ease;
+}
+
+.job:focus-visible {
+  outline: 2px solid var(--now-glow);
+  outline-offset: 2px;
+}
+
+/* === MEMORY FADE — temporal aging === */
+
+/* Future — slightly translucent, anticipatory */
+.job[data-age="future"] {
+  opacity: 0.75;
+  border-color: rgba(106, 148, 192, 0.15);
+}
+
+/* Now — warm glow, fully present */
+.job[data-age="now"] {
+  opacity: 1;
+  border-color: rgba(232, 176, 106, 0.22);
+  box-shadow: 0 0 24px rgba(232, 176, 106, 0.06), inset 0 1px 0 rgba(232, 176, 106, 0.04);
+  background: rgba(16, 24, 40, 0.85);
+}
+
+/* Recent — warm but fading */
+.job[data-age="recent"] {
+  opacity: 0.82;
+  filter: saturate(0.85);
+}
+
+/* Past — desaturated, dimming */
+.job[data-age="past"] {
+  opacity: 0.5;
+  filter: saturate(0.3) brightness(0.9);
+}
+
+/* Ancient — nearly gone, monochrome whisper */
+.job[data-age="ancient"] {
+  opacity: 0.28;
+  filter: saturate(0.05) brightness(0.75);
+}
+
+/* Memory bloom — hover restores faded jobs */
+.job[data-age="past"]:hover,
+.job[data-age="ancient"]:hover,
+.job[data-age="past"]:focus-within,
+.job[data-age="ancient"]:focus-within {
+  opacity: 1 !important;
+  filter: saturate(1) brightness(1) !important;
+  box-shadow: 0 0 36px rgba(232, 176, 106, 0.1);
+  border-color: rgba(232, 176, 106, 0.18);
+  transition: all 0.25s ease-out;
+}
+
+@keyframes bloom {
+  0% { box-shadow: 0 0 0 rgba(232, 176, 106, 0); }
+  40% { box-shadow: 0 0 44px rgba(232, 176, 106, 0.15); }
+  100% { box-shadow: 0 0 24px rgba(232, 176, 106, 0.06); }
+}
+.job.remembering { animation: bloom 0.7s ease-out; }
+
+/* Job avatar */
+.job-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  position: relative;
+  flex-shrink: 0;
+}
+.job-avatar.x { background: linear-gradient(140deg, #14263e, #1e3a5c); color: #6a9cc8; }
+.job-avatar.tiktok { background: linear-gradient(140deg, #221430, #30204a); color: #a87abf; }
+
+/* Now-processing breathing ring */
+.job[data-age="now"] .job-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 12px;
+  border: 1.5px solid var(--now-glow);
+  opacity: 0;
+  animation: breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.06); }
+}
+
+/* Job body */
+.job-body { min-width: 0; }
+
+.job-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.job-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.job-platform {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.job-platform.x { background: rgba(106,156,200,0.1); color: #7aace0; }
+.job-platform.tiktok { background: rgba(168,122,191,0.1); color: #b088cc; }
+
+.job-when {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Job moment indicator (right side) */
+.job-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 36px;
+}
+
+/* Progress ring */
+.ring {
+  width: 30px;
+  height: 30px;
+}
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ring .track { fill: none; stroke: rgba(100,140,200,0.08); stroke-width: 2.5; }
+.ring .arc { fill: none; stroke: var(--now-glow); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease; }
+
+.indicator-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Done mark */
+.done-mark {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--success);
+  font-size: 15px;
+}
+
+/* Error mark */
+.error-mark {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.error-mark .icon { color: var(--error); font-size: 14px; line-height: 1; }
+.error-mark .label { font-size: 8px; color: var(--error); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Waiting dots */
+.wait-dots {
+  display: flex; gap: 3px; padding: 8px 0;
+}
+.wait-dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--approaching);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.wait-dot:nth-child(2) { animation-delay: 0.15s; }
+.wait-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50% { opacity: 0.7; transform: scale(1); }
+}
+
+/* Job hover actions */
+.job-actions {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.job:hover .job-actions,
+.job:focus-within .job-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action-btn {
+  background: rgba(8, 12, 24, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.action-btn:hover { color: var(--text-primary); border-color: rgba(100,140,200,0.25); }
+.action-btn.danger:hover { color: var(--error); border-color: rgba(196,90,90,0.25); }
+.action-btn:focus-visible { outline: 2px solid var(--now-glow); outline-offset: 1px; }
+
+/* ================================================================
+   RIGHT PANEL
+   ================================================================ */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: rgba(6, 10, 18, 0.5);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.sidebar-tabs {
+  display: flex;
+  padding: 12px 14px 0;
+  gap: 1px;
+}
+
+.sidebar-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.sidebar-tab:hover { color: var(--text-secondary); }
+.sidebar-tab.active { color: var(--now-glow); border-bottom-color: var(--now-glow); }
+.sidebar-tab:focus-visible { outline: 2px solid var(--now-glow); outline-offset: 2px; }
+
+.sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100,140,200,0.12) transparent;
+}
+
+.sidebar-pane {
+  display: none;
+  padding: 12px 14px;
+}
+.sidebar-pane.active { display: block; }
+
+/* ================================================================
+   ACTIVITY FEED
+   ================================================================ */
+.event {
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(100, 140, 200, 0.05);
+  animation: event-in 0.35s ease-out;
+}
+@keyframes event-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.event-ts {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+
+.event-msg {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.event-msg strong { color: var(--text-primary); font-weight: 600; }
+
+.event-pip {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.event-pip.info { background: var(--processing); }
+.event-pip.success { background: var(--success); }
+.event-pip.error { background: var(--error); }
+.event-pip.warn { background: var(--warn); }
+
+/* ================================================================
+   CONTACTS
+   ================================================================ */
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.contact {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.contact:hover { background: var(--surface-hover); }
+.contact:focus-visible { outline: 2px solid var(--now-glow); outline-offset: 2px; }
+
+.contact-av {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff;
+}
+
+.contact-name { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.contact-handle { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+
+.contact-stats { text-align: right; }
+.contact-count {
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.contact-last {
+  font-size: 9px; color: var(--text-dim); margin-top: 1px;
+}
+
+/* Contact detail */
+.contact-detail { display: none; }
+.contact-detail.visible { display: block; }
+
+.contact-detail-head {
+  display: flex; align-items: center; gap: 11px;
+  margin-bottom: 12px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.contact-detail-av {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: #fff;
+}
+.contact-detail-name { font-size: 15px; font-weight: 700; }
+.contact-detail-handle { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.contact-back {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.contact-back:hover { color: var(--text-primary); }
+.contact-back:focus-visible { outline: 2px solid var(--now-glow); outline-offset: 2px; }
+
+.contact-jobs { display: flex; flex-direction: column; gap: 5px; }
+.contact-job-row {
+  background: rgba(12, 18, 32, 0.5);
+  border: 1px solid rgba(100, 140, 200, 0.06);
+  border-radius: 7px;
+  padding: 7px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.contact-job-time { font-size: 10px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.contact-job-result {
+  font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.contact-job-result.ok { background: rgba(94,168,122,0.1); color: var(--success); }
+.contact-job-result.err { background: rgba(196,90,90,0.1); color: var(--error); }
+.contact-job-result.live { background: rgba(106,158,200,0.1); color: var(--processing); }
+
+/* ================================================================
+   SETTINGS
+   ================================================================ */
+.settings-group-title {
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 700; margin-bottom: 8px;
+}
+
+.settings-rows { display: flex; flex-direction: column; gap: 8px; }
+
+.setting {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.setting-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.setting-note { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+
+/* Toggle */
+.sw {
+  position: relative; width: 38px; height: 20px; cursor: pointer; display: inline-block;
+}
+.sw input { position: absolute; opacity: 0; width: 0; height: 0; }
+.sw-track {
+  position: absolute; inset: 0;
+  background: rgba(60,80,110,0.35);
+  border-radius: 10px;
+  transition: background 0.25s ease;
+}
+.sw input:checked + .sw-track { background: rgba(94,168,122,0.45); }
+.sw-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+.sw input:checked ~ .sw-thumb { transform: translateX(18px); }
+.sw:focus-within .sw-track { box-shadow: 0 0 0 2px rgba(232,176,106,0.25); }
+
+/* ================================================================
+   TOAST
+   ================================================================ */
+.toasts {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  pointer-events: none;
+}
+.toast-msg {
+  pointer-events: auto;
+  background: rgba(10, 16, 30, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  animation: toast-appear 0.3s ease-out;
+}
+@keyframes toast-appear {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-msg.out {
+  animation: toast-leave 0.25s ease-in forwards;
+}
+@keyframes toast-leave {
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
+/* ================================================================
+   EMPTY STATE
+   ================================================================ */
+.empty-state {
+  text-align: center;
+  padding: 100px 24px 60px;
+}
+.empty-title {
+  font-size: 22px;
+  color: var(--text-dim);
+  font-weight: 300;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.empty-hint {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ================================================================
+   AMBIENT BREATHING — subtle resting animation
+   ================================================================ */
+@keyframes sky-breathe {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.02); }
+}
+.sky {
+  animation: sky-breathe 8s ease-in-out infinite;
+}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 860px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+  .sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 42vh;
+  }
+  .header { flex-wrap: wrap; gap: 8px; padding: 12px 16px 10px; }
+  .intake-form { max-width: 100%; order: 10; flex-basis: 100%; }
+}
+
+/* sr-only */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="sky" aria-hidden="true"></div>
+<div class="stars" id="stars" aria-hidden="true"></div>
+<div class="horizon-line" aria-hidden="true"></div>
+
+<div class="app-shell">
+  <header class="header" role="banner">
+    <div class="brand">
+      <span class="brand-name">Media Vault</span>
+      <span class="brand-sub">chronoscape</span>
+    </div>
+
+    <form class="intake-form" id="intakeForm" autocomplete="off" role="search">
+      <div class="intake-shell" id="intakeShell">
+        <input
+          class="intake-input"
+          id="intakeInput"
+          type="url"
+          placeholder="Paste a video URL to capture..."
+          aria-label="Video URL to download"
+          spellcheck="false"
+        />
+        <span class="intake-detected" id="intakeDetected" aria-live="polite"></span>
+        <button type="submit" class="intake-submit" id="intakeSubmit" disabled>Capture</button>
+      </div>
+    </form>
+
+    <nav class="header-nav" aria-label="Sidebar panel navigation">
+      <button class="header-nav-btn active" data-panel="activity" aria-pressed="true">Activity</button>
+      <button class="header-nav-btn" data-panel="contacts" aria-pressed="false">Contacts</button>
+      <button class="header-nav-btn" data-panel="settings" aria-pressed="false">Settings</button>
+    </nav>
+  </header>
+
+  <main class="timeline" id="timeline" aria-label="Download timeline"></main>
+
+  <aside class="sidebar" aria-label="Side panel">
+    <div class="sidebar-tabs" role="tablist">
+      <button class="sidebar-tab active" role="tab" data-panel="activity" id="stab-activity" aria-selected="true" aria-controls="sp-activity">Activity</button>
+      <button class="sidebar-tab" role="tab" data-panel="contacts" id="stab-contacts" aria-selected="false" aria-controls="sp-contacts">Contacts</button>
+      <button class="sidebar-tab" role="tab" data-panel="settings" id="stab-settings" aria-selected="false" aria-controls="sp-settings">Settings</button>
+    </div>
+    <div class="sidebar-body">
+      <div class="sidebar-pane active" id="sp-activity" role="tabpanel" aria-labelledby="stab-activity">
+        <div id="activityFeed"></div>
+      </div>
+      <div class="sidebar-pane" id="sp-contacts" role="tabpanel" aria-labelledby="stab-contacts">
+        <div id="contactsListEl" class="contacts-list"></div>
+        <div id="contactDetailEl" class="contact-detail"></div>
+      </div>
+      <div class="sidebar-pane" id="sp-settings" role="tabpanel" aria-labelledby="stab-settings">
+        <div class="settings-group-title">Platforms</div>
+        <div class="settings-rows">
+          <div class="setting">
+            <div>
+              <div class="setting-name">X (Twitter)</div>
+              <div class="setting-note">Video extraction from posts</div>
+            </div>
+            <label class="sw" aria-label="Enable X platform">
+              <input type="checkbox" checked id="swX" />
+              <div class="sw-track"></div>
+              <div class="sw-thumb"></div>
+            </label>
+          </div>
+          <div class="setting">
+            <div>
+              <div class="setting-name">TikTok</div>
+              <div class="setting-note">Video extraction from posts</div>
+            </div>
+            <label class="sw" aria-label="Enable TikTok platform">
+              <input type="checkbox" checked id="swTiktok" />
+              <div class="sw-track"></div>
+              <div class="sw-thumb"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+// ============================================================
+//  DATA LAYER
+// ============================================================
+const CREATORS = [
+  { slug: 'aurora_films', name: 'Aurora Films', handle: '@aurora_films', platform: 'x', hue: '#2a5a88' },
+  { slug: 'neon_collective', name: 'Neon Collective', handle: '@neon_collective', platform: 'tiktok', hue: '#6a3a80' },
+  { slug: 'wave_studio', name: 'Wave Studio', handle: '@wave_studio', platform: 'x', hue: '#3a7058' },
+  { slug: 'pixel_drift', name: 'Pixel Drift', handle: '@pixel.drift', platform: 'tiktok', hue: '#7a5040' },
+  { slug: 'midnight_lens', name: 'Midnight Lens', handle: '@midnight_lens', platform: 'x', hue: '#3a4878' },
+];
+
+let jobs = [];
+let nextId = 0;
+let events = [];
+let panel = 'activity';
+let viewingContact = null;
+const caps = { x: true, tiktok: true };
+
+// ============================================================
+//  TIME HELPERS
+// ============================================================
+const ago = ts => {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  return Math.floor(s / 3600) + 'h ago';
+};
+
+const clockStr = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+const whenLabel = ts => {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 0) return 'approaching';
+  if (s < 5) return 'just now';
+  if (s < 60) return s + ' seconds ago';
+  if (s < 3600) return Math.floor(s / 60) + ' minutes ago';
+  return Math.floor(s / 3600) + ' hours ago';
+};
+
+// Temporal age classification
+const ageOf = j => {
+  if (j.phase === 'processing') return 'now';
+  if (j.phase === 'waiting') return 'future';
+  const t = j.doneAt || j.failAt || j.born;
+  const e = Date.now() - t;
+  if (e < 30000) return 'recent';
+  if (e < 90000) return 'past';
+  return 'ancient';
+};
+
+// ============================================================
+//  JOB LIFECYCLE
+// ============================================================
+function spawn(url, platform, creator) {
+  const j = {
+    id: ++nextId, url, platform, creator,
+    phase: 'waiting', progress: 0,
+    born: Date.now(), startAt: null, doneAt: null, failAt: null, stage: '',
+  };
+  jobs.unshift(j);
+  emit('info', `<strong>${creator.name}</strong> \u2014 video queued for capture`);
+  setTimeout(() => engage(j), 2000 + Math.random() * 3500);
+  paint();
+  return j;
+}
+
+function engage(j) {
+  if (j.phase !== 'waiting') return;
+  j.phase = 'processing';
+  j.startAt = Date.now();
+  j.progress = 0;
+  j.stage = 'extracting';
+  emit('info', `<strong>${j.creator.name}</strong> \u2014 extraction started`);
+  paint();
+
+  const stages = [
+    [15, 'extracting', 'navigating to page'],
+    [30, 'extracting', 'intercepting media URLs'],
+    [50, 'downloading', 'downloading video stream'],
+    [72, 'downloading', 'processing media data'],
+    [90, 'finalizing', 'saving to disk'],
+  ];
+  const fail = Math.random() < 0.15;
+  const failPt = 35 + Math.random() * 45;
+  const dur = 8000 + Math.random() * 7000;
+  let si = 0;
+
+  const iv = setInterval(() => {
+    if (j.phase !== 'processing') { clearInterval(iv); return; }
+    j.progress = Math.min(j.progress + 100 / (dur / 200), 100);
+
+    if (fail && j.progress >= failPt) {
+      clearInterval(iv);
+      j.phase = 'broken';
+      j.failAt = Date.now();
+      emit('error', `<strong>${j.creator.name}</strong> \u2014 extraction failed: network timeout`);
+      paint();
+      return;
+    }
+
+    while (si < stages.length && j.progress >= stages[si][0]) {
+      j.stage = stages[si][1];
+      emit('info', `<strong>${j.creator.name}</strong> \u2014 ${stages[si][2]}`);
+      si++;
+    }
+
+    if (j.progress >= 100) {
+      clearInterval(iv);
+      j.phase = 'done';
+      j.doneAt = Date.now();
+      j.progress = 100;
+      emit('success', `<strong>${j.creator.name}</strong> \u2014 video saved successfully`);
+    }
+    paint();
+  }, 200);
+}
+
+function retryJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (!j) return;
+  j.phase = 'waiting'; j.progress = 0; j.failAt = null; j.doneAt = null; j.born = Date.now();
+  emit('warn', `<strong>${j.creator.name}</strong> \u2014 retrying capture`);
+  setTimeout(() => engage(j), 1500 + Math.random() * 2000);
+  paint();
+  toast('Requeued for capture');
+}
+
+function deleteJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (!j) return;
+  jobs = jobs.filter(x => x.id !== id);
+  emit('warn', `<strong>${j.creator.name}</strong> \u2014 removed from timeline`);
+  paint();
+  toast('Removed');
+}
+
+// ============================================================
+//  ACTIVITY EVENTS
+// ============================================================
+function emit(level, html) {
+  events.unshift({ time: new Date(), level, html });
+  if (events.length > 60) events.length = 60;
+  if (panel === 'activity') paintActivity();
+}
+
+function paintActivity() {
+  const el = document.getElementById('activityFeed');
+  el.innerHTML = events.slice(0, 35).map(e =>
+    `<div class="event">
+      <div class="event-ts">${clockStr(e.time)}</div>
+      <div class="event-msg"><span class="event-pip ${e.level}" role="img" aria-label="${e.level}"></span>${e.html}</div>
+    </div>`
+  ).join('');
+}
+
+// ============================================================
+//  RENDER TIMELINE
+// ============================================================
+function paint() {
+  const el = document.getElementById('timeline');
+
+  const approaching = jobs.filter(j => j.phase === 'waiting');
+  const happening = jobs.filter(j => j.phase === 'processing');
+  const moments = jobs.filter(j => (j.phase === 'done' || j.phase === 'broken') && (Date.now() - (j.doneAt || j.failAt)) < 45000);
+  const earlier = jobs.filter(j => (j.phase === 'done' || j.phase === 'broken') && (Date.now() - (j.doneAt || j.failAt)) >= 45000);
+
+  if (!jobs.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-title">The timeline is empty</div>
+      <div class="empty-hint">Paste a URL above to begin capturing</div>
+    </div>`;
+    return;
+  }
+
+  let h = '';
+  const section = (era, label, list) => {
+    if (!list.length) return '';
+    return `<div class="chrono-section">
+      <div class="chrono-heading" data-era="${era}"><span>${label}</span></div>
+      <div class="chrono-list">${list.map(cardHTML).join('')}</div>
+    </div>`;
+  };
+
+  h += section('approaching', 'Approaching', approaching);
+  h += section('now', 'Happening Now', happening);
+  h += section('moments', 'Moments Ago', moments);
+  h += section('earlier', 'Earlier', earlier);
+
+  el.innerHTML = h;
+}
+
+function cardHTML(j) {
+  const age = ageOf(j);
+  const plat = j.platform;
+  const init = j.creator.name[0];
+
+  const ts = j.phase === 'waiting' ? j.born
+    : j.phase === 'processing' ? j.startAt
+    : j.phase === 'done' ? j.doneAt : j.failAt;
+
+  let indicator = '';
+  if (j.phase === 'waiting') {
+    indicator = `<div class="job-indicator">
+      <div class="wait-dots" aria-label="Waiting"><div class="wait-dot"></div><div class="wait-dot"></div><div class="wait-dot"></div></div>
+      <div class="indicator-label">waiting</div>
+    </div>`;
+  } else if (j.phase === 'processing') {
+    const C = 2 * Math.PI * 12;
+    const off = C - (j.progress / 100) * C;
+    indicator = `<div class="job-indicator">
+      <div class="ring" role="progressbar" aria-valuenow="${Math.round(j.progress)}" aria-valuemin="0" aria-valuemax="100" aria-label="${Math.round(j.progress)}% complete">
+        <svg viewBox="0 0 30 30"><circle class="track" cx="15" cy="15" r="12"/><circle class="arc" cx="15" cy="15" r="12" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg>
+      </div>
+      <div class="indicator-label">${Math.round(j.progress)}%</div>
+    </div>`;
+  } else if (j.phase === 'done') {
+    indicator = `<div class="job-indicator">
+      <div class="done-mark" aria-label="Saved">&#10003;</div>
+      <div class="indicator-label">saved</div>
+    </div>`;
+  } else {
+    indicator = `<div class="job-indicator">
+      <div class="error-mark"><span class="icon" aria-hidden="true">&#10007;</span><span class="label">retry</span></div>
+    </div>`;
+  }
+
+  let actions = '';
+  if (j.phase === 'broken') {
+    actions = `<div class="job-actions">
+      <button class="action-btn" onclick="retryJob(${j.id})" aria-label="Retry">Retry</button>
+      <button class="action-btn danger" onclick="deleteJob(${j.id})" aria-label="Delete">Delete</button>
+    </div>`;
+  } else if (j.phase === 'done') {
+    actions = `<div class="job-actions">
+      <button class="action-btn danger" onclick="deleteJob(${j.id})" aria-label="Delete">Delete</button>
+    </div>`;
+  }
+
+  const stateDesc = j.phase === 'waiting' ? 'waiting'
+    : j.phase === 'processing' ? `${Math.round(j.progress)}% complete`
+    : j.phase === 'done' ? 'saved' : 'failed';
+
+  return `<div class="job" data-age="${age}" tabindex="0"
+    onmouseenter="this.classList.add('remembering')"
+    onanimationend="this.classList.remove('remembering')"
+    aria-label="${j.creator.name}, ${plat}, ${stateDesc}, ${whenLabel(ts)}">
+    <div class="job-avatar ${plat}">${init}</div>
+    <div class="job-body">
+      <div class="job-name">${j.creator.name}</div>
+      <div class="job-meta">
+        <span class="job-platform ${plat}">${plat === 'x' ? 'X' : 'TikTok'}</span>
+        <span class="job-when">${whenLabel(ts)}</span>
+      </div>
+    </div>
+    ${indicator}
+    ${actions}
+  </div>`;
+}
+
+// ============================================================
+//  CONTACTS
+// ============================================================
+function paintContacts() {
+  const listEl = document.getElementById('contactsListEl');
+  const detailEl = document.getElementById('contactDetailEl');
+
+  if (viewingContact) {
+    listEl.style.display = 'none';
+    detailEl.className = 'contact-detail visible';
+    paintContactDetail(viewingContact);
+    return;
+  }
+
+  listEl.style.display = 'flex';
+  detailEl.className = 'contact-detail';
+
+  const map = {};
+  jobs.forEach(j => {
+    if (!map[j.creator.slug]) map[j.creator.slug] = { creator: j.creator, jobs: [], last: 0 };
+    map[j.creator.slug].jobs.push(j);
+    const t = j.doneAt || j.failAt || j.born;
+    if (t > map[j.creator.slug].last) map[j.creator.slug].last = t;
+  });
+  CREATORS.forEach(c => { if (!map[c.slug]) map[c.slug] = { creator: c, jobs: [], last: 0 }; });
+
+  const sorted = Object.values(map).sort((a, b) => b.last - a.last);
+
+  listEl.innerHTML = sorted.map(c =>
+    `<div class="contact" tabindex="0" onclick="openContact('${c.creator.slug}')" onkeydown="if(event.key==='Enter')openContact('${c.creator.slug}')">
+      <div class="contact-av" style="background:${c.creator.hue}">${c.creator.name[0]}</div>
+      <div>
+        <div class="contact-name">${c.creator.name}</div>
+        <div class="contact-handle">${c.creator.handle}</div>
+      </div>
+      <div class="contact-stats">
+        <div class="contact-count">${c.jobs.length}</div>
+        <div class="contact-last">${c.last ? ago(c.last) : 'never'}</div>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function openContact(slug) { viewingContact = slug; paintContacts(); }
+function closeContact() { viewingContact = null; paintContacts(); }
+
+function paintContactDetail(slug) {
+  const c = CREATORS.find(x => x.slug === slug);
+  if (!c) return;
+  const cJobs = jobs.filter(j => j.creator.slug === slug)
+    .sort((a, b) => (b.doneAt || b.failAt || b.born) - (a.doneAt || a.failAt || a.born));
+
+  document.getElementById('contactDetailEl').innerHTML = `
+    <div class="contact-detail-head">
+      <div class="contact-detail-av" style="background:${c.hue}">${c.name[0]}</div>
+      <div>
+        <div class="contact-detail-name">${c.name}</div>
+        <div class="contact-detail-handle">${c.handle}</div>
+      </div>
+      <button class="contact-back" onclick="closeContact()">Back</button>
+    </div>
+    <div class="contact-jobs">
+      ${cJobs.length ? cJobs.map(j => {
+        const t = j.doneAt || j.failAt || j.born;
+        const r = j.phase === 'done' ? '<span class="contact-job-result ok">saved</span>'
+          : j.phase === 'broken' ? '<span class="contact-job-result err">failed</span>'
+          : '<span class="contact-job-result live">active</span>';
+        return `<div class="contact-job-row"><span class="contact-job-time">${whenLabel(t)}</span>${r}</div>`;
+      }).join('') : '<div style="font-size:11px;color:var(--text-dim);text-align:center;padding:20px 0">No captures yet</div>'}
+    </div>`;
+}
+
+// ============================================================
+//  PANEL SWITCHING
+// ============================================================
+function setPanel(p) {
+  panel = p;
+  document.querySelectorAll('.sidebar-tab').forEach(t => {
+    const on = t.dataset.panel === p;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on);
+  });
+  document.querySelectorAll('.header-nav-btn').forEach(b => {
+    const on = b.dataset.panel === p;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  document.querySelectorAll('.sidebar-pane').forEach(s => {
+    s.classList.toggle('active', s.id === 'sp-' + p);
+  });
+  if (p === 'activity') paintActivity();
+  if (p === 'contacts') paintContacts();
+}
+
+document.querySelectorAll('.sidebar-tab').forEach(t => t.addEventListener('click', () => setPanel(t.dataset.panel)));
+document.querySelectorAll('.header-nav-btn').forEach(b => b.addEventListener('click', () => setPanel(b.dataset.panel)));
+
+// ============================================================
+//  INTAKE
+// ============================================================
+const $input = document.getElementById('intakeInput');
+const $shell = document.getElementById('intakeShell');
+const $btn = document.getElementById('intakeSubmit');
+const $det = document.getElementById('intakeDetected');
+
+const classify = url => {
+  if (/twitter\.com|x\.com/i.test(url)) return 'x';
+  if (/tiktok\.com/i.test(url)) return 'tiktok';
+  return null;
+};
+
+$input.addEventListener('input', () => {
+  const v = $input.value.trim();
+  const p = classify(v);
+  if (p) {
+    $btn.disabled = false;
+    $shell.classList.add('is-valid');
+    $det.className = 'intake-detected show ' + p;
+    $det.textContent = p === 'x' ? 'X' : 'TikTok';
+  } else {
+    $btn.disabled = true;
+    $shell.classList.remove('is-valid');
+    $det.className = 'intake-detected';
+  }
+});
+
+document.getElementById('intakeForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $input.value.trim();
+  const p = classify(v);
+  if (!p) return;
+  if (!caps[p]) { toast(`${p === 'x' ? 'X' : 'TikTok'} is disabled`); return; }
+
+  const pool = CREATORS.filter(c => c.platform === p);
+  const creator = pool[Math.floor(Math.random() * pool.length)];
+  spawn(v, p, creator);
+
+  $input.value = '';
+  $btn.disabled = true;
+  $shell.classList.remove('is-valid');
+  $shell.classList.add('submitted');
+  setTimeout(() => $shell.classList.remove('submitted'), 600);
+  $det.className = 'intake-detected';
+  toast('Capture started');
+});
+
+// ============================================================
+//  SETTINGS
+// ============================================================
+document.getElementById('swX').addEventListener('change', e => {
+  caps.x = e.target.checked;
+  emit(e.target.checked ? 'success' : 'warn', `X platform ${e.target.checked ? 'enabled' : 'disabled'}`);
+});
+document.getElementById('swTiktok').addEventListener('change', e => {
+  caps.tiktok = e.target.checked;
+  emit(e.target.checked ? 'success' : 'warn', `TikTok platform ${e.target.checked ? 'enabled' : 'disabled'}`);
+});
+
+// ============================================================
+//  TOAST
+// ============================================================
+function toast(msg) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast-msg';
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 250); }, 2600);
+}
+
+// ============================================================
+//  STARS
+// ============================================================
+function makeStars() {
+  const el = document.getElementById('stars');
+  let html = '';
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * 100;
+    const y = Math.random() * 50;
+    const sz = 1 + Math.random() * 1.2;
+    const lo = (0.15 + Math.random() * 0.15).toFixed(2);
+    const hi = (0.5 + Math.random() * 0.4).toFixed(2);
+    const dur = (2.5 + Math.random() * 3).toFixed(1);
+    const delay = (Math.random() * 4).toFixed(1);
+    html += `<div class="star-dot" style="left:${x}%;top:${y}%;width:${sz}px;height:${sz}px;--lo:${lo};--hi:${hi};--dur:${dur}s;--delay:${delay}s"></div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ============================================================
+//  SIMULATION
+// ============================================================
+function seed() {
+  const now = Date.now();
+  jobs = [
+    { id: ++nextId, url: '', platform: 'tiktok', creator: CREATORS[3], phase: 'broken', progress: 42, born: now - 55000, startAt: now - 53000, doneAt: null, failAt: now - 46000, stage: '' },
+    { id: ++nextId, url: '', platform: 'x', creator: CREATORS[2], phase: 'done', progress: 100, born: now - 80000, startAt: now - 78000, doneAt: now - 66000, failAt: null, stage: '' },
+    { id: ++nextId, url: '', platform: 'tiktok', creator: CREATORS[1], phase: 'done', progress: 100, born: now - 200000, startAt: now - 198000, doneAt: now - 186000, failAt: null, stage: '' },
+    { id: ++nextId, url: '', platform: 'x', creator: CREATORS[0], phase: 'done', progress: 100, born: now - 320000, startAt: now - 318000, doneAt: now - 305000, failAt: null, stage: '' },
+    { id: ++nextId, url: '', platform: 'x', creator: CREATORS[4], phase: 'done', progress: 100, born: now - 400000, startAt: now - 398000, doneAt: now - 385000, failAt: null, stage: '' },
+  ];
+
+  emit('info', 'Chronoscape initialized');
+  emit('success', '<strong>Aurora Films</strong> \u2014 video saved');
+  emit('success', '<strong>Neon Collective</strong> \u2014 video saved');
+  emit('success', '<strong>Wave Studio</strong> \u2014 video saved');
+  emit('error', '<strong>Pixel Drift</strong> \u2014 extraction failed');
+  emit('success', '<strong>Midnight Lens</strong> \u2014 video saved');
+
+  paint();
+  paintContacts();
+}
+
+function autoSpawn() {
+  const c = CREATORS[Math.floor(Math.random() * CREATORS.length)];
+  const url = c.platform === 'x'
+    ? `https://x.com/${c.handle.slice(1)}/status/${Date.now()}`
+    : `https://tiktok.com/${c.handle}/video/${Date.now()}`;
+  spawn(url, c.platform, c);
+}
+
+// Periodic refresh for time-ago labels
+setInterval(() => {
+  paint();
+  if (panel === 'contacts') paintContacts();
+}, 3000);
+
+// New jobs every 10-16s
+function scheduleAuto() {
+  setTimeout(() => { autoSpawn(); scheduleAuto(); }, 10000 + Math.random() * 6000);
+}
+
+// Ambient heartbeat events
+setInterval(() => {
+  const msgs = [
+    'Worker heartbeat \u2014 pipeline healthy',
+    'Playwright context \u2014 session active',
+    'Queue monitor \u2014 no backlog',
+    'Connection pool \u2014 3 active handles',
+    'Telemetry buffer \u2014 within limits',
+  ];
+  emit('info', msgs[Math.floor(Math.random() * msgs.length)]);
+}, 7000);
+
+// ============================================================
+//  BOOT
+// ============================================================
+makeStars();
+seed();
+setTimeout(scheduleAuto, 4000);
+</script>
+</body>
+</html>
