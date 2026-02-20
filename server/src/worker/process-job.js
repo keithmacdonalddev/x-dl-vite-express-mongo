@@ -42,6 +42,20 @@ function chooseThumbnailUrl(imageUrls, metadata) {
   return '';
 }
 
+function applyFailureIdentity(job) {
+  const derived = deriveAccountProfile({ postUrl: job.tweetUrl, metadata: job.metadata || {} });
+  if (!job.accountPlatform || job.accountPlatform === 'unknown') {
+    job.accountPlatform = derived.platform || 'unknown';
+  }
+  if (!job.accountHandle) {
+    job.accountHandle = derived.handle || '';
+  }
+  if (!job.accountDisplayName) {
+    job.accountDisplayName = derived.displayName || derived.handle || '';
+  }
+  job.accountSlug = sanitizeAccountSlug(job.accountSlug || derived.accountSlug || derived.handle || derived.platform);
+}
+
 const productionPageFactory = createPlaywrightPageFactory();
 
 async function productionExtractor(tweetUrl, options = {}) {
@@ -632,6 +646,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     job.thumbnailUrl = thumbnailUrl;
     job.thumbnailPath = normalizePathForApi(thumbnailPath);
     job.completedAt = new Date();
+    job.errorCode = '';
     job.error = '';
     await job.save();
     logger.info('worker.job.completed', {
@@ -668,6 +683,8 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
+    applyFailureIdentity(job);
+    job.errorCode = typeof error?.code === 'string' ? error.code : '';
     job.status = JOB_STATUSES.FAILED;
     job.failedAt = new Date();
     job.error = message;
@@ -682,6 +699,10 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       isTimeout,
       timeoutMs: isTimeout ? error.timeoutMs : undefined,
       errorName: error instanceof Error ? error.name : undefined,
+      errorCode: job.errorCode || '',
+      pageTitle: error?.details?.title || '',
+      canonicalUrl: error?.details?.canonicalUrl || '',
+      finalUrl: error?.details?.finalUrl || '',
       progressPct: job.progressPct,
       sourceType: job.sourceType,
       candidateCount: Array.isArray(job.candidateUrls) ? job.candidateUrls.length : 0,
@@ -698,4 +719,5 @@ module.exports = {
   processOneCycle,
   buildTargetPath,
   productionExtractor,
+  applyFailureIdentity,
 };
