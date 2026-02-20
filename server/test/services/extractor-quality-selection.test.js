@@ -39,3 +39,14 @@ test('listCandidateMediaUrls excludes known static playback assets', () => {
   assert.deepEqual(candidates, [realVideoUrl]);
 });
 
+test('pickMediaUrl does not fall back to login placeholder media when no real candidates exist', () => {
+  const placeholder =
+    'https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/webapp/main/webapp-desktop/playback1.mp4';
+
+  const selected = pickMediaUrl([placeholder]);
+
+  assert.equal(selected.mediaUrl, '');
+  assert.equal(selected.sourceType, 'unknown');
+  assert.deepEqual(selected.candidateUrls, []);
+});
+
