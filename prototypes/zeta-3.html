@@ -1,0 +1,1711 @@
+<!--
+  Media Vault Prototype
+  Round: zeta-3
+  Concept: Temporal Canvas — jobs rendered on a horizontal time axis with width proportional to duration; intake is anchored at "now"; each creator lane is a horizontal track
+  Special Feature: Sound Design Hooks — subtle synthesized audio feedback using the Web Audio API (no external files, pure oscillator tones) fires on job completion (ascending chime), queue add (soft click), and failure (low descending tone); controlled by an opt-in toggle in settings
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Sound Design Hooks — Web Audio API oscillator tones (no external files) for job events; opt-in via settings toggle; completion = ascending major chord arpeggio, failure = descending minor tone, queue = soft click transient -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Timeline</title>
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+  ============================================================ */
+  :root {
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+    /* Multi-layer glass */
+    --g1-bg: rgba(255,255,255,0.07);
+    --g1-blur: blur(4px) saturate(160%);
+    --g2-bg: rgba(255,255,255,0.04);
+    --g2-blur: blur(12px) saturate(140%);
+    --g3-bg: rgba(255,255,255,0.02);
+    --g3-blur: blur(20px) saturate(120%);
+
+    /* Asymmetric borders */
+    --bt: rgba(255,255,255,0.12);
+    --bl: rgba(255,255,255,0.08);
+    --br: rgba(0,0,0,0.08);
+    --bb: rgba(0,0,0,0.12);
+
+    /* Base colors */
+    --bg: #06080e;
+    --bg2: #0a0e1c;
+    --surface: #0f1628;
+
+    --ink: #dce9f5;
+    --ink-muted: #8898b8;
+    --ink-faint: #aabece;
+
+    /* Desaturated status palette */
+    --s-complete: hsl(145, 45%, 52%);
+    --s-failed: hsl(0, 48%, 52%);
+    --s-running: hsl(210, 50%, 58%);
+    --s-queued: hsl(30, 15%, 52%);
+    --s-canceled: hsl(220, 20%, 45%);
+
+    /* Accent */
+    --accent: hsl(214, 68%, 62%);
+    --accent-rgb: 80, 136, 222;
+
+    /* Springs */
+    --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --spring-exit: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --spring-snap: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Type scale */
+    --t-display: clamp(3rem, 5.5vw, 5rem);
+    --t-heading: clamp(1.15rem, 1.8vw, 1.4rem);
+    --t-sub: 0.9375rem;
+    --t-body: 0.84375rem;
+    --t-caption: 0.71875rem;
+
+    /* Timeline constants */
+    --lane-height: 88px;
+    --track-header: 180px;
+    --timeline-scale: 120px; /* px per minute */
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+  }
+
+  .numeric, .count, .timestamp, [data-metric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Background depth */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 40% at 30% 10%, rgba(80,136,222,0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 50% at 80% 90%, rgba(100,55,200,0.03) 0%, transparent 50%),
+      linear-gradient(170deg, #06080e 0%, #080c1c 55%, #050609 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     APP SHELL
+  ============================================================ */
+  #app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #app.ready { opacity: 1; }
+
+  /* ============================================================
+     TOP BAR — Logo + Intake + Settings + Stats
+  ============================================================ */
+  #topbar {
+    backdrop-filter: var(--g2-blur);
+    background: var(--g2-bg);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 0 24px;
+    height: 64px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    opacity: 0;
+    animation: barIn 0.4s var(--spring-exit) 0.08s forwards;
+  }
+
+  #topbar::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  @keyframes barIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: var(--t-heading);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+
+  .logo-gem {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(140deg, hsl(214,68%,58%) 0%, hsl(240,58%,58%) 100%);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: var(--shadow-md);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .logo-gem::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.35) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ============================================================
+     INTAKE — HERO IN TOPBAR
+  ============================================================ */
+  #intake-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    max-width: 540px;
+    width: 100%;
+    justify-self: center;
+    opacity: 0;
+    animation: barIn 0.4s var(--spring-exit) 0.48s forwards;
+  }
+
+  .intake-shell {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    background: var(--g1-bg);
+    backdrop-filter: var(--g1-blur);
+    border-top: 1px solid var(--bt);
+    border-left: 1px solid var(--bl);
+    border-right: 1px solid rgba(0,0,0,0.04);
+    border-bottom: 1px solid var(--bb);
+    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+    padding: 2px 10px 2px 16px;
+    transition: box-shadow 0.22s ease, transform 0.14s ease;
+    animation: breatheGlow 4s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .intake-shell::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.07) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  @keyframes breatheGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(80,136,222,0.04); }
+    50% { box-shadow: 0 0 32px rgba(80,136,222,0.09); }
+  }
+
+  .intake-shell:focus-within {
+    animation: none;
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 40px rgba(80,136,222,0.12),
+      0 0 80px rgba(80,136,222,0.06);
+  }
+
+  .intake-pfx { color: var(--ink-muted); font-size: 13px; flex-shrink: 0; margin-right: 8px; opacity: 0.7; }
+
+  #url-in {
+    flex: 1;
+    background: none;
+    border: none; outline: none;
+    color: var(--ink);
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 450;
+    padding: 10px 0;
+    caret-color: var(--accent);
+  }
+  #url-in::placeholder { color: var(--ink-muted); opacity: 0.65; }
+
+  .p-chip {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: var(--radius-xs);
+    transform: scale(0.7);
+    opacity: 0;
+    transition: transform 0.25s var(--spring-enter), opacity 0.2s ease;
+    flex-shrink: 0;
+    margin-right: 4px;
+    letter-spacing: 0.02em;
+  }
+  .p-chip.show { transform: scale(1); opacity: 1; }
+  .p-chip.x-chip { background: rgba(255,255,255,0.08); color: #b4c8e0; border: 1px solid rgba(255,255,255,0.1); }
+  .p-chip.tt-chip { background: rgba(255,90,120,0.1); color: #e0a8b8; border: 1px solid rgba(255,90,120,0.12); }
+
+  .intake-btn {
+    padding: 0 18px;
+    height: 40px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    font-size: var(--t-body);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.2s ease;
+    box-shadow: var(--shadow-md);
+    white-space: nowrap;
+  }
+  .intake-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+  .intake-btn:active { transform: scale(0.97) translateY(0); box-shadow: var(--shadow-sm); }
+  .intake-btn.ok { background: var(--s-complete); }
+
+  /* ============================================================
+     TOP RIGHT — Stats + Settings
+  ============================================================ */
+  .topbar-stats {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    opacity: 0;
+    animation: barIn 0.4s var(--spring-exit) 0.22s forwards;
+  }
+
+  .topbar-stat {
+    text-align: right;
+  }
+
+  .topbar-stat-val {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    line-height: 1;
+  }
+
+  .topbar-stat-lbl {
+    font-size: var(--t-caption);
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  .hero-display {
+    font-size: var(--t-display);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--ink);
+    text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    margin-right: 4px;
+  }
+
+  .topbar-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* Settings gear */
+  .settings-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--g1-bg);
+    border-top: 1px solid var(--bt);
+    border-left: 1px solid var(--bl);
+    border-right: 1px solid var(--br);
+    border-bottom: 1px solid var(--bb);
+    color: var(--ink-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.14s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .settings-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .settings-btn:hover { background: rgba(255,255,255,0.08); color: var(--ink); transform: translateY(-1px); }
+  .settings-btn:active { transform: scale(0.95); }
+
+  /* ============================================================
+     SETTINGS PANEL — slide down from topbar
+  ============================================================ */
+  #settings-panel {
+    position: fixed;
+    top: 64px;
+    right: 24px;
+    width: 260px;
+    background: var(--g1-bg);
+    backdrop-filter: var(--g1-blur);
+    border-top: 1px solid var(--bt);
+    border-left: 1px solid var(--bl);
+    border-right: 1px solid var(--br);
+    border-bottom: 1px solid var(--bb);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-xl);
+    z-index: 100;
+    transform: translateY(-10px) scale(0.97);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.3s var(--spring-enter), opacity 0.22s ease;
+    position: fixed;
+    overflow: hidden;
+  }
+
+  #settings-panel::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  #settings-panel.open {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .sp-title {
+    font-size: var(--t-sub);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .sp-section-label {
+    font-size: var(--t-caption);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+    margin-top: 12px;
+  }
+
+  .sp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.02);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    border-left: 1px solid rgba(255,255,255,0.03);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .sp-row:hover { background: rgba(255,255,255,0.05); }
+
+  .sp-row-name {
+    font-size: var(--t-body);
+    color: var(--ink-muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .sp-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Shared toggle component */
+  .toggle {
+    width: 32px; height: 18px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    position: relative;
+    border: none; outline: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s var(--spring-snap);
+  }
+  .toggle.on { background: var(--s-running); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s var(--spring-snap);
+  }
+  .toggle.on::after { transform: translateX(14px); }
+
+  /* ============================================================
+     TIMELINE — MAIN AREA
+  ============================================================ */
+  #timeline-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    opacity: 0;
+    animation: areaIn 0.5s var(--spring-exit) 0.18s forwards;
+  }
+
+  @keyframes areaIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Time ruler */
+  #ruler {
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    overflow: hidden;
+    background: var(--g3-bg);
+  }
+
+  .ruler-track {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 6px;
+  }
+
+  .ruler-label-spacer {
+    width: var(--track-header);
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .ruler-marks {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ruler-mark {
+    position: absolute;
+    top: 0;
+    font-size: var(--t-caption);
+    color: var(--ink-muted);
+    opacity: 0.6;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .ruler-mark::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  /* "Now" line */
+  .now-line {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, rgba(80,136,222,0.8) 0%, rgba(80,136,222,0.2) 100%);
+    z-index: 5;
+    pointer-events: none;
+    left: 0; /* set by JS */
+  }
+
+  .now-label {
+    position: absolute;
+    top: 2px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    transform: translateX(-50%);
+    background: rgba(80,136,222,0.15);
+    padding: 1px 4px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* Lanes container */
+  #lanes-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.06) transparent;
+  }
+
+  #lanes-wrap::-webkit-scrollbar { width: 4px; }
+  #lanes-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+
+  #lanes-inner {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Each creator = one lane */
+  .lane {
+    display: grid;
+    grid-template-columns: var(--track-header) 1fr;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    min-height: var(--lane-height);
+    position: relative;
+    opacity: 0;
+    animation: laneIn 0.45s var(--spring-enter) both;
+  }
+
+  @keyframes laneIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .lane-header {
+    backdrop-filter: var(--g3-blur);
+    background: var(--g3-bg);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .lane-header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .lane-handle {
+    font-size: var(--t-sub);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+
+  .lane-sub {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .lane-p-badge {
+    font-size: var(--t-caption);
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+  }
+  .lane-p-badge.x { background: rgba(255,255,255,0.07); color: #b4c8e0; }
+  .lane-p-badge.tiktok { background: rgba(255,90,120,0.1); color: #e0a8b8; }
+
+  .lane-job-count {
+    font-size: var(--t-caption);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Track area */
+  .lane-track {
+    position: relative;
+    overflow: hidden;
+    min-height: var(--lane-height);
+  }
+
+  /* Subtle grid lines */
+  .lane-track::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0; right: 0;
+    background: repeating-linear-gradient(
+      to right,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent var(--timeline-scale)
+    );
+    pointer-events: none;
+  }
+
+  /* Job block on timeline */
+  .job-block {
+    position: absolute;
+    top: 14px;
+    height: calc(var(--lane-height) - 28px);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    cursor: pointer;
+    overflow: hidden;
+    min-width: 60px;
+    transition: box-shadow 0.2s ease, transform 0.14s ease;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-md);
+    animation: blockIn 0.4s var(--spring-enter) both;
+  }
+
+  @keyframes blockIn {
+    from { opacity: 0; transform: scaleX(0.5) scaleY(0.9); }
+    to   { opacity: 1; transform: scaleX(1) scaleY(1); }
+  }
+
+  .job-block::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.15) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  /* Status-tinted block backgrounds */
+  .job-block.status-completed {
+    background: linear-gradient(135deg, rgba(80,175,120,0.22) 0%, rgba(80,175,120,0.12) 100%);
+  }
+  .job-block.status-running {
+    background: linear-gradient(135deg, rgba(82,138,220,0.25) 0%, rgba(82,138,220,0.12) 100%);
+  }
+  .job-block.status-failed {
+    background: linear-gradient(135deg, rgba(200,80,80,0.22) 0%, rgba(200,80,80,0.10) 100%);
+  }
+  .job-block.status-queued {
+    background: linear-gradient(135deg, rgba(140,120,90,0.18) 0%, rgba(140,120,90,0.08) 100%);
+  }
+
+  /* Only first running job pulses its block glow */
+  .job-block.pulse-running {
+    animation: blockIn 0.4s var(--spring-enter) both, blockPulse 2s ease-in-out 0.6s infinite;
+  }
+  @keyframes blockPulse {
+    0%, 100% { box-shadow: var(--shadow-md); }
+    50% { box-shadow: 0 4px 20px rgba(82,138,220,0.4), 0 2px 8px rgba(82,138,220,0.2); }
+  }
+
+  .job-block:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .job-block:active { transform: scale(0.97) translateY(0); box-shadow: var(--shadow-sm); }
+
+  .block-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 3px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .block-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .block-status {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .block-status.s-completed { color: var(--s-complete); }
+  .block-status.s-running { color: var(--s-running); }
+  .block-status.s-failed { color: var(--s-failed); }
+  .block-status.s-queued { color: var(--s-queued); }
+
+  /* Progress fill inside running block */
+  .block-progress {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: rgba(82,138,220,0.12);
+    border-radius: inherit;
+    transition: width 0.8s var(--spring-exit);
+    pointer-events: none;
+  }
+
+  /* ============================================================
+     JOB DETAIL POPOVER — appears below clicked block
+  ============================================================ */
+  #job-popover {
+    position: fixed;
+    background: var(--g1-bg);
+    backdrop-filter: var(--g1-blur);
+    border-top: 1px solid var(--bt);
+    border-left: 1px solid var(--bl);
+    border-right: 1px solid var(--br);
+    border-bottom: 1px solid var(--bb);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-xl);
+    width: 320px;
+    z-index: 50;
+    transform: translateY(-8px) scale(0.97);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.3s var(--spring-enter), opacity 0.22s ease;
+    position: fixed;
+    overflow: hidden;
+  }
+
+  #job-popover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  #job-popover.open {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .pop-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .pop-title {
+    font-size: var(--t-sub);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .pop-status {
+    font-size: var(--t-caption);
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--radius-xs);
+    flex-shrink: 0;
+    letter-spacing: 0.03em;
+  }
+  .pop-status.s-completed { background: rgba(80,175,120,0.15); color: var(--s-complete); }
+  .pop-status.s-running { background: rgba(82,138,220,0.15); color: var(--s-running); }
+  .pop-status.s-failed { background: rgba(200,80,80,0.15); color: var(--s-failed); }
+  .pop-status.s-queued { background: rgba(140,120,90,0.12); color: var(--s-queued); }
+
+  .pop-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .pop-meta-item {
+    background: rgba(0,0,0,0.15);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+  }
+
+  .pop-meta-label {
+    font-size: var(--t-caption);
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 3px;
+  }
+
+  .pop-meta-val {
+    font-size: var(--t-body);
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .pop-progress {
+    margin-bottom: 12px;
+  }
+
+  .pop-progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--t-caption);
+    color: var(--ink-muted);
+    margin-bottom: 5px;
+  }
+
+  .pop-progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .pop-progress-fill {
+    height: 100%;
+    background: var(--s-running);
+    border-radius: 2px;
+    transition: width 0.8s var(--spring-exit);
+  }
+
+  .pop-actions {
+    display: flex;
+    gap: 7px;
+  }
+
+  .pop-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--t-caption);
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.14s ease, box-shadow 0.14s ease;
+    text-align: center;
+  }
+  .pop-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .pop-btn:active { transform: scale(0.97); box-shadow: var(--shadow-sm); }
+  .pop-btn.primary { background: var(--accent); color: white; }
+  .pop-btn.ghost {
+    background: rgba(255,255,255,0.05);
+    border-top: 1px solid var(--bt);
+    border-left: 1px solid var(--bl);
+    border-right: 1px solid var(--br);
+    border-bottom: 1px solid var(--bb);
+    color: var(--ink-muted);
+  }
+  .pop-btn.danger { background: rgba(200,80,80,0.15); color: var(--s-failed); border: 1px solid rgba(200,80,80,0.2); }
+
+  .pop-close {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 24px; height: 24px;
+    border-radius: var(--radius-xs);
+    background: rgba(255,255,255,0.06);
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: background 0.15s ease, transform 0.14s ease;
+  }
+  .pop-close:hover { background: rgba(255,255,255,0.1); color: var(--ink); transform: scale(1.05); }
+
+  /* ============================================================
+     BOTTOM BAR — Activity feed
+  ============================================================ */
+  #bottom-bar {
+    height: 56px;
+    backdrop-filter: var(--g2-blur);
+    background: var(--g2-bg);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    opacity: 0;
+    animation: barIn 0.4s var(--spring-exit) 0.32s forwards;
+  }
+
+  #bottom-bar::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255,255,255,0.02) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .bottom-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--t-caption);
+    color: var(--ink-muted);
+    font-weight: 600;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--s-complete);
+    flex-shrink: 0;
+  }
+
+  .live-dot.pulse {
+    animation: livePulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .bottom-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+
+  /* Activity strip — horizontal scrolling entries */
+  #act-strip {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+    overflow: hidden;
+    align-items: center;
+  }
+
+  .act-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--g1-bg);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.05);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    border-radius: var(--radius-md);
+    padding: 5px 10px;
+    font-size: var(--t-caption);
+    color: var(--ink-faint);
+    white-space: nowrap;
+    flex-shrink: 0;
+    animation: pillIn 0.3s var(--spring-enter) both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .act-pill::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  @keyframes pillIn {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .pill-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: var(--radius-xs);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .pill-icon.info { background: rgba(82,138,220,0.15); color: var(--s-running); }
+  .pill-icon.ok { background: rgba(80,175,120,0.15); color: var(--s-complete); }
+  .pill-icon.warn { background: rgba(200,160,60,0.12); color: hsl(42,52%,60%); }
+  .pill-icon.error { background: rgba(200,80,80,0.15); color: var(--s-failed); }
+
+  .bottom-stat-group {
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .bottom-stat { text-align: right; }
+  .bottom-stat-val {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  .bottom-stat-lbl {
+    font-size: 0.625rem;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- Settings panel -->
+<div id="settings-panel">
+  <button class="pop-close" onclick="closeSettings()">×</button>
+  <div class="sp-title">Settings</div>
+
+  <div class="sp-section-label">Platforms</div>
+  <div class="sp-row" onclick="togglePlatform('x')">
+    <div class="sp-row-name">
+      <span class="sp-dot" style="background:#8ab0d0"></span>
+      X (Twitter)
+    </div>
+    <button class="toggle on" id="tog-x" aria-label="Toggle X"></button>
+  </div>
+  <div class="sp-row" onclick="togglePlatform('tiktok')">
+    <div class="sp-row-name">
+      <span class="sp-dot" style="background:#d090a8"></span>
+      TikTok
+    </div>
+    <button class="toggle on" id="tog-tt" aria-label="Toggle TikTok"></button>
+  </div>
+
+  <div class="sp-section-label">Feedback</div>
+  <div class="sp-row" onclick="toggleSound()">
+    <div class="sp-row-name">
+      <span class="sp-dot" style="background:#a0b0c8"></span>
+      Sound effects
+    </div>
+    <button class="toggle" id="tog-sound" aria-label="Toggle sound"></button>
+  </div>
+</div>
+
+<!-- Job popover -->
+<div id="job-popover">
+  <button class="pop-close" onclick="closePopover()">×</button>
+  <div id="pop-inner"></div>
+</div>
+
+<div id="app">
+
+  <!-- TOP BAR -->
+  <header id="topbar">
+    <div class="logo">
+      <div class="logo-gem">⬡</div>
+      Media Vault
+    </div>
+
+    <!-- INTAKE -->
+    <div id="intake-wrap">
+      <div class="intake-shell" id="intake-shell">
+        <span class="intake-pfx">↓</span>
+        <input type="url" id="url-in"
+          placeholder="Paste a URL from X or TikTok…"
+          autocomplete="off" spellcheck="false">
+        <span class="p-chip x-chip" id="chip-x">𝕏 X</span>
+        <span class="p-chip tt-chip" id="chip-tt">♪ TikTok</span>
+      </div>
+      <button class="intake-btn" id="intake-btn" onclick="submitJob()">Download</button>
+    </div>
+
+    <!-- STATS -->
+    <div class="topbar-stats">
+      <div class="topbar-stat">
+        <div class="topbar-stat-val" id="ts-run">2</div>
+        <div class="topbar-stat-lbl">Running</div>
+      </div>
+      <div class="topbar-sep"></div>
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <div class="hero-display" id="hero-num">20</div>
+      </div>
+      <div class="topbar-stat">
+        <div class="topbar-stat-lbl" style="text-align:left">total<br>downloads</div>
+      </div>
+    </div>
+
+    <button class="settings-btn" onclick="toggleSettings()" title="Settings">⚙</button>
+  </header>
+
+  <!-- TIMELINE -->
+  <div id="timeline-area">
+    <!-- Ruler -->
+    <div id="ruler">
+      <div class="ruler-track">
+        <div class="ruler-label-spacer"></div>
+        <div class="ruler-marks" id="ruler-marks"></div>
+      </div>
+      <div class="now-line" id="now-line"></div>
+      <div class="now-label" id="now-label">now</div>
+    </div>
+
+    <!-- Lanes -->
+    <div id="lanes-wrap">
+      <div id="lanes-inner"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ACTIVITY BAR -->
+  <div id="bottom-bar">
+    <div class="bottom-live">
+      <div class="live-dot pulse" id="live-dot"></div>
+      Live
+    </div>
+    <div class="bottom-sep"></div>
+    <div id="act-strip"></div>
+    <div class="bottom-stat-group">
+      <div class="bottom-stat">
+        <div class="bottom-stat-val" id="bs-done">18</div>
+        <div class="bottom-stat-lbl">Done</div>
+      </div>
+      <div class="bottom-stat">
+        <div class="bottom-stat-val" id="bs-fail">3</div>
+        <div class="bottom-stat-lbl">Failed</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ============================================================
+  // AUDIO ENGINE — THE SPECIAL FEATURE
+  // Web Audio API oscillator tones, no external files
+  // ============================================================
+  let audioCtx = null;
+  let soundEnabled = false;
+
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type = 'sine', gainVal = 0.12) {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + duration);
+    } catch(e) {}
+  }
+
+  function soundComplete() {
+    // Ascending major arpeggio: C5 E5 G5
+    [523.25, 659.25, 783.99].forEach((f, i) => {
+      setTimeout(() => playTone(f, 0.25, 'sine', 0.1), i * 80);
+    });
+  }
+
+  function soundQueue() {
+    // Soft click transient
+    playTone(880, 0.06, 'square', 0.05);
+  }
+
+  function soundFail() {
+    // Descending minor tone
+    [329.63, 261.63].forEach((f, i) => {
+      setTimeout(() => playTone(f, 0.3, 'sawtooth', 0.07), i * 120);
+    });
+  }
+
+  function toggleSound() {
+    soundEnabled = !soundEnabled;
+    document.getElementById('tog-sound').classList.toggle('on', soundEnabled);
+    if (soundEnabled) {
+      // Resume audio context
+      try { getAudioCtx().resume(); } catch(e) {}
+      soundQueue(); // test click
+    }
+  }
+
+  // ============================================================
+  // DATA
+  // ============================================================
+  // Time offsets in minutes from "now" (negative = in the past)
+  const CREATORS = [
+    { slug: 'kaito_yamamoto', handle: '@kaito_yamamoto', platform: 'x' },
+    { slug: 'aria_voss', handle: '@aria_voss', platform: 'tiktok' },
+    { slug: 'devlin_marsh', handle: '@devlin_marsh', platform: 'x' },
+    { slug: 'priya_chen', handle: '@priya_chen', platform: 'tiktok' },
+  ];
+
+  let jobs = [
+    { id:'j1', creator:'kaito_yamamoto', platform:'x', title:'Procedural generation thread', status:'completed', size:'142 MB', duration:'4:22', startOff:-28, widthMin:4.5 },
+    { id:'j2', creator:'kaito_yamamoto', platform:'x', title:'Live coding highlights', status:'completed', size:'89 MB', duration:'2:10', startOff:-12, widthMin:2.5 },
+    { id:'j3', creator:'aria_voss', platform:'tiktok', title:'Morning routine ambient edit', status:'running', size:'—', duration:'1:30', startOff:-2, widthMin:1.5, progress:34 },
+    { id:'j4', creator:'aria_voss', platform:'tiktok', title:'Recipe: soft-scrambled eggs', status:'queued', size:'—', duration:'0:58', startOff:0, widthMin:1.0, progress:0 },
+    { id:'j5', creator:'devlin_marsh', platform:'x', title:'Kernel debugging walkthrough', status:'failed', size:'—', duration:'8:45', startOff:-35, widthMin:5.0, error:'Extraction timeout' },
+    { id:'j6', creator:'devlin_marsh', platform:'x', title:'SSH tunneling explainer', status:'completed', size:'320 MB', duration:'12:03', startOff:-65, widthMin:12.0 },
+    { id:'j7', creator:'priya_chen', platform:'tiktok', title:'Botanical watercolor timelapse', status:'running', size:'—', duration:'3:15', startOff:-4, widthMin:3.0, progress:61 },
+  ];
+
+  let selectedJobId = null;
+  let platformState = { x: true, tiktok: true };
+
+  // Timeline scale: px per minute
+  const PX_PER_MIN = 80;
+  // "Now" position offset from left of track area (px)
+  const NOW_X = 260; // shown partway into visible area
+
+  // ============================================================
+  // TIMELINE RENDER
+  // ============================================================
+  function renderTimeline() {
+    const lanesInner = document.getElementById('lanes-inner');
+    let pulsedJobId = null;
+
+    // Sort: running first for pulse
+    jobs.forEach(j => { if (j.status === 'running' && !pulsedJobId) pulsedJobId = j.id; });
+
+    let html = '';
+    CREATORS.forEach((creator, ci) => {
+      const creatorJobs = jobs.filter(j => j.creator === creator.slug);
+      const delay = Math.max(0, 120 - ci * 25);
+
+      const blocksHtml = creatorJobs.map(job => {
+        const left = NOW_X + job.startOff * PX_PER_MIN;
+        const width = Math.max(60, job.widthMin * PX_PER_MIN);
+        const isPulsed = job.id === pulsedJobId;
+        const progStyle = job.status === 'running' ? `width:${job.progress||0}%` : '';
+        const isSelected = job.id === selectedJobId;
+
+        return `
+          <div class="job-block status-${job.status}${isPulsed ? ' pulse-running' : ''}"
+            id="block-${job.id}"
+            style="left:${left.toFixed(0)}px; width:${width.toFixed(0)}px; outline:${isSelected ? '2px solid var(--accent)' : 'none'};"
+            onclick="openPopover(event, '${job.id}')">
+            ${job.status === 'running' ? `<div class="block-progress" style="${progStyle}" id="bprog-${job.id}"></div>` : ''}
+            <div class="block-content">
+              <div class="block-title">${job.title}</div>
+              <div class="block-status s-${job.status}">
+                ${job.status === 'running' ? `${Math.round(job.progress||0)}%` : job.status.toUpperCase()}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      html += `
+        <div class="lane" style="animation-delay:${delay}ms">
+          <div class="lane-header">
+            <div class="lane-handle">${creator.handle}</div>
+            <div class="lane-sub">
+              <span class="lane-p-badge ${creator.platform}">${creator.platform === 'x' ? '𝕏' : '♪'} ${creator.platform}</span>
+              <span class="lane-job-count numeric">${creatorJobs.length}</span>
+            </div>
+          </div>
+          <div class="lane-track" id="track-${creator.slug}">
+            ${blocksHtml}
+          </div>
+        </div>`;
+    });
+
+    lanesInner.innerHTML = html;
+    renderRuler();
+    updateStats();
+  }
+
+  function renderRuler() {
+    const marks = document.getElementById('ruler-marks');
+    marks.innerHTML = '';
+
+    // Generate marks from -60min to +15min
+    for (let m = -60; m <= 15; m += 5) {
+      const x = NOW_X + m * PX_PER_MIN;
+      if (x < 0) continue;
+      const mark = document.createElement('div');
+      mark.className = 'ruler-mark';
+      mark.style.left = x + 'px';
+      const label = m === 0 ? 'now' : (m > 0 ? '+' + m + 'm' : m + 'm');
+      mark.textContent = label;
+      marks.appendChild(mark);
+    }
+
+    // Now line
+    const nowLine = document.getElementById('now-line');
+    const trackHeaderWidth = 180; // var(--track-header)
+    nowLine.style.left = (trackHeaderWidth + NOW_X) + 'px';
+    nowLine.style.top = '0';
+    nowLine.style.height = '100%';
+    nowLine.style.position = 'absolute';
+
+    const nowLabel = document.getElementById('now-label');
+    nowLabel.style.left = (trackHeaderWidth + NOW_X) + 'px';
+    nowLabel.style.top = '2px';
+    nowLabel.style.position = 'absolute';
+  }
+
+  function updateStats() {
+    const running = jobs.filter(j => j.status === 'running').length;
+    const done = jobs.filter(j => j.status === 'completed').length;
+    const failed = jobs.filter(j => j.status === 'failed').length;
+
+    document.getElementById('ts-run').textContent = running;
+    document.getElementById('hero-num').textContent = done + 18;
+    document.getElementById('bs-done').textContent = done + 18;
+    document.getElementById('bs-fail').textContent = failed;
+
+    const dot = document.getElementById('live-dot');
+    dot.classList.toggle('pulse', running > 0);
+  }
+
+  // ============================================================
+  // JOB POPOVER
+  // ============================================================
+  function openPopover(event, jobId) {
+    event.stopPropagation();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    selectedJobId = jobId;
+
+    const pop = document.getElementById('job-popover');
+    const inner = document.getElementById('pop-inner');
+
+    let progressHtml = '';
+    if (job.status === 'running') {
+      progressHtml = `
+        <div class="pop-progress">
+          <div class="pop-progress-row">
+            <span>Progress</span>
+            <span class="numeric">${Math.round(job.progress||0)}%</span>
+          </div>
+          <div class="pop-progress-track">
+            <div class="pop-progress-fill" style="width:${job.progress||0}%"></div>
+          </div>
+        </div>`;
+    }
+
+    let actionsHtml = '';
+    if (job.status === 'failed') {
+      actionsHtml = `<button class="pop-btn primary" onclick="retryJob('${job.id}')">↺ Retry</button>
+                     <button class="pop-btn danger" onclick="deleteJob('${job.id}')">Delete</button>`;
+    } else if (job.status === 'completed') {
+      actionsHtml = `<button class="pop-btn primary">↓ Open</button>
+                     <button class="pop-btn ghost" onclick="deleteJob('${job.id}')">Delete</button>`;
+    } else {
+      actionsHtml = `<button class="pop-btn ghost" onclick="deleteJob('${job.id}')">Cancel</button>`;
+    }
+
+    inner.innerHTML = `
+      <div class="pop-header">
+        <div class="pop-title">${job.title}</div>
+        <div class="pop-status s-${job.status}">${job.status.toUpperCase()}</div>
+      </div>
+      <div class="pop-meta">
+        <div class="pop-meta-item">
+          <div class="pop-meta-label">Platform</div>
+          <div class="pop-meta-val">${job.platform === 'x' ? '𝕏 X' : '♪ TikTok'}</div>
+        </div>
+        <div class="pop-meta-item">
+          <div class="pop-meta-label">Duration</div>
+          <div class="pop-meta-val numeric">${job.duration || '—'}</div>
+        </div>
+        <div class="pop-meta-item">
+          <div class="pop-meta-label">Size</div>
+          <div class="pop-meta-val numeric">${job.size}</div>
+        </div>
+        <div class="pop-meta-item">
+          <div class="pop-meta-label">Creator</div>
+          <div class="pop-meta-val" style="font-size:var(--t-caption)">${job.creator.replace(/_/g,' ')}</div>
+        </div>
+      </div>
+      ${job.error ? `<div style="background:rgba(200,80,80,0.08);border:1px solid rgba(200,80,80,0.15);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;font-size:var(--t-caption);color:var(--s-failed)">⚠ ${job.error}</div>` : ''}
+      ${progressHtml}
+      <div class="pop-actions">${actionsHtml}</div>`;
+
+    // Position near block
+    const rect = event.currentTarget.getBoundingClientRect();
+    const popW = 320;
+    let left = rect.left;
+    let top = rect.bottom + 8;
+    if (left + popW > window.innerWidth - 16) left = window.innerWidth - popW - 16;
+    if (top + 300 > window.innerHeight - 16) top = rect.top - 300 - 8;
+
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    pop.classList.add('open');
+
+    // Re-render to show outline
+    renderTimeline();
+  }
+
+  function closePopover() {
+    document.getElementById('job-popover').classList.remove('open');
+    selectedJobId = null;
+    renderTimeline();
+  }
+
+  document.addEventListener('click', e => {
+    const pop = document.getElementById('job-popover');
+    const sp = document.getElementById('settings-panel');
+    if (!pop.contains(e.target) && !e.target.closest('.job-block')) {
+      pop.classList.remove('open');
+      selectedJobId = null;
+    }
+    if (!sp.contains(e.target) && !e.target.closest('.settings-btn')) {
+      sp.classList.remove('open');
+    }
+  });
+
+  // ============================================================
+  // SETTINGS
+  // ============================================================
+  function toggleSettings() {
+    document.getElementById('settings-panel').classList.toggle('open');
+  }
+
+  function closeSettings() {
+    document.getElementById('settings-panel').classList.remove('open');
+  }
+
+  function togglePlatform(p) {
+    platformState[p] = !platformState[p];
+    const id = p === 'x' ? 'tog-x' : 'tog-tt';
+    document.getElementById(id).classList.toggle('on', platformState[p]);
+    addActivity(platformState[p] ? 'ok' : 'warn', `${p.toUpperCase()} ${platformState[p] ? 'enabled' : 'disabled'}`);
+  }
+
+  // ============================================================
+  // INTAKE
+  // ============================================================
+  const urlIn = document.getElementById('url-in');
+  const chipX = document.getElementById('chip-x');
+  const chipTt = document.getElementById('chip-tt');
+  const intakeShell = document.getElementById('intake-shell');
+  const intakeWrap = document.getElementById('intake-wrap');
+
+  urlIn.addEventListener('input', () => {
+    const v = urlIn.value;
+    chipX.classList.toggle('show', /twitter\.com|x\.com/i.test(v));
+    chipTt.classList.toggle('show', /tiktok\.com/i.test(v));
+  });
+
+  // Magnetic hover
+  intakeWrap.addEventListener('mousemove', e => {
+    const r = intakeWrap.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width/2)) / r.width * 3;
+    const dy = (e.clientY - (r.top + r.height/2)) / r.height * 2;
+    intakeShell.style.transform = `translate(${dx.toFixed(2)}px,${dy.toFixed(2)}px)`;
+  });
+  intakeWrap.addEventListener('mouseleave', () => { intakeShell.style.transform = ''; });
+
+  function submitJob() {
+    const v = urlIn.value.trim();
+    if (!v) {
+      intakeShell.style.outline = '2px solid var(--s-failed)';
+      setTimeout(() => intakeShell.style.outline = '', 1200);
+      return;
+    }
+
+    const isTt = /tiktok\.com/i.test(v);
+    const platform = isTt ? 'tiktok' : 'x';
+    const creator = isTt ? 'aria_voss' : 'kaito_yamamoto';
+
+    const btn = document.getElementById('intake-btn');
+    btn.textContent = '✓ Queued';
+    btn.classList.add('ok');
+
+    const newJob = {
+      id: 'j' + Date.now(),
+      creator, platform,
+      title: v.length > 45 ? v.substring(0,45) + '…' : v,
+      status: 'queued',
+      size: '—', duration: '—',
+      startOff: 0.5, // just ahead of now
+      widthMin: 1.5,
+      progress: 0
+    };
+    jobs.push(newJob);
+    soundQueue();
+    addActivity('info', `Job queued: ${newJob.title.substring(0,40)}`);
+    renderTimeline();
+
+    setTimeout(() => {
+      btn.textContent = 'Download';
+      btn.classList.remove('ok');
+      urlIn.value = '';
+      chipX.classList.remove('show');
+      chipTt.classList.remove('show');
+    }, 900);
+  }
+
+  // ============================================================
+  // JOB ACTIONS
+  // ============================================================
+  function deleteJob(id) {
+    jobs = jobs.filter(j => j.id !== id);
+    closePopover();
+    addActivity('warn', 'Job deleted');
+    renderTimeline();
+  }
+
+  function retryJob(id) {
+    const j = jobs.find(j => j.id === id);
+    if (j) {
+      j.status = 'queued'; j.error = null; j.startOff = 0;
+      soundQueue();
+      addActivity('info', `Retrying: ${j.title.substring(0,35)}`);
+      closePopover();
+      renderTimeline();
+    }
+  }
+
+  // ============================================================
+  // ACTIVITY — BOTTOM BAR PILLS
+  // ============================================================
+  const ACT_MSGS = [
+    ['info','Playwright: navigating to X.com post'],
+    ['info','HLS manifest intercepted'],
+    ['ok','Extraction complete — 3 candidates'],
+    ['info','ffmpeg: HLS download in progress'],
+    ['ok','Job completed — 142 MB written'],
+    ['info','Queue worker polling — 1s interval'],
+    ['warn','Rate limit detected — backing off'],
+    ['info','TikTok MP4 direct link found'],
+    ['ok','Direct fetch done — 89 MB'],
+    ['error','Navigation timeout — retrying'],
+    ['info','Playwright: recovery context created'],
+    ['info','Worker claimed new job from queue'],
+    ['warn','Cloudflare challenge — manual solve needed'],
+    ['ok','TikTok job completed — 3:15 saved'],
+  ];
+  let actIdx = 0;
+  const MAX_PILLS = 6;
+
+  function addActivity(level, text) {
+    const strip = document.getElementById('act-strip');
+    const lvlMap = {info:'I',ok:'✓',warn:'W',error:'E'};
+    const el = document.createElement('div');
+    el.className = 'act-pill';
+    el.innerHTML = `
+      <div class="pill-icon ${level}">${lvlMap[level]||'I'}</div>
+      ${text}`;
+    strip.insertBefore(el, strip.firstChild);
+    // Remove oldest
+    while (strip.children.length > MAX_PILLS) strip.removeChild(strip.lastChild);
+  }
+
+  setInterval(() => {
+    const [l, t] = ACT_MSGS[actIdx % ACT_MSGS.length];
+    addActivity(l, t);
+    actIdx++;
+  }, 3000);
+
+  // ============================================================
+  // SIMULATION
+  // ============================================================
+  function advanceSim() {
+    let changed = false;
+    jobs.forEach(job => {
+      if (job.status === 'running') {
+        job.progress = Math.min(100, (job.progress||0) + Math.random() * 7 + 2);
+
+        // Update block progress bar directly (no full re-render)
+        const bprog = document.getElementById('bprog-' + job.id);
+        if (bprog) bprog.style.width = job.progress + '%';
+
+        // Update block status text
+        const block = document.getElementById('block-' + job.id);
+        if (block) {
+          const statusEl = block.querySelector('.block-status');
+          if (statusEl) statusEl.textContent = Math.round(job.progress) + '%';
+        }
+
+        // Update popover if open
+        if (selectedJobId === job.id) {
+          const fill = document.querySelector('.pop-progress-fill');
+          const pct = document.querySelector('.pop-progress-row .numeric');
+          if (fill) fill.style.width = job.progress + '%';
+          if (pct) pct.textContent = Math.round(job.progress) + '%';
+        }
+
+        if (job.progress >= 100) {
+          job.status = 'completed';
+          job.size = (Math.random() * 280 + 40).toFixed(0) + ' MB';
+          soundComplete();
+          addActivity('ok', `Completed: ${job.title.substring(0,35)}`);
+          changed = true;
+        }
+      } else if (job.status === 'queued' && Math.random() < 0.07) {
+        job.status = 'running'; job.progress = 0;
+        addActivity('info', `Started: ${job.title.substring(0,35)}`);
+        changed = true;
+      }
+    });
+
+    if (changed) renderTimeline();
+  }
+
+  setInterval(advanceSim, 1200);
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  window.addEventListener('load', () => {
+    renderTimeline();
+
+    [
+      ['info','Media Vault initialized'],
+      ['info','MongoDB connected'],
+      ['ok','Queue worker started — 1s poll'],
+      ['info','Playwright context ready'],
+    ].forEach(([l,t],i) => setTimeout(() => addActivity(l,t), i * 250));
+
+    setTimeout(() => document.getElementById('app').classList.add('ready'), 60);
+  });
+</script>
+</body>
+</html>
