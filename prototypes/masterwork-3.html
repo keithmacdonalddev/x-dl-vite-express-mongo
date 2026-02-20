@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Masterwork 3: Chronicle</title>
+<!--
+  Media Vault — Masterwork
+  Agent: 3
+  Concept: Chronicle — A living narrative interface that evolves from dawn to zenith
+-->
+<!-- SPECIAL FEATURE: Emotional Resonance Engine — The interface remembers your journey and generates a unique "story signature" visual fingerprint that crystallizes from the cumulative pattern of your downloads, failures, and retries — a personal glyph that no two users will ever share -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  /* Chapter 1: Dawn — sparse, cool, anticipatory */
+  --phase: 0; /* 0=dawn, 0.33=momentum, 0.66=flourish, 1=zenith */
+
+  /* Narrative palette — interpolated by JS */
+  --bg-deep: #0a0d14;
+  --bg-mid: #0e1219;
+  --bg-glow: rgba(70, 130, 180, 0.03);
+  --surface: rgba(16, 20, 30, 0.85);
+  --surface-elevated: rgba(22, 28, 42, 0.9);
+  --border: rgba(255,255,255,0.06);
+  --border-warm: rgba(255,255,255,0.06);
+
+  /* Text — starts cool gray, warms to cream */
+  --ink-primary: #b8c4d4;
+  --ink-secondary: #6b7a8d;
+  --ink-dim: #3d4a5c;
+  --ink-accent: #5a9fd4;
+
+  /* Status */
+  --completed: #3d8b6e;
+  --running: #5a9fd4;
+  --queued: #6b7a8d;
+  --failed: #a65454;
+  --canceled: #6b6b6b;
+
+  /* Type scale — starts tight, opens up */
+  --title-size: 1.6rem;
+  --title-weight: 300;
+  --title-spacing: 0.12em;
+  --body-size: 13.5px;
+  --caption-size: 11px;
+
+  /* Spatial — starts compressed, breathes open */
+  --space-unit: 12px;
+  --card-radius: 6px;
+  --card-padding: 14px;
+  --layout-gap: 10px;
+
+  /* Story signature */
+  --sig-hue-1: 210;
+  --sig-hue-2: 240;
+  --sig-hue-3: 180;
+  --sig-complexity: 3;
+
+  --f: 'Segoe UI', -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+}
+
+html { font-family: var(--f); background: var(--bg-deep); color: var(--ink-primary); font-size: var(--body-size); }
+body {
+  min-height: 100vh; overflow-x: hidden;
+  background: var(--bg-deep);
+}
+
+/* ═══ NARRATIVE ATMOSPHERE ═══ */
+.atmosphere {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  transition: opacity 2s ease;
+}
+.atmo-layer {
+  position: absolute; inset: 0;
+  transition: opacity 3s ease, transform 4s ease;
+}
+/* Dawn: single faint cold glow top-left */
+.atmo-dawn {
+  background: radial-gradient(ellipse 60% 50% at 15% 10%, rgba(70,130,180,0.04) 0%, transparent 70%);
+  opacity: 1;
+}
+/* Momentum: warmth enters from center */
+.atmo-momentum {
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 40%, rgba(180,140,80,0.03) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 60% at 80% 70%, rgba(100,160,200,0.025) 0%, transparent 60%);
+  opacity: 0;
+}
+/* Flourish: rich warm ambience */
+.atmo-flourish {
+  background:
+    radial-gradient(ellipse 70% 50% at 30% 30%, rgba(200,160,80,0.035) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 70% at 75% 60%, rgba(120,80,200,0.025) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 50% 90%, rgba(80,180,140,0.02) 0%, transparent 55%);
+  opacity: 0;
+}
+/* Zenith: full luminance */
+.atmo-zenith {
+  background:
+    radial-gradient(ellipse 80% 60% at 40% 20%, rgba(220,180,100,0.045) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 80% at 70% 50%, rgba(160,120,220,0.035) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 20% 80%, rgba(100,200,160,0.03) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 40% at 90% 20%, rgba(200,100,120,0.02) 0%, transparent 50%);
+  opacity: 0;
+}
+
+/* ═══ STORY SIGNATURE (special feature) ═══ */
+.story-signature {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 100;
+}
+.sig-canvas {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.6s ease;
+}
+.sig-canvas:hover {
+  transform: scale(1.12);
+  border-color: var(--ink-accent);
+}
+.sig-canvas:focus-visible {
+  outline: 2px solid var(--ink-accent);
+  outline-offset: 3px;
+}
+.sig-tooltip {
+  position: absolute;
+  bottom: 66px;
+  left: 0;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 220px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+  backdrop-filter: blur(20px);
+}
+.sig-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.sig-tooltip-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-secondary);
+  margin-bottom: 6px;
+}
+.sig-tooltip-stats {
+  font-size: 11px;
+  color: var(--ink-primary);
+  line-height: 1.6;
+}
+
+/* ═══ CHAPTER INDICATOR ═══ */
+.chapter-indicator {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chapter-name {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  transition: color 1.5s ease;
+}
+.chapter-progress {
+  width: 60px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.chapter-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--ink-accent);
+  border-radius: 1px;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1), background 2s ease;
+}
+
+/* ═══ LAYOUT ═══ */
+.app-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1200px, 94vw);
+  margin: 0 auto;
+  padding: calc(var(--space-unit) * 2) var(--space-unit);
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--layout-gap);
+  transition: gap 2s ease;
+}
+
+/* ═══ HEADER ═══ */
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px;
+  margin-bottom: calc(var(--space-unit) * 0.5);
+}
+.app-title {
+  font-size: var(--title-size);
+  font-weight: var(--title-weight);
+  letter-spacing: var(--title-spacing);
+  color: var(--ink-primary);
+  transition: font-size 2s ease, font-weight 2s ease, letter-spacing 2s ease, color 2s ease;
+}
+.app-subtitle {
+  font-size: var(--caption-size);
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+  transition: color 2s ease;
+}
+
+/* ═══ INTAKE FORM — the ceremony ═══ */
+.intake-region {
+  position: relative;
+  transition: margin 2s ease;
+}
+.intake-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  transition: border-color 0.4s ease, box-shadow 0.6s ease, border-radius 2s ease, background 2s ease;
+}
+.intake-form:focus-within {
+  border-color: rgba(90,159,212,0.4);
+  box-shadow: 0 0 0 3px rgba(90,159,212,0.08), 0 8px 32px rgba(0,0,0,0.2);
+}
+.intake-form.submitting {
+  border-color: rgba(90,159,212,0.6);
+}
+.intake-form.success {
+  border-color: rgba(61,139,110,0.5);
+  box-shadow: 0 0 0 3px rgba(61,139,110,0.1), 0 8px 32px rgba(0,0,0,0.2);
+}
+.intake-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 16px 20px;
+  font-family: var(--f);
+  font-size: 14px;
+  color: var(--ink-primary);
+  outline: none;
+  transition: padding 2s ease;
+}
+.intake-input::placeholder {
+  color: var(--ink-dim);
+  font-weight: 400;
+  transition: color 2s ease;
+}
+.intake-platform {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 0;
+  font-size: 11px;
+  color: var(--ink-dim);
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+.intake-platform.detected { opacity: 1; }
+.intake-submit {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  padding: 16px 22px;
+  color: var(--ink-secondary);
+  font-family: var(--f);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.intake-submit:hover { color: var(--ink-primary); background: rgba(255,255,255,0.03); }
+.intake-submit:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: -2px; }
+.intake-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Narrative cue below form */
+.intake-narrative {
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  font-style: italic;
+  opacity: 0.6;
+  transition: opacity 2s, color 2s;
+  min-height: 1.4em;
+}
+
+/* ═══ MAIN CONTENT ═══ */
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: var(--layout-gap);
+  align-items: start;
+  transition: grid-template-columns 2s ease, gap 2s ease;
+}
+
+/* ═══ JOB LIST ═══ */
+.jobs-region {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.jobs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 6px;
+}
+.jobs-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+  transition: color 2s;
+}
+.jobs-count {
+  font-size: 10px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  transition: border-color 0.3s, transform 0.3s, background 2s, border-radius 2s, padding 2s;
+  animation: card-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.job-card:hover { border-color: rgba(255,255,255,0.1); }
+
+.job-status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.5s;
+}
+.job-status-indicator.completed { background: var(--completed); }
+.job-status-indicator.running { background: var(--running); animation: pulse-soft 2s ease-in-out infinite; }
+.job-status-indicator.queued { background: var(--queued); }
+.job-status-indicator.failed { background: var(--failed); }
+.job-status-indicator.canceled { background: var(--canceled); }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.job-info {
+  min-width: 0;
+}
+.job-creator {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.job-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: var(--ink-secondary);
+}
+.job-platform {
+  font-weight: 500;
+}
+.job-status-text {
+  text-transform: capitalize;
+}
+.job-time {
+  color: var(--ink-dim);
+}
+.job-progress {
+  height: 2px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 1px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.job-progress-fill {
+  height: 100%;
+  border-radius: 1px;
+  background: var(--running);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.job-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.job-card:hover .job-actions { opacity: 1; }
+
+.job-action-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--f);
+  font-size: 10px;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.job-action-btn:hover { color: var(--ink-primary); border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.03); }
+.job-action-btn:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 1px; }
+.job-action-btn.danger:hover { color: var(--failed); border-color: rgba(166,84,84,0.3); }
+.job-action-btn.retry:hover { color: var(--running); border-color: rgba(90,159,212,0.3); }
+
+/* ═══ SIDEBAR ═══ */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-gap);
+}
+
+/* ═══ CONTACTS ═══ */
+.contacts-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  transition: background 2s, border-radius 2s, padding 2s;
+}
+.panel-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+  margin-bottom: 10px;
+  transition: color 2s;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.contact-item:hover { opacity: 0.8; }
+.contact-item + .contact-item { border-top: 1px solid var(--border); }
+
+.contact-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bg-deep);
+  flex-shrink: 0;
+  transition: transform 0.3s;
+}
+.contact-item:hover .contact-avatar { transform: scale(1.05); }
+
+.contact-info {
+  flex: 1;
+  min-width: 0;
+}
+.contact-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.contact-stats {
+  font-size: 10px;
+  color: var(--ink-secondary);
+  margin-top: 1px;
+}
+
+/* ═══ ACTIVITY FEED ═══ */
+.activity-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.06) transparent;
+  transition: background 2s, border-radius 2s, max-height 2s, padding 2s;
+}
+
+.activity-event {
+  padding: 6px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  animation: event-enter 0.3s ease both;
+}
+@keyframes event-enter {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.activity-event + .activity-event { border-top: 1px solid rgba(255,255,255,0.03); }
+
+.event-time {
+  font-size: 9.5px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 42px;
+  padding-top: 1px;
+}
+.event-mark {
+  width: 12px;
+  flex-shrink: 0;
+  font-size: 9px;
+  text-align: center;
+  margin-top: 2px;
+  line-height: 1;
+}
+.event-mark.info { color: var(--ink-dim); }
+.event-mark.info::after { content: '\2013'; }
+.event-mark.success { color: var(--completed); }
+.event-mark.success::after { content: '\2713'; }
+.event-mark.warn { color: #b89840; }
+.event-mark.warn::after { content: '\25B3'; }
+.event-mark.error { color: var(--failed); }
+.event-mark.error::after { content: '\00D7'; }
+.event-text {
+  font-size: 11px;
+  color: var(--ink-secondary);
+  line-height: 1.45;
+}
+.event-text strong { color: var(--ink-primary); font-weight: 600; }
+
+/* ═══ SETTINGS ═══ */
+.settings-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  transition: background 2s, border-radius 2s, padding 2s;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+.setting-row + .setting-row { border-top: 1px solid var(--border); }
+
+.setting-label {
+  font-size: 12px;
+  color: var(--ink-primary);
+  font-weight: 500;
+}
+.setting-status {
+  font-size: 10px;
+  color: var(--ink-dim);
+  margin-left: 6px;
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.3s;
+}
+.toggle:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+.toggle.on {
+  background: rgba(61,139,110,0.3);
+  border-color: rgba(61,139,110,0.4);
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink-secondary);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+}
+.toggle.on .toggle-thumb {
+  transform: translateX(16px);
+  background: var(--completed);
+}
+
+/* ═══ FOOTER ═══ */
+.app-footer {
+  padding: var(--space-unit) 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+/* ═══ CONTACT PROFILE OVERLAY ═══ */
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.profile-overlay.open { opacity: 1; pointer-events: auto; }
+.profile-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6,8,14,0.8);
+  backdrop-filter: blur(8px);
+}
+.profile-card {
+  position: relative;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 28px;
+  width: min(500px, 90vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  transform: translateY(12px);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.profile-overlay.open .profile-card { transform: translateY(0); }
+.profile-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  font-family: var(--f);
+  font-size: 10px;
+}
+.profile-close:hover { color: var(--ink-primary); border-color: rgba(255,255,255,0.15); }
+.profile-close:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 1px; }
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.profile-avatar-lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bg-deep);
+}
+.profile-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+.profile-handle {
+  font-size: 12px;
+  color: var(--ink-secondary);
+  margin-top: 2px;
+}
+.profile-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.profile-job {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+.profile-job-info { flex: 1; }
+.profile-job-url {
+  font-size: 11px;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.profile-job-status {
+  font-size: 10px;
+  text-transform: capitalize;
+  font-weight: 500;
+}
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 800px) {
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══ FOCUS VISIBLE FOR ALL INTERACTIVE ═══ */
+button:focus-visible, [tabindex="0"]:focus-visible {
+  outline: 2px solid var(--ink-accent);
+  outline-offset: 2px;
+}
+</style>
+</head>
+<body>
+
+<div class="atmosphere">
+  <div class="atmo-layer atmo-dawn"></div>
+  <div class="atmo-layer atmo-momentum"></div>
+  <div class="atmo-layer atmo-flourish"></div>
+  <div class="atmo-layer atmo-zenith"></div>
+</div>
+
+<div class="chapter-indicator">
+  <span class="chapter-name" id="chapterName">Chapter I — Dawn</span>
+  <div class="chapter-progress">
+    <div class="chapter-progress-fill" id="chapterFill"></div>
+  </div>
+</div>
+
+<div class="story-signature" id="storySignature">
+  <canvas class="sig-canvas" id="sigCanvas" width="112" height="112" tabindex="0" role="button" aria-label="Your story signature — a unique visual fingerprint of your download journey"></canvas>
+  <div class="sig-tooltip" id="sigTooltip">
+    <div class="sig-tooltip-title">Your Story Signature</div>
+    <div class="sig-tooltip-stats" id="sigStats">
+      No chapters written yet.<br>Submit your first URL to begin.
+    </div>
+  </div>
+</div>
+
+<div class="app-shell" id="appShell">
+  <!-- Header -->
+  <header class="app-header">
+    <h1 class="app-title" id="appTitle">Media Vault</h1>
+    <span class="app-subtitle" id="appSubtitle">awaiting first entry</span>
+  </header>
+
+  <!-- Intake -->
+  <section class="intake-region" id="intakeRegion">
+    <form class="intake-form" id="intakeForm" autocomplete="off">
+      <input class="intake-input" id="intakeInput" type="url"
+        placeholder="Paste a URL to begin your story..."
+        aria-label="Paste a video URL from X or TikTok" />
+      <span class="intake-platform" id="intakePlatform"></span>
+      <button class="intake-submit" id="intakeSubmit" type="submit">Archive</button>
+    </form>
+    <div class="intake-narrative" id="intakeNarrative">Every collection begins with a single save.</div>
+  </section>
+
+  <!-- Main content -->
+  <main class="main-content" id="mainContent">
+    <!-- Jobs -->
+    <section class="jobs-region" id="jobsRegion">
+      <div class="jobs-header">
+        <span class="jobs-label">Downloads</span>
+        <span class="jobs-count" id="jobsCount">0 items</span>
+      </div>
+      <div id="jobsList"></div>
+    </section>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Contacts -->
+      <div class="contacts-panel" id="contactsPanel">
+        <div class="panel-label">Creators</div>
+        <div id="contactsList"></div>
+      </div>
+
+      <!-- Activity -->
+      <div class="activity-panel" id="activityPanel">
+        <div class="panel-label">Activity</div>
+        <div id="activityList"></div>
+      </div>
+
+      <!-- Settings -->
+      <div class="settings-panel" id="settingsPanel">
+        <div class="panel-label">Platforms</div>
+        <div class="setting-row">
+          <span class="setting-label">X (Twitter)<span class="setting-status" id="xStatus">enabled</span></span>
+          <div class="toggle on" id="toggleX" tabindex="0" role="switch" aria-checked="true" aria-label="Toggle X platform">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">TikTok<span class="setting-status" id="ttStatus">enabled</span></span>
+          <div class="toggle on" id="toggleTT" tabindex="0" role="switch" aria-checked="true" aria-label="Toggle TikTok platform">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="app-footer">
+    <span id="footerLeft">Chronicle prototype</span>
+    <span id="footerRight">v1.0</span>
+  </footer>
+</div>
+
+<!-- Contact Profile Overlay -->
+<div class="profile-overlay" id="profileOverlay">
+  <div class="profile-backdrop" id="profileBackdrop"></div>
+  <div class="profile-card" id="profileCard">
+    <button class="profile-close" id="profileClose" aria-label="Close profile">&times; Close</button>
+    <div id="profileContent"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+
+const state = {
+  jobs: [],
+  completedCount: 0,
+  failedCount: 0,
+  retriedCount: 0,
+  totalSubmitted: 0,
+  activityEvents: [],
+  platforms: { x: true, tiktok: true },
+  phase: 0, // 0..1 narrative phase
+  storyPoints: [], // events that shape the signature
+  profileOpen: null,
+};
+
+// ═══════════════════════════════════════════════
+// DATA GENERATORS
+// ═══════════════════════════════════════════════
+
+const CREATORS = [
+  { name: 'Kai Nakamura', handle: '@kainakamura', slug: 'kainakamura', color: '#5a9fd4' },
+  { name: 'Priya Sharma', handle: '@priyasharma', slug: 'priyasharma', color: '#b88fd4' },
+  { name: 'Marco Diaz', handle: '@marcodiaz', slug: 'marcodiaz', color: '#7fc49b' },
+  { name: 'Elena Voss', handle: '@elenavoss', slug: 'elenavoss', color: '#d4a05a' },
+  { name: 'Tomoko Sato', handle: '@tomokosato', slug: 'tomokosato', color: '#d47a7a' },
+];
+
+const PLATFORMS = ['X', 'TikTok'];
+const STATUSES = ['queued', 'running', 'completed', 'failed', 'canceled'];
+const SAMPLE_URLS = [
+  'https://x.com/kainakamura/status/182736455',
+  'https://tiktok.com/@priyasharma/video/772635412',
+  'https://x.com/marcodiaz/status/992847163',
+  'https://tiktok.com/@elenavoss/video/334859271',
+  'https://x.com/tomokosato/status/556173928',
+  'https://tiktok.com/@kainakamura/video/881726354',
+  'https://x.com/priyasharma/status/117284956',
+  'https://tiktok.com/@marcodiaz/video/663948172',
+];
+
+let jobIdCounter = 1000;
+function nextJobId() { return 'j-' + (++jobIdCounter); }
+
+function randomCreator() { return CREATORS[Math.floor(Math.random() * CREATORS.length)]; }
+function randomPlatform() { return PLATFORMS[Math.floor(Math.random() * PLATFORMS.length)]; }
+function randomUrl() { return SAMPLE_URLS[Math.floor(Math.random() * SAMPLE_URLS.length)]; }
+
+function createJob(url) {
+  const platform = url.includes('tiktok') ? 'TikTok' : 'X';
+  const creator = CREATORS.find(c => url.includes(c.slug)) || randomCreator();
+  const job = {
+    id: nextJobId(),
+    url: url,
+    creator: creator,
+    platform: platform,
+    status: 'queued',
+    progress: 0,
+    createdAt: new Date(),
+    error: null,
+  };
+  return job;
+}
+
+function formatTime(d) {
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
+  const s = d.getSeconds().toString().padStart(2, '0');
+  return h + ':' + m + ':' + s;
+}
+
+function timeAgo(d) {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  return Math.floor(s/3600) + 'h ago';
+}
+
+// ═══════════════════════════════════════════════
+// NARRATIVE ENGINE
+// ═══════════════════════════════════════════════
+
+const CHAPTERS = [
+  { name: 'Chapter I \u2014 Dawn', threshold: 0, subtitle: 'awaiting first entry' },
+  { name: 'Chapter II \u2014 Momentum', threshold: 0.25, subtitle: 'the archive grows' },
+  { name: 'Chapter III \u2014 Flourish', threshold: 0.55, subtitle: 'a collection takes shape' },
+  { name: 'Chapter IV \u2014 Zenith', threshold: 0.85, subtitle: 'the vault stands complete' },
+];
+
+const NARRATIVE_MESSAGES = [
+  'Every collection begins with a single save.',
+  'The first thread of your archive.',
+  'Momentum builds with each addition.',
+  'Your vault deepens.',
+  'The archive remembers what the timeline forgets.',
+  'Each download is a chapter preserved.',
+  'Your collection tells a story only you know.',
+  'The vault grows richer with every save.',
+];
+
+function calculatePhase() {
+  // Phase is based on completed downloads + total activity
+  const completed = state.completedCount;
+  const total = state.totalSubmitted;
+  if (total === 0) return 0;
+
+  // Weight completed more than submitted
+  const raw = (completed * 2 + total) / 18; // ~6 completes + 6 submits = zenith
+  return Math.min(1, Math.max(0, raw));
+}
+
+function getCurrentChapter(phase) {
+  let ch = CHAPTERS[0];
+  for (const c of CHAPTERS) {
+    if (phase >= c.threshold) ch = c;
+  }
+  return ch;
+}
+
+function lerpColor(a, b, t) {
+  // a, b are [r,g,b] arrays, t is 0..1
+  return a.map((v, i) => Math.round(v + (b[i] - v) * t));
+}
+
+function rgbStr(arr) { return 'rgb(' + arr.join(',') + ')'; }
+function rgbaStr(arr, a) { return 'rgba(' + arr.join(',') + ',' + a + ')'; }
+
+// Palette stations
+const PALETTES = {
+  dawn: {
+    inkPrimary: [184, 196, 212],
+    inkSecondary: [107, 122, 141],
+    inkDim: [61, 74, 92],
+    inkAccent: [90, 159, 212],
+    surface: [16, 20, 30],
+    completed: [61, 139, 110],
+    running: [90, 159, 212],
+    failed: [166, 84, 84],
+    titleWeight: 300,
+    titleSize: 1.6,
+    titleSpacing: 0.12,
+    spaceUnit: 12,
+    cardRadius: 6,
+    cardPadding: 14,
+    layoutGap: 10,
+    sidebarWidth: 280,
+  },
+  momentum: {
+    inkPrimary: [204, 210, 218],
+    inkSecondary: [130, 145, 162],
+    inkDim: [75, 90, 110],
+    inkAccent: [120, 170, 210],
+    surface: [18, 23, 34],
+    completed: [72, 158, 120],
+    running: [110, 175, 220],
+    failed: [180, 90, 90],
+    titleWeight: 400,
+    titleSize: 1.8,
+    titleSpacing: 0.08,
+    spaceUnit: 14,
+    cardRadius: 8,
+    cardPadding: 16,
+    layoutGap: 12,
+    sidebarWidth: 290,
+  },
+  flourish: {
+    inkPrimary: [224, 220, 210],
+    inkSecondary: [158, 152, 140],
+    inkDim: [95, 90, 80],
+    inkAccent: [200, 170, 100],
+    surface: [22, 24, 30],
+    completed: [100, 180, 130],
+    running: [200, 170, 100],
+    failed: [200, 100, 80],
+    titleWeight: 500,
+    titleSize: 2.0,
+    titleSpacing: 0.04,
+    spaceUnit: 16,
+    cardRadius: 10,
+    cardPadding: 18,
+    layoutGap: 14,
+    sidebarWidth: 300,
+  },
+  zenith: {
+    inkPrimary: [240, 235, 222],
+    inkSecondary: [180, 172, 158],
+    inkDim: [115, 108, 95],
+    inkAccent: [220, 190, 120],
+    surface: [24, 22, 26],
+    completed: [130, 200, 150],
+    running: [220, 190, 120],
+    failed: [220, 110, 90],
+    titleWeight: 600,
+    titleSize: 2.2,
+    titleSpacing: 0.01,
+    spaceUnit: 18,
+    cardRadius: 12,
+    cardPadding: 20,
+    layoutGap: 16,
+    sidebarWidth: 310,
+  },
+};
+
+function interpolatePalette(phase) {
+  let fromKey, toKey, localT;
+  if (phase < 0.33) {
+    fromKey = 'dawn'; toKey = 'momentum'; localT = phase / 0.33;
+  } else if (phase < 0.66) {
+    fromKey = 'momentum'; toKey = 'flourish'; localT = (phase - 0.33) / 0.33;
+  } else {
+    fromKey = 'flourish'; toKey = 'zenith'; localT = (phase - 0.66) / 0.34;
+  }
+  localT = Math.min(1, Math.max(0, localT));
+  // Smooth easing
+  localT = localT * localT * (3 - 2 * localT);
+
+  const from = PALETTES[fromKey];
+  const to = PALETTES[toKey];
+  const result = {};
+
+  for (const key of Object.keys(from)) {
+    if (Array.isArray(from[key])) {
+      result[key] = lerpColor(from[key], to[key], localT);
+    } else {
+      result[key] = from[key] + (to[key] - from[key]) * localT;
+    }
+  }
+  return result;
+}
+
+function applyNarrative() {
+  const phase = calculatePhase();
+  state.phase = phase;
+
+  const p = interpolatePalette(phase);
+  const root = document.documentElement.style;
+
+  // Colors
+  root.setProperty('--ink-primary', rgbStr(p.inkPrimary));
+  root.setProperty('--ink-secondary', rgbStr(p.inkSecondary));
+  root.setProperty('--ink-dim', rgbStr(p.inkDim));
+  root.setProperty('--ink-accent', rgbStr(p.inkAccent));
+  root.setProperty('--surface', rgbaStr(p.surface, 0.85));
+  root.setProperty('--surface-elevated', rgbaStr(p.surface.map(v => v + 6), 0.92));
+  root.setProperty('--completed', rgbStr(p.completed));
+  root.setProperty('--running', rgbStr(p.running));
+  root.setProperty('--failed', rgbStr(p.failed));
+  root.setProperty('--border', 'rgba(255,255,255,' + (0.06 + phase * 0.05) + ')');
+
+  // Typography evolution
+  root.setProperty('--title-size', p.titleSize + 'rem');
+  root.setProperty('--title-weight', Math.round(p.titleWeight));
+  root.setProperty('--title-spacing', p.titleSpacing + 'em');
+
+  // Spatial evolution
+  root.setProperty('--space-unit', p.spaceUnit + 'px');
+  root.setProperty('--card-radius', p.cardRadius + 'px');
+  root.setProperty('--card-padding', p.cardPadding + 'px');
+  root.setProperty('--layout-gap', p.layoutGap + 'px');
+
+  // Sidebar width
+  document.getElementById('mainContent').style.gridTemplateColumns = '1fr ' + Math.round(p.sidebarWidth) + 'px';
+
+  // Atmosphere layers
+  const dawn = document.querySelector('.atmo-dawn');
+  const momentum = document.querySelector('.atmo-momentum');
+  const flourish = document.querySelector('.atmo-flourish');
+  const zenith = document.querySelector('.atmo-zenith');
+
+  dawn.style.opacity = Math.max(0, 1 - phase * 3);
+  momentum.style.opacity = phase < 0.15 ? 0 : phase < 0.5 ? (phase - 0.15) / 0.35 : Math.max(0, 1 - (phase - 0.5) / 0.3);
+  flourish.style.opacity = phase < 0.4 ? 0 : phase < 0.75 ? (phase - 0.4) / 0.35 : Math.max(0, 1 - (phase - 0.75) / 0.25);
+  zenith.style.opacity = phase < 0.7 ? 0 : (phase - 0.7) / 0.3;
+
+  // Chapter indicator
+  const chapter = getCurrentChapter(phase);
+  document.getElementById('chapterName').textContent = chapter.name;
+  document.getElementById('chapterFill').style.width = (phase * 100) + '%';
+  document.getElementById('appSubtitle').textContent = chapter.subtitle;
+
+  // Chapter fill color warms
+  const fillColor = rgbStr(p.inkAccent);
+  document.getElementById('chapterFill').style.background = fillColor;
+
+  // Narrative message below intake
+  const msgIdx = Math.min(NARRATIVE_MESSAGES.length - 1, Math.floor(phase * NARRATIVE_MESSAGES.length));
+  document.getElementById('intakeNarrative').textContent = NARRATIVE_MESSAGES[msgIdx];
+
+  // Placeholder evolves
+  const input = document.getElementById('intakeInput');
+  if (phase < 0.1) {
+    input.placeholder = 'Paste a URL to begin your story...';
+  } else if (phase < 0.4) {
+    input.placeholder = 'Add another to the archive...';
+  } else if (phase < 0.7) {
+    input.placeholder = 'The collection deepens...';
+  } else {
+    input.placeholder = 'Your vault awaits...';
+  }
+
+  // Footer evolves
+  if (phase < 0.2) {
+    document.getElementById('footerLeft').textContent = 'Chronicle prototype';
+  } else if (phase < 0.5) {
+    document.getElementById('footerLeft').textContent = state.completedCount + ' archived';
+  } else {
+    document.getElementById('footerLeft').textContent = state.completedCount + ' preserved \u00b7 ' + state.totalSubmitted + ' total';
+  }
+
+  // Update signature
+  renderSignature();
+}
+
+// ═══════════════════════════════════════════════
+// STORY SIGNATURE (Special Feature)
+// ═══════════════════════════════════════════════
+
+function addStoryPoint(type, data) {
+  state.storyPoints.push({
+    type, // 'submit', 'complete', 'fail', 'retry', 'toggle'
+    timestamp: Date.now(),
+    data: data || {},
+  });
+}
+
+function renderSignature() {
+  const canvas = document.getElementById('sigCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const points = state.storyPoints;
+  if (points.length === 0) {
+    // Empty state: faint circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(90,159,212,0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    return;
+  }
+
+  const phase = state.phase;
+
+  // Build signature from story points
+  // Each point contributes a unique angular segment and radius
+  const baseRadius = 12;
+  const maxRadius = 42;
+
+  // Generate a unique path from story events
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Background glow
+  const glowRadius = baseRadius + (maxRadius - baseRadius) * phase;
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius + 10);
+  const p = interpolatePalette(phase);
+  gradient.addColorStop(0, rgbaStr(p.inkAccent, 0.08));
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(-cx, -cy, w, h);
+
+  // Draw layered rings — each ring is a "chapter" of downloads
+  const completes = points.filter(p => p.type === 'complete').length;
+  const fails = points.filter(p => p.type === 'fail').length;
+  const submits = points.filter(p => p.type === 'submit').length;
+
+  // Organic shape built from points
+  const segments = Math.max(6, points.length + 3);
+  const angleStep = (Math.PI * 2) / segments;
+
+  // Layer 1: base ring (all submissions)
+  ctx.beginPath();
+  for (let i = 0; i < segments; i++) {
+    const angle = i * angleStep - Math.PI / 2;
+    const pointIdx = i % points.length;
+    const pt = points[pointIdx] || { type: 'submit' };
+
+    let r = baseRadius + (submits * 1.5);
+    if (pt.type === 'complete') r += 4;
+    if (pt.type === 'fail') r -= 2;
+    if (pt.type === 'retry') r += 2;
+
+    // Add organic wobble
+    r += Math.sin(angle * 3 + points.length) * 2;
+    r += Math.cos(angle * 5 + completes) * 1.5;
+    r = Math.min(maxRadius, r);
+
+    const x = Math.cos(angle) * r;
+    const y = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = rgbaStr(p.inkAccent, 0.06 + phase * 0.06);
+  ctx.fill();
+  ctx.strokeStyle = rgbaStr(p.inkAccent, 0.25 + phase * 0.2);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Layer 2: completion petals
+  if (completes > 0) {
+    const petalCount = Math.min(8, completes);
+    for (let i = 0; i < petalCount; i++) {
+      const angle = (i / petalCount) * Math.PI * 2 - Math.PI / 2;
+      const r1 = baseRadius + 4;
+      const r2 = r1 + 6 + completes * 1.2;
+
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle - 0.15) * r1, Math.sin(angle - 0.15) * r1);
+      ctx.quadraticCurveTo(
+        Math.cos(angle) * (r2 + 3), Math.sin(angle) * (r2 + 3),
+        Math.cos(angle + 0.15) * r1, Math.sin(angle + 0.15) * r1
+      );
+      ctx.strokeStyle = rgbaStr(p.completed, 0.3 + phase * 0.2);
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  }
+
+  // Layer 3: failure marks (small notches)
+  if (fails > 0) {
+    for (let i = 0; i < fails; i++) {
+      const angle = (i / Math.max(1, fails)) * Math.PI * 2 + Math.PI * 0.7;
+      const r = baseRadius + submits * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * (r - 2), Math.sin(angle) * (r - 2));
+      ctx.lineTo(Math.cos(angle) * (r + 3), Math.sin(angle) * (r + 3));
+      ctx.strokeStyle = rgbaStr(p.failed, 0.4);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(0, 0, 2 + phase * 1.5, 0, Math.PI * 2);
+  ctx.fillStyle = rgbaStr(p.inkAccent, 0.5 + phase * 0.3);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Signature tooltip
+const sigCanvas = document.getElementById('sigCanvas');
+const sigTooltip = document.getElementById('sigTooltip');
+let sigTooltipVisible = false;
+
+sigCanvas.addEventListener('click', () => {
+  sigTooltipVisible = !sigTooltipVisible;
+  sigTooltip.classList.toggle('visible', sigTooltipVisible);
+  updateSigStats();
+});
+sigCanvas.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sigCanvas.click(); }
+});
+document.addEventListener('click', (e) => {
+  if (sigTooltipVisible && !e.target.closest('.story-signature')) {
+    sigTooltipVisible = false;
+    sigTooltip.classList.remove('visible');
+  }
+});
+
+function updateSigStats() {
+  const el = document.getElementById('sigStats');
+  if (state.storyPoints.length === 0) {
+    el.innerHTML = 'No chapters written yet.<br>Submit your first URL to begin.';
+    return;
+  }
+  const chapter = getCurrentChapter(state.phase);
+  const completes = state.storyPoints.filter(p => p.type === 'complete').length;
+  const fails = state.storyPoints.filter(p => p.type === 'fail').length;
+  const retries = state.storyPoints.filter(p => p.type === 'retry').length;
+
+  let html = '<strong>' + chapter.name + '</strong><br>';
+  html += completes + ' preserved';
+  if (fails) html += ' \u00b7 ' + fails + ' lost';
+  if (retries) html += ' \u00b7 ' + retries + ' retried';
+  html += '<br><span style="color:var(--ink-dim);font-size:10px">Your signature is unique to this journey.</span>';
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// ACTIVITY FEED
+// ═══════════════════════════════════════════════
+
+function pushActivity(level, text) {
+  const event = {
+    id: 'e-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+    time: new Date(),
+    level: level, // info, success, warn, error
+    text: text,
+  };
+  state.activityEvents.unshift(event);
+  if (state.activityEvents.length > 50) state.activityEvents.pop();
+  renderActivity();
+}
+
+function renderActivity() {
+  const container = document.getElementById('activityList');
+  const events = state.activityEvents.slice(0, 20);
+  container.innerHTML = events.map(e =>
+    '<div class="activity-event">' +
+      '<span class="event-time">' + formatTime(e.time) + '</span>' +
+      '<span class="event-mark ' + e.level + '" aria-label="' + e.level + '"></span>' +
+      '<span class="event-text">' + e.text + '</span>' +
+    '</div>'
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════
+// CONTACTS
+// ═══════════════════════════════════════════════
+
+function getContactStats() {
+  const map = {};
+  for (const j of state.jobs) {
+    const slug = j.creator.slug;
+    if (!map[slug]) {
+      map[slug] = { creator: j.creator, total: 0, completed: 0 };
+    }
+    map[slug].total++;
+    if (j.status === 'completed') map[slug].completed++;
+  }
+  return Object.values(map).sort((a, b) => b.total - a.total);
+}
+
+function renderContacts() {
+  const stats = getContactStats();
+  const container = document.getElementById('contactsList');
+
+  if (stats.length === 0) {
+    container.innerHTML = '<div style="font-size:11px;color:var(--ink-dim);padding:8px 0">No creators yet</div>';
+    return;
+  }
+
+  container.innerHTML = stats.map(s =>
+    '<div class="contact-item" data-slug="' + s.creator.slug + '" tabindex="0" role="button" aria-label="View profile for ' + s.creator.name + '">' +
+      '<div class="contact-avatar" style="background:' + s.creator.color + '">' + s.creator.name.charAt(0) + '</div>' +
+      '<div class="contact-info">' +
+        '<div class="contact-name">' + s.creator.name + '</div>' +
+        '<div class="contact-stats">' + s.completed + '/' + s.total + ' archived</div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+
+  container.querySelectorAll('.contact-item').forEach(el => {
+    el.addEventListener('click', () => openProfile(el.dataset.slug));
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') openProfile(el.dataset.slug); });
+  });
+}
+
+// ═══════════════════════════════════════════════
+// PROFILE OVERLAY
+// ═══════════════════════════════════════════════
+
+function openProfile(slug) {
+  const creator = CREATORS.find(c => c.slug === slug);
+  if (!creator) return;
+
+  const jobs = state.jobs.filter(j => j.creator.slug === slug);
+  const container = document.getElementById('profileContent');
+
+  container.innerHTML =
+    '<div class="profile-header">' +
+      '<div class="profile-avatar-lg" style="background:' + creator.color + '">' + creator.name.charAt(0) + '</div>' +
+      '<div>' +
+        '<div class="profile-name">' + creator.name + '</div>' +
+        '<div class="profile-handle">' + creator.handle + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="panel-label" style="margin-bottom:8px">Download History</div>' +
+    '<div class="profile-jobs-list">' +
+      jobs.map(j => {
+        const statusColor = j.status === 'completed' ? 'var(--completed)' : j.status === 'failed' ? 'var(--failed)' : j.status === 'running' ? 'var(--running)' : 'var(--ink-dim)';
+        return '<div class="profile-job">' +
+          '<div class="job-status-indicator ' + j.status + '"></div>' +
+          '<div class="profile-job-info">' +
+            '<div class="profile-job-url">' + j.url + '</div>' +
+            '<div class="profile-job-status" style="color:' + statusColor + '">' + j.status + ' \u00b7 ' + timeAgo(j.createdAt) + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+
+  const overlay = document.getElementById('profileOverlay');
+  overlay.classList.add('open');
+  state.profileOpen = slug;
+}
+
+function closeProfile() {
+  document.getElementById('profileOverlay').classList.remove('open');
+  state.profileOpen = null;
+}
+
+document.getElementById('profileClose').addEventListener('click', closeProfile);
+document.getElementById('profileBackdrop').addEventListener('click', closeProfile);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.profileOpen) closeProfile();
+});
+
+// ═══════════════════════════════════════════════
+// JOBS RENDERING
+// ═══════════════════════════════════════════════
+
+function renderJobs() {
+  const container = document.getElementById('jobsList');
+  const count = document.getElementById('jobsCount');
+  count.textContent = state.jobs.length + ' item' + (state.jobs.length !== 1 ? 's' : '');
+
+  if (state.jobs.length === 0) {
+    container.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--ink-dim);font-size:12px">Your archive is empty. Paste a URL above to begin.</div>';
+    return;
+  }
+
+  container.innerHTML = state.jobs.map((j, i) => {
+    const statusColor = j.status === 'completed' ? 'var(--completed)' : j.status === 'failed' ? 'var(--failed)' : j.status === 'running' ? 'var(--running)' : j.status === 'canceled' ? 'var(--canceled)' : 'var(--queued)';
+
+    let actions = '';
+    if (j.status === 'failed') {
+      actions = '<button class="job-action-btn retry" data-id="' + j.id + '" data-action="retry" aria-label="Retry download">Retry</button>' +
+                '<button class="job-action-btn danger" data-id="' + j.id + '" data-action="delete" aria-label="Delete job">Delete</button>';
+    } else if (j.status === 'completed' || j.status === 'canceled') {
+      actions = '<button class="job-action-btn danger" data-id="' + j.id + '" data-action="delete" aria-label="Delete job">Delete</button>';
+    } else if (j.status === 'queued') {
+      actions = '<button class="job-action-btn danger" data-id="' + j.id + '" data-action="cancel" aria-label="Cancel job">Cancel</button>';
+    }
+
+    let progressBar = '';
+    if (j.status === 'running') {
+      progressBar = '<div class="job-progress"><div class="job-progress-fill" style="width:' + j.progress + '%"></div></div>';
+    }
+
+    return '<div class="job-card">' +
+      '<div class="job-status-indicator ' + j.status + '" aria-label="Status: ' + j.status + '"></div>' +
+      '<div class="job-info">' +
+        '<div class="job-creator">' + j.creator.name + '</div>' +
+        '<div class="job-meta">' +
+          '<span class="job-platform">' + j.platform + '</span>' +
+          '<span class="job-status-text" style="color:' + statusColor + '">' + j.status + '</span>' +
+          '<span class="job-time">' + timeAgo(j.createdAt) + '</span>' +
+        '</div>' +
+        progressBar +
+        (j.error ? '<div style="font-size:10px;color:var(--failed);margin-top:3px">' + j.error + '</div>' : '') +
+      '</div>' +
+      '<div class="job-actions">' + actions + '</div>' +
+    '</div>';
+  }).join('');
+
+  // Bind action buttons
+  container.querySelectorAll('.job-action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      handleJobAction(id, action);
+    });
+  });
+}
+
+function handleJobAction(id, action) {
+  const job = state.jobs.find(j => j.id === id);
+  if (!job) return;
+
+  if (action === 'delete') {
+    state.jobs = state.jobs.filter(j => j.id !== id);
+    pushActivity('info', 'Removed <strong>' + job.creator.name + '</strong> download');
+    renderJobs();
+    renderContacts();
+  } else if (action === 'cancel') {
+    job.status = 'canceled';
+    pushActivity('warn', 'Canceled <strong>' + job.creator.name + '</strong> download');
+    renderJobs();
+  } else if (action === 'retry') {
+    job.status = 'queued';
+    job.progress = 0;
+    job.error = null;
+    state.retriedCount++;
+    addStoryPoint('retry', { creator: job.creator.slug });
+    pushActivity('info', 'Retrying <strong>' + job.creator.name + '</strong> download');
+    renderJobs();
+    applyNarrative();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// INTAKE FORM
+// ═══════════════════════════════════════════════
+
+const intakeInput = document.getElementById('intakeInput');
+const intakePlatform = document.getElementById('intakePlatform');
+const intakeForm = document.getElementById('intakeForm');
+const intakeSubmit = document.getElementById('intakeSubmit');
+
+intakeInput.addEventListener('input', () => {
+  const val = intakeInput.value.trim();
+  if (val.includes('tiktok.com')) {
+    intakePlatform.textContent = 'TikTok';
+    intakePlatform.classList.add('detected');
+  } else if (val.includes('x.com') || val.includes('twitter.com')) {
+    intakePlatform.textContent = 'X';
+    intakePlatform.classList.add('detected');
+  } else {
+    intakePlatform.classList.remove('detected');
+  }
+});
+
+intakeForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  let val = intakeInput.value.trim();
+  if (!val) {
+    // Simulate with random URL
+    val = randomUrl();
+  }
+
+  submitJob(val);
+});
+
+function submitJob(url) {
+  const job = createJob(url);
+  state.jobs.unshift(job);
+  state.totalSubmitted++;
+
+  addStoryPoint('submit', { platform: job.platform, creator: job.creator.slug });
+  pushActivity('info', 'Submitted <strong>' + job.creator.name + '</strong> from ' + job.platform);
+
+  // Visual feedback on form
+  intakeForm.classList.add('submitting');
+  setTimeout(() => {
+    intakeForm.classList.remove('submitting');
+    intakeForm.classList.add('success');
+    setTimeout(() => intakeForm.classList.remove('success'), 600);
+  }, 300);
+
+  intakeInput.value = '';
+  intakePlatform.classList.remove('detected');
+
+  renderJobs();
+  renderContacts();
+  applyNarrative();
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS TOGGLES
+// ═══════════════════════════════════════════════
+
+function setupToggle(id, platform, statusId) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => {
+    state.platforms[platform] = !state.platforms[platform];
+    el.classList.toggle('on', state.platforms[platform]);
+    el.setAttribute('aria-checked', state.platforms[platform]);
+    document.getElementById(statusId).textContent = state.platforms[platform] ? 'enabled' : 'disabled';
+    addStoryPoint('toggle', { platform });
+    pushActivity('info', (state.platforms[platform] ? 'Enabled' : 'Disabled') + ' ' + platform.toUpperCase());
+    applyNarrative();
+  });
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+  });
+}
+
+setupToggle('toggleX', 'x', 'xStatus');
+setupToggle('toggleTT', 'tiktok', 'ttStatus');
+
+// ═══════════════════════════════════════════════
+// SIMULATION ENGINE
+// ═══════════════════════════════════════════════
+
+// Job status progression
+function tickJobs() {
+  let changed = false;
+
+  for (const job of state.jobs) {
+    if (job.status === 'queued') {
+      // 30% chance to start running each tick
+      if (Math.random() < 0.3) {
+        job.status = 'running';
+        job.progress = 0;
+        pushActivity('info', 'Extracting media for <strong>' + job.creator.name + '</strong>');
+        changed = true;
+      }
+    } else if (job.status === 'running') {
+      // Progress
+      job.progress = Math.min(100, job.progress + 8 + Math.random() * 12);
+      changed = true;
+
+      if (job.progress >= 100) {
+        // 85% complete, 15% fail
+        if (Math.random() < 0.85) {
+          job.status = 'completed';
+          state.completedCount++;
+          addStoryPoint('complete', { platform: job.platform, creator: job.creator.slug });
+          pushActivity('success', 'Archived <strong>' + job.creator.name + '</strong> video successfully');
+        } else {
+          job.status = 'failed';
+          job.error = Math.random() < 0.5 ? 'Network timeout during extraction' : 'Media format not supported';
+          state.failedCount++;
+          addStoryPoint('fail', { platform: job.platform, creator: job.creator.slug });
+          pushActivity('error', 'Failed to archive <strong>' + job.creator.name + '</strong>: ' + job.error);
+        }
+      } else if (job.progress > 30 && job.progress < 35) {
+        pushActivity('info', 'Downloading <strong>' + job.creator.name + '</strong> (' + Math.round(job.progress) + '%)');
+      } else if (job.progress > 65 && job.progress < 70) {
+        pushActivity('info', 'Processing <strong>' + job.creator.name + '</strong> (' + Math.round(job.progress) + '%)');
+      }
+    }
+  }
+
+  if (changed) {
+    renderJobs();
+    renderContacts();
+    applyNarrative();
+    if (state.profileOpen) openProfile(state.profileOpen);
+  }
+}
+
+// Auto-submit simulation (seeds initial jobs)
+function seedInitialJobs() {
+  // Start with 2 jobs to show immediate life
+  submitJob(SAMPLE_URLS[0]);
+  setTimeout(() => submitJob(SAMPLE_URLS[1]), 800);
+  setTimeout(() => submitJob(SAMPLE_URLS[2]), 2200);
+  setTimeout(() => submitJob(SAMPLE_URLS[3]), 4500);
+
+  // Periodic new submissions
+  let autoIdx = 4;
+  setInterval(() => {
+    if (state.jobs.length < 8 && Math.random() < 0.35) {
+      submitJob(SAMPLE_URLS[autoIdx % SAMPLE_URLS.length]);
+      autoIdx++;
+    }
+  }, 6000);
+}
+
+// Random activity events (system-level)
+function pushRandomSystemEvent() {
+  const events = [
+    ['info', 'Worker heartbeat \u2014 queue checked'],
+    ['info', 'Browser context idle'],
+    ['info', 'Telemetry buffer flushed'],
+    ['warn', 'Rate limit approaching for X API'],
+    ['info', 'Playwright session renewed'],
+    ['info', 'Download directory cleaned'],
+  ];
+  const [level, text] = events[Math.floor(Math.random() * events.length)];
+  pushActivity(level, text);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+
+function init() {
+  renderJobs();
+  renderContacts();
+  renderActivity();
+  applyNarrative();
+
+  // Job processing tick every 1.5s
+  setInterval(tickJobs, 1500);
+
+  // System events every 3-5s
+  setInterval(pushRandomSystemEvent, 3500);
+
+  // Narrative refresh every 2s (for time-ago updates)
+  setInterval(() => {
+    renderJobs();
+    applyNarrative();
+  }, 2000);
+
+  // Seed initial jobs with stagger
+  setTimeout(seedInitialJobs, 500);
+}
+
+init();
+
+})();
+</script>
+</body>
+</html>
