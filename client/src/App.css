@@ -234,7 +234,6 @@ h1 {
 .profile-card {
   border: 1px solid #d7e2e9;
   border-radius: 14px;
-  overflow: hidden;
   background: #fff;
 }
 
@@ -243,6 +242,7 @@ h1 {
   aspect-ratio: 16 / 9;
   object-fit: cover;
   background: #d7e3ee;
+  border-radius: 14px 14px 0 0;
 }
 
 .profile-card-placeholder {
