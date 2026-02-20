@@ -689,6 +689,16 @@ function createPlaywrightPageFactory(options = {}) {
   };
 }
 
+/**
+ * Returns true if a persistent context has been created and is potentially active.
+ * This is a read-only check of the module-level variable — no side effects,
+ * no browser launch. Used by auth-service to avoid instantiating Playwright
+ * just to check auth status.
+ */
+function hasPersistentContext() {
+  return persistentContextPromise !== null;
+}
+
 module.exports = {
   createPlaywrightPageFactory,
   getPersistentContext,
@@ -696,4 +706,5 @@ module.exports = {
   getAdapterConfig,
   assessAccessState,
   extractTikTokRehydrationUrls,
+  hasPersistentContext,
 };

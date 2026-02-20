@@ -11,7 +11,9 @@
     "start:api": "node src/core/runtime/entrypoints/start-api.js",
     "start:worker": "node src/core/runtime/entrypoints/start-worker.js",
     "test": "echo \"Tests disabled\"",
-    "auth:bootstrap": "node scripts/auth-bootstrap.js"
+    "auth:bootstrap": "node scripts/auth-bootstrap.js",
+    "auth:x": "node scripts/auth-bootstrap.js x",
+    "auth:tiktok": "node scripts/auth-bootstrap.js tiktok"
   },
   "keywords": [],
   "author": "",

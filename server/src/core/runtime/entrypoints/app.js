@@ -9,6 +9,7 @@ const { retryRouter } = require('../../../api/routes/retry');
 const { statusRouter } = require('../../../api/routes/status');
 const { workerHealthRouter } = require('../../../api/routes/worker-health');
 const { discoveryRouter } = require('../../../api/routes/discovery');
+const { authRouter } = require('../../../api/routes/auth');
 const { getPlatformCapabilities, setPlatformCapabilities } = require('../../config/platform-capabilities');
 const { listTelemetry, subscribeTelemetry } = require('../../lib/telemetry');
 const { logger } = require('../../lib/logger');
@@ -165,6 +166,7 @@ app.use('/api/jobs', enforceTweetUrlLength, contactsRouter);
 app.use('/api/jobs', enforceTweetUrlLength, retryRouter);
 app.use('/api/jobs', enforceTweetUrlLength, statusRouter);
 app.use('/api/discovery', discoveryRouter);
+app.use('/api/auth', authRouter);
 app.use(workerHealthRouter);
 app.use(handleRequestLimitErrors);
 
