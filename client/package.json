@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "echo \"Tests disabled\""
+    "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
     "framer-motion": "^12.34.0",
