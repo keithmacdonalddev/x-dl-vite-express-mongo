@@ -1,0 +1,8 @@
+'use strict';
+
+const EXTRACTOR_ERROR_CODES = Object.freeze({
+  NO_MEDIA_URL: 'EXTRACT_NO_MEDIA_URL',
+  VIDEO_UNAVAILABLE: 'EXTRACT_VIDEO_UNAVAILABLE',
+});
+
+module.exports = { EXTRACTOR_ERROR_CODES };

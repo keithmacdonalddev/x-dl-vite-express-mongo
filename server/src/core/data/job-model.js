@@ -110,6 +110,11 @@ const jobSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    errorCode: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     startedAt: {
       type: Date,
       default: null,
