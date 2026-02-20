@@ -1,4 +1,4 @@
-const { logger } = require('../../lib/logger');
+const { logger } = require('../../core/lib/logger');
 
 function normalizeDomainId(value) {
   if (typeof value !== 'string') {

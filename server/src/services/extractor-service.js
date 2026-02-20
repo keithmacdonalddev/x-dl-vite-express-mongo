@@ -1,6 +1,6 @@
-const { SOURCE_TYPES } = require('../constants/job-status');
-const { isSupportedPostUrl } = require('../utils/validation');
-const { logger } = require('../lib/logger');
+const { SOURCE_TYPES } = require('../core/constants/job-status');
+const { isSupportedPostUrl } = require('../core/utils/validation');
+const { logger } = require('../core/lib/logger');
 
 function isAccessChallengeError(error) {
   const message = error instanceof Error ? error.message : String(error);

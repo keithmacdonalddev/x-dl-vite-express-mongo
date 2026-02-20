@@ -2,10 +2,10 @@ const mongoose = require('mongoose');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
-const { SOURCE_TYPES } = require('../../../constants/job-status');
-const { getPlatformCapabilities, isPlatformEnabled } = require('../../../config/platform-capabilities');
-const { PLATFORMS } = require('../../../platforms/registry');
-const { ERROR_CODES } = require('../../../lib/error-codes');
+const { SOURCE_TYPES } = require('../../../core/constants/job-status');
+const { getPlatformCapabilities, isPlatformEnabled } = require('../../../core/config/platform-capabilities');
+const { PLATFORMS } = require('../../../core/platforms/registry');
+const { ERROR_CODES } = require('../../../core/lib/error-codes');
 
 // Build label map from registry so platformLabel() never needs updating
 const PLATFORM_LABELS = Object.fromEntries(PLATFORMS.map((p) => [p.id, p.label]));

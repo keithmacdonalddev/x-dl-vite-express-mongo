@@ -90,7 +90,7 @@ function flushMongoBatch() {
   // before the first write attempt.
   let TelemetryEvent;
   try {
-    ({ TelemetryEvent } = require('../../models/telemetry-event'));
+    ({ TelemetryEvent } = require('../models/telemetry-event'));
   } catch (_) {
     return;
   }
@@ -185,7 +185,7 @@ async function startMongoPolling() {
 
   let TelemetryEvent;
   try {
-    ({ TelemetryEvent } = require('../../models/telemetry-event'));
+    ({ TelemetryEvent } = require('../models/telemetry-event'));
   } catch (_) {
     return;
   }

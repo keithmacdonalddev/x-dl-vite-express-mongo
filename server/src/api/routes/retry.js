@@ -1,10 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { Job } = require('../../models/job');
-const { isHttpUrl } = require('../../utils/validation');
-const { JOB_STATUSES } = require('../../constants/job-status');
-const { ERROR_CODES } = require('../../lib/error-codes');
-const { logger } = require('../../lib/logger');
+const { Job } = require('../../core/models/job');
+const { isHttpUrl } = require('../../core/utils/validation');
+const { JOB_STATUSES } = require('../../core/constants/job-status');
+const { ERROR_CODES } = require('../../core/lib/error-codes');
+const { logger } = require('../../core/lib/logger');
 const { resolveDomainId } = require('../../core/dispatch/resolve-domain-id');
 const {
   sendError,

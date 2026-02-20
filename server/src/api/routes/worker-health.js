@@ -1,11 +1,18 @@
 const express = require('express');
-const { WorkerHeartbeat } = require('../../models/worker-heartbeat');
+const mongoose = require('mongoose');
+const { WorkerHeartbeat } = require('../../core/models/worker-heartbeat');
+const { ERROR_CODES } = require('../../core/lib/error-codes');
+const { sendError } = require('./helpers/route-utils');
 
 const workerHealthRouter = express.Router();
 
 const STALE_THRESHOLD_MS = 120000; // 2 minutes
 
 workerHealthRouter.get('/api/worker/health', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
   const heartbeat = await WorkerHeartbeat.findOne({ workerId: 'default' }).lean();
 
   if (!heartbeat) {

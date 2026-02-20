@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { resolvePlatform } = require('../../platforms/registry');
+const { resolvePlatform } = require('../../core/platforms/registry');
 
 function sanitizeAccountSlug(input) {
   const raw = typeof input === 'string' ? input : '';

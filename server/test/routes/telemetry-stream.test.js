@@ -9,9 +9,9 @@ process.env.TELEMETRY_SINK = 'memory';
 test('GET /api/telemetry returns ok:true with events array', async () => {
   // Clear module caches to get fresh state.
   const modulesToClear = [
-    '../../src/lib/telemetry',
+    '../../src/core/lib/telemetry',
     '../../src/lib/logger',
-    '../../src/app',
+    '../../src/core/runtime/entrypoints/app',
   ];
   for (const m of modulesToClear) {
     try {
@@ -19,10 +19,10 @@ test('GET /api/telemetry returns ok:true with events array', async () => {
     } catch (_) {}
   }
 
-  const { app } = require('../../src/app');
+  const { app } = require('../../src/core/runtime/entrypoints/app');
 
   // Publish a test event directly via telemetry module.
-  const { publishTelemetry } = require('../../src/lib/telemetry');
+  const { publishTelemetry } = require('../../src/core/lib/telemetry');
   publishTelemetry('stream.test.event', { level: 'info', jobId: 'stream-test-job' });
 
   // Make a simple in-process request using node's http module.
@@ -56,9 +56,9 @@ test('GET /api/telemetry returns ok:true with events array', async () => {
 
 test('GET /api/telemetry?excludeNoise=true excludes http.request.* events', async () => {
   const modulesToClear = [
-    '../../src/lib/telemetry',
+    '../../src/core/lib/telemetry',
     '../../src/lib/logger',
-    '../../src/app',
+    '../../src/core/runtime/entrypoints/app',
   ];
   for (const m of modulesToClear) {
     try {
@@ -66,8 +66,8 @@ test('GET /api/telemetry?excludeNoise=true excludes http.request.* events', asyn
     } catch (_) {}
   }
 
-  const { app } = require('../../src/app');
-  const { publishTelemetry } = require('../../src/lib/telemetry');
+  const { app } = require('../../src/core/runtime/entrypoints/app');
+  const { publishTelemetry } = require('../../src/core/lib/telemetry');
   publishTelemetry('http.request.started', { level: 'info', traceId: 'noise-trace-2' });
   publishTelemetry('job.completed', { level: 'info', traceId: 'noise-trace-2' });
 
@@ -103,9 +103,9 @@ test('GET /api/telemetry?excludeNoise=true excludes http.request.* events', asyn
 
 test('GET /api/telemetry/stream responds with SSE headers', async () => {
   const modulesToClear = [
-    '../../src/lib/telemetry',
+    '../../src/core/lib/telemetry',
     '../../src/lib/logger',
-    '../../src/app',
+    '../../src/core/runtime/entrypoints/app',
   ];
   for (const m of modulesToClear) {
     try {
@@ -113,7 +113,7 @@ test('GET /api/telemetry/stream responds with SSE headers', async () => {
     } catch (_) {}
   }
 
-  const { app } = require('../../src/app');
+  const { app } = require('../../src/core/runtime/entrypoints/app');
   const http = require('node:http');
   const server = http.createServer(app);
 

@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
-const { getServerConfig, isDomainKernelEnabled, isStrictPluginStartup } = require('../../config/env');
+const { getServerConfig, isDomainKernelEnabled, isStrictPluginStartup } = require('../../core/config/env');
 const { createDomainContext } = require('./domain-context');
 const { loadDomainsForRuntime } = require('./load-domains');
 const { startQueueWorker, stopQueueWorker } = require('../../worker/queue');
 const { processOneCycle } = require('../../worker/process-job');
 const { recoverStaleJobs } = require('../../worker/recovery');
 const { closePersistentContext } = require('../../services/playwright-adapter');
-const { registerShutdown } = require('../../runtime/register-shutdown');
+const { registerShutdown } = require('./register-shutdown');
 
 async function startWorkerRuntime({ applyDnsOverride } = {}) {
   if (typeof applyDnsOverride === 'function') {

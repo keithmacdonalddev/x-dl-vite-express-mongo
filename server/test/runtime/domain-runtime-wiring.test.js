@@ -70,16 +70,16 @@ test('api runtime: ENABLE_DOMAIN_KERNEL=false keeps legacy startup path', async 
 
   const teardowns = [
     injectStub(require.resolve('mongoose'), mongooseStub),
-    injectStub(path.join(serverSrc, 'app.js'), appStub),
-    injectStub(path.join(serverSrc, 'config/env.js'), envStub),
+    injectStub(path.join(serverSrc, 'core/runtime/entrypoints/app.js'), appStub),
+    injectStub(path.join(serverSrc, 'core/config/env.js'), envStub),
     injectStub(path.join(serverSrc, 'core/runtime/load-domains.js'), loadDomainsStub),
     injectStub(path.join(serverSrc, 'core/runtime/domain-context.js'), domainContextStub),
-    injectStub(path.join(serverSrc, 'runtime/register-shutdown.js'), registerShutdownStub),
+    injectStub(path.join(serverSrc, 'core/runtime/register-shutdown.js'), registerShutdownStub),
   ];
 
   try {
-    delete require.cache[path.join(serverSrc, 'runtime/start-api-runtime.js')];
-    const { startApiRuntime } = require('../../src/runtime/start-api-runtime');
+    delete require.cache[path.join(serverSrc, 'core/runtime/start-api-runtime.js')];
+    const { startApiRuntime } = require('../../src/core/runtime/start-api-runtime');
     await startApiRuntime();
 
     assert.equal(domainLoaderCalled, false);
@@ -191,16 +191,16 @@ test('api runtime cleanup order is domains -> http -> mongo', async () => {
 
   const teardowns = [
     injectStub(require.resolve('mongoose'), mongooseStub),
-    injectStub(path.join(serverSrc, 'app.js'), appStub),
-    injectStub(path.join(serverSrc, 'config/env.js'), envStub),
+    injectStub(path.join(serverSrc, 'core/runtime/entrypoints/app.js'), appStub),
+    injectStub(path.join(serverSrc, 'core/config/env.js'), envStub),
     injectStub(path.join(serverSrc, 'core/runtime/load-domains.js'), loadDomainsStub),
     injectStub(path.join(serverSrc, 'core/runtime/domain-context.js'), domainContextStub),
-    injectStub(path.join(serverSrc, 'runtime/register-shutdown.js'), registerShutdownStub),
+    injectStub(path.join(serverSrc, 'core/runtime/register-shutdown.js'), registerShutdownStub),
   ];
 
   try {
-    delete require.cache[path.join(serverSrc, 'runtime/start-api-runtime.js')];
-    const { startApiRuntime } = require('../../src/runtime/start-api-runtime');
+    delete require.cache[path.join(serverSrc, 'core/runtime/start-api-runtime.js')];
+    const { startApiRuntime } = require('../../src/core/runtime/start-api-runtime');
     await startApiRuntime();
 
     assert.equal(typeof cleanupFn, 'function');

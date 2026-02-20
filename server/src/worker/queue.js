@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const { Job } = require('../models/job');
-const { WorkerHeartbeat } = require('../models/worker-heartbeat');
-const { JOB_STATUSES } = require('../constants/job-status');
-const { logger } = require('../lib/logger');
+const { Job } = require('../core/models/job');
+const { WorkerHeartbeat } = require('../core/models/worker-heartbeat');
+const { JOB_STATUSES } = require('../core/constants/job-status');
+const { logger } = require('../core/lib/logger');
 
 let pollHandle = null;
 let isTickRunning = false;

@@ -12,16 +12,27 @@ const repoRoot = path.resolve(serverRoot, '..');
 
 test('start-api.js exists', () => {
   assert.ok(
-    fs.existsSync(path.join(serverRoot, 'src/start-api.js')),
-    'src/start-api.js missing — dedicated API entrypoint required'
+    fs.existsSync(path.join(serverRoot, 'src/core/runtime/entrypoints/start-api.js')),
+    'src/core/runtime/entrypoints/start-api.js missing — dedicated API entrypoint required'
   );
 });
 
 test('start-worker.js exists', () => {
   assert.ok(
-    fs.existsSync(path.join(serverRoot, 'src/start-worker.js')),
-    'src/start-worker.js missing — dedicated worker entrypoint required'
+    fs.existsSync(path.join(serverRoot, 'src/core/runtime/entrypoints/start-worker.js')),
+    'src/core/runtime/entrypoints/start-worker.js missing — dedicated worker entrypoint required'
   );
+});
+
+test('legacy root entrypoint files are removed', () => {
+  const legacyPaths = [
+    'src/app.js',
+    'src/index.js',
+    'src/start-api.js',
+    'src/start-worker.js',
+  ];
+  const existing = legacyPaths.filter((relPath) => fs.existsSync(path.join(serverRoot, relPath)));
+  assert.deepEqual(existing, [], `Legacy root entrypoints must be removed: ${existing.join(', ')}`);
 });
 
 // ─── Server package.json: split scripts present ──────────────────────────────
@@ -51,32 +62,32 @@ test('server package.json has start:worker script', () => {
 test('server dev:api script references start-api.js', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(serverRoot, 'package.json'), 'utf8'));
   assert.ok(
-    pkg.scripts['dev:api'].includes('start-api.js'),
-    `dev:api script should reference start-api.js, got: ${pkg.scripts['dev:api']}`
+    pkg.scripts['dev:api'].includes('core/runtime/entrypoints/start-api.js'),
+    `dev:api script should reference core/runtime/entrypoints/start-api.js, got: ${pkg.scripts['dev:api']}`
   );
 });
 
 test('server dev:worker script references start-worker.js', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(serverRoot, 'package.json'), 'utf8'));
   assert.ok(
-    pkg.scripts['dev:worker'].includes('start-worker.js'),
-    `dev:worker script should reference start-worker.js, got: ${pkg.scripts['dev:worker']}`
+    pkg.scripts['dev:worker'].includes('core/runtime/entrypoints/start-worker.js'),
+    `dev:worker script should reference core/runtime/entrypoints/start-worker.js, got: ${pkg.scripts['dev:worker']}`
   );
 });
 
 test('server start:api script references start-api.js', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(serverRoot, 'package.json'), 'utf8'));
   assert.ok(
-    pkg.scripts['start:api'].includes('start-api.js'),
-    `start:api script should reference start-api.js, got: ${pkg.scripts['start:api']}`
+    pkg.scripts['start:api'].includes('core/runtime/entrypoints/start-api.js'),
+    `start:api script should reference core/runtime/entrypoints/start-api.js, got: ${pkg.scripts['start:api']}`
   );
 });
 
 test('server start:worker script references start-worker.js', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(serverRoot, 'package.json'), 'utf8'));
   assert.ok(
-    pkg.scripts['start:worker'].includes('start-worker.js'),
-    `start:worker script should reference start-worker.js, got: ${pkg.scripts['start:worker']}`
+    pkg.scripts['start:worker'].includes('core/runtime/entrypoints/start-worker.js'),
+    `start:worker script should reference core/runtime/entrypoints/start-worker.js, got: ${pkg.scripts['start:worker']}`
   );
 });
 
@@ -115,7 +126,7 @@ test('root dev:split script invokes dev:worker on server', () => {
 // does not import the runtime module directly.
 
 test('start-api.js sets ROLE to api', () => {
-  const content = fs.readFileSync(path.join(serverRoot, 'src/start-api.js'), 'utf8');
+  const content = fs.readFileSync(path.join(serverRoot, 'src/core/runtime/entrypoints/start-api.js'), 'utf8');
   // Must contain ROLE = 'api' (single or double quotes)
   assert.ok(
     /ROLE\s*=\s*['"]api['"]/.test(content),
@@ -124,7 +135,7 @@ test('start-api.js sets ROLE to api', () => {
 });
 
 test('start-api.js does not set ROLE to worker', () => {
-  const content = fs.readFileSync(path.join(serverRoot, 'src/start-api.js'), 'utf8');
+  const content = fs.readFileSync(path.join(serverRoot, 'src/core/runtime/entrypoints/start-api.js'), 'utf8');
   assert.ok(
     !/ROLE\s*=\s*['"]worker['"]/.test(content),
     "start-api.js must NOT set ROLE = 'worker'"
@@ -134,7 +145,7 @@ test('start-api.js does not set ROLE to worker', () => {
 // ─── start-worker.js: sets ROLE=worker and delegates to index ────────────────
 
 test('start-worker.js sets ROLE to worker', () => {
-  const content = fs.readFileSync(path.join(serverRoot, 'src/start-worker.js'), 'utf8');
+  const content = fs.readFileSync(path.join(serverRoot, 'src/core/runtime/entrypoints/start-worker.js'), 'utf8');
   assert.ok(
     /ROLE\s*=\s*['"]worker['"]/.test(content),
     "start-worker.js must set ROLE = 'worker'"
@@ -142,7 +153,7 @@ test('start-worker.js sets ROLE to worker', () => {
 });
 
 test('start-worker.js does not set ROLE to api', () => {
-  const content = fs.readFileSync(path.join(serverRoot, 'src/start-worker.js'), 'utf8');
+  const content = fs.readFileSync(path.join(serverRoot, 'src/core/runtime/entrypoints/start-worker.js'), 'utf8');
   assert.ok(
     !/ROLE\s*=\s*['"]api['"]/.test(content),
     "start-worker.js must NOT set ROLE = 'api'"

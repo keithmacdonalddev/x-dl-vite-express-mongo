@@ -2,43 +2,71 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
+const express = require('express');
 
-// Stub mongoose model to avoid real DB connections in unit tests.
-// We inject a fake WorkerHeartbeat via require cache manipulation.
-function makeAppWithHeartbeat(heartbeatDoc) {
-  // Clear all relevant caches so we can inject fresh stubs.
-  const modulesToClear = [
-    '../../src/models/worker-heartbeat',
-    '../../src/routes/worker-health',
-    '../../src/lib/telemetry',
-    '../../src/lib/logger',
-    '../../src/app',
-  ];
-  for (const m of modulesToClear) {
-    try {
-      delete require.cache[require.resolve(m)];
-    } catch (_) {}
+const serverSrc = path.resolve(__dirname, '../../src');
+
+function clearModuleCache(prefix) {
+  for (const key of Object.keys(require.cache)) {
+    if (key.startsWith(prefix)) {
+      delete require.cache[key];
+    }
   }
+}
 
-  // Inject stub for worker-heartbeat model.
-  const stub = {
-    WorkerHeartbeat: {
-      findOne: (_filter) => ({
-        lean: () => Promise.resolve(heartbeatDoc),
-      }),
-      findOneAndUpdate: () => Promise.resolve(heartbeatDoc),
-    },
-  };
-  require.cache[require.resolve('../../src/models/worker-heartbeat')] = {
-    id: require.resolve('../../src/models/worker-heartbeat'),
-    filename: require.resolve('../../src/models/worker-heartbeat'),
+function injectStub(resolvedPath, stub) {
+  require.cache[resolvedPath] = {
+    id: resolvedPath,
+    filename: resolvedPath,
     loaded: true,
     exports: stub,
     parent: null,
     children: [],
   };
+  return () => {
+    delete require.cache[resolvedPath];
+  };
+}
 
-  return require('../../src/app').app;
+function makeAppWithHeartbeat(heartbeatDoc, options = {}) {
+  const readyState = Number.isInteger(options.readyState) ? options.readyState : 1;
+  clearModuleCache(serverSrc);
+
+  const mongooseStub = {
+    connection: { readyState },
+    Types: {
+      ObjectId: {
+        isValid: () => true,
+      },
+    },
+  };
+
+  const heartbeatStub = {
+    WorkerHeartbeat: {
+      findOne: () => ({
+        lean: () => Promise.resolve(heartbeatDoc),
+      }),
+      findOneAndUpdate: () => Promise.resolve(heartbeatDoc),
+    },
+  };
+
+  const teardowns = [
+    injectStub(require.resolve('mongoose'), mongooseStub),
+    injectStub(path.join(serverSrc, 'core/models/worker-heartbeat.js'), heartbeatStub),
+  ];
+
+  const { workerHealthRouter } = require('../../src/api/routes/worker-health');
+  const app = express();
+  app.use(workerHealthRouter);
+
+  return {
+    app,
+    teardown: () => {
+      teardowns.forEach((teardown) => teardown());
+      clearModuleCache(serverSrc);
+    },
+  };
 }
 
 function httpGet(app, path) {
@@ -66,44 +94,76 @@ function httpGet(app, path) {
 }
 
 test('returns ok:false with null fields when no heartbeat exists', async () => {
-  const app = makeAppWithHeartbeat(null);
-  const { body } = await httpGet(app, '/api/worker/health');
-  assert.equal(body.ok, false);
-  assert.equal(body.lastHeartbeatAt, null);
-  assert.equal(body.ageMs, null);
-  assert.equal(typeof body.staleAfterMs, 'number');
-  assert.ok(body.error);
+  const harness = makeAppWithHeartbeat(null);
+  try {
+    const { body } = await httpGet(harness.app, '/api/worker/health');
+    assert.equal(body.ok, false);
+    assert.equal(body.lastHeartbeatAt, null);
+    assert.equal(body.ageMs, null);
+    assert.equal(typeof body.staleAfterMs, 'number');
+    assert.ok(body.error);
+  } finally {
+    harness.teardown();
+  }
+});
+
+test('returns 503 when database is disconnected', async () => {
+  const harness = makeAppWithHeartbeat(null, { readyState: 0 });
+  try {
+    const { status, body } = await httpGet(harness.app, '/api/worker/health');
+    assert.equal(status, 503);
+    assert.equal(body.ok, false);
+    assert.equal(body.code, 'DB_NOT_CONNECTED');
+  } finally {
+    harness.teardown();
+  }
 });
 
 test('returns ok:true when heartbeat age is within threshold (< 120s)', async () => {
   const recentDate = new Date(Date.now() - 5000); // 5 seconds ago
-  const app = makeAppWithHeartbeat({ workerId: 'default', lastHeartbeatAt: recentDate });
-  const { body } = await httpGet(app, '/api/worker/health');
-  assert.equal(body.ok, true);
-  assert.ok(body.ageMs <= 120000, `Expected ageMs <= 120000, got ${body.ageMs}`);
-  assert.equal(body.staleAfterMs, 120000);
+  const harness = makeAppWithHeartbeat({ workerId: 'default', lastHeartbeatAt: recentDate });
+  try {
+    const { body } = await httpGet(harness.app, '/api/worker/health');
+    assert.equal(body.ok, true);
+    assert.ok(body.ageMs <= 120000, `Expected ageMs <= 120000, got ${body.ageMs}`);
+    assert.equal(body.staleAfterMs, 120000);
+  } finally {
+    harness.teardown();
+  }
 });
 
 test('returns ok:false when heartbeat age exceeds threshold (> 120s)', async () => {
   const staleDate = new Date(Date.now() - 200000); // 200 seconds ago (> 120s threshold)
-  const app = makeAppWithHeartbeat({ workerId: 'default', lastHeartbeatAt: staleDate });
-  const { body } = await httpGet(app, '/api/worker/health');
-  assert.equal(body.ok, false);
-  assert.ok(body.ageMs > 120000, `Expected ageMs > 120000, got ${body.ageMs}`);
+  const harness = makeAppWithHeartbeat({ workerId: 'default', lastHeartbeatAt: staleDate });
+  try {
+    const { body } = await httpGet(harness.app, '/api/worker/health');
+    assert.equal(body.ok, false);
+    assert.ok(body.ageMs > 120000, `Expected ageMs > 120000, got ${body.ageMs}`);
+  } finally {
+    harness.teardown();
+  }
 });
 
 test('returns exact staleAfterMs of 120000', async () => {
-  const app = makeAppWithHeartbeat(null);
-  const { body } = await httpGet(app, '/api/worker/health');
-  assert.equal(body.staleAfterMs, 120000);
+  const harness = makeAppWithHeartbeat(null);
+  try {
+    const { body } = await httpGet(harness.app, '/api/worker/health');
+    assert.equal(body.staleAfterMs, 120000);
+  } finally {
+    harness.teardown();
+  }
 });
 
 test('response includes lastHeartbeatAt timestamp when heartbeat exists', async () => {
   const heartbeatDate = new Date(Date.now() - 10000);
-  const app = makeAppWithHeartbeat({ workerId: 'default', lastHeartbeatAt: heartbeatDate });
-  const { body } = await httpGet(app, '/api/worker/health');
-  assert.ok(body.lastHeartbeatAt, 'lastHeartbeatAt should be present');
-  // The returned value should be parseable as a date.
-  const parsed = new Date(body.lastHeartbeatAt);
-  assert.ok(!isNaN(parsed.getTime()), 'lastHeartbeatAt should be a valid date');
+  const harness = makeAppWithHeartbeat({ workerId: 'default', lastHeartbeatAt: heartbeatDate });
+  try {
+    const { body } = await httpGet(harness.app, '/api/worker/health');
+    assert.ok(body.lastHeartbeatAt, 'lastHeartbeatAt should be present');
+    // The returned value should be parseable as a date.
+    const parsed = new Date(body.lastHeartbeatAt);
+    assert.ok(!isNaN(parsed.getTime()), 'lastHeartbeatAt should be a valid date');
+  } finally {
+    harness.teardown();
+  }
 });

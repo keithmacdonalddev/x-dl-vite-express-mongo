@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const { logger } = require('../../lib/logger');
-const { publishTelemetry } = require('../../lib/telemetry');
+const { logger } = require('../../core/lib/logger');
+const { publishTelemetry } = require('../../core/lib/telemetry');
 
 function createDomainContext({ role, app, config, core = {} } = {}) {
   return {

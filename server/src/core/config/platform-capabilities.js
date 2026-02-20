@@ -1,4 +1,4 @@
-const { PLATFORMS } = require('../../platforms/registry');
+const { PLATFORMS } = require('../../core/platforms/registry');
 
 function parseBooleanFlag(rawValue, defaultValue) {
   if (typeof rawValue !== 'string') return defaultValue;

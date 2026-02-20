@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
-const { app } = require('../../app');
-const { getServerConfig, isDomainKernelEnabled, isStrictPluginStartup } = require('../../config/env');
+const { app } = require('./entrypoints/app');
+const { getServerConfig, isDomainKernelEnabled, isStrictPluginStartup } = require('../../core/config/env');
 const { createDomainContext } = require('./domain-context');
 const { loadDomainsForRuntime } = require('./load-domains');
-const { registerShutdown } = require('../../runtime/register-shutdown');
+const { registerShutdown } = require('./register-shutdown');
 
 async function startApiRuntime({ applyDnsOverride } = {}) {
   if (typeof applyDnsOverride === 'function') {

@@ -1,8 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { Job } = require('../../models/job');
-const { ERROR_CODES } = require('../../lib/error-codes');
-const { logger } = require('../../lib/logger');
+const { Job } = require('../../core/models/job');
+const { ERROR_CODES } = require('../../core/lib/error-codes');
+const { logger } = require('../../core/lib/logger');
 const {
   sendError,
   normalizeContactSlug,

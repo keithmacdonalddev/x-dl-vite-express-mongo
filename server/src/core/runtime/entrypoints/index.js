@@ -3,16 +3,16 @@ const dns = require('node:dns');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { app } = require('./app');
-const { getServerConfig, chooseRuntime } = require('./config/env');
-const { startQueueWorker, stopQueueWorker } = require('./worker/queue');
-const { processOneCycle } = require('./worker/process-job');
-const { recoverStaleJobs } = require('./worker/recovery');
-const { closePersistentContext } = require('./services/playwright-adapter');
-const { startApiRuntime } = require('./runtime/start-api-runtime');
-const { startWorkerRuntime } = require('./runtime/start-worker-runtime');
+const { getServerConfig, chooseRuntime } = require('../../config/env');
+const { startQueueWorker, stopQueueWorker } = require('../../../worker/queue');
+const { processOneCycle } = require('../../../worker/process-job');
+const { recoverStaleJobs } = require('../../../worker/recovery');
+const { closePersistentContext } = require('../../../services/playwright-adapter');
+const { startApiRuntime } = require('../start-api-runtime');
+const { startWorkerRuntime } = require('../start-worker-runtime');
 
 dotenv.config({
-  path: path.resolve(__dirname, '../.env'),
+  path: path.resolve(__dirname, '../../../../.env'),
 });
 
 function applyDnsOverrideFromEnv(env = process.env) {

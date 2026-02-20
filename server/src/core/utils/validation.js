@@ -1,4 +1,4 @@
-const { resolvePlatform } = require('../../platforms/registry');
+const { resolvePlatform } = require('../../core/platforms/registry');
 
 const UNKNOWN_PLATFORM = 'unknown';
 

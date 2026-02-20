@@ -1,4 +1,4 @@
-const { getPostUrlInfo } = require('../../utils/validation');
+const { getPostUrlInfo } = require('../../core/utils/validation');
 
 const UNKNOWN_PLATFORM = 'unknown';
 const PLATFORM_DOMAIN_PREFIX = 'platform-';

@@ -9,23 +9,23 @@ process.env.TELEMETRY_SINK = 'memory';
 // Re-require after setting env so module-level SINK_MODE reads correctly.
 // Use a fresh require each time by clearing the cache.
 function freshTelemetry() {
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
-  return require('../../src/lib/telemetry');
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
+  return require('../../src/core/lib/telemetry');
 }
 
 function freshTelemetryWithSink(sinkValue, telemetryModelStub) {
   process.env.TELEMETRY_SINK = sinkValue;
   try {
-    delete require.cache[require.resolve('../../src/models/telemetry-event')];
+    delete require.cache[require.resolve('../../src/core/models/telemetry-event')];
   } catch (_) {}
   try {
-    delete require.cache[require.resolve('../../src/lib/telemetry')];
+    delete require.cache[require.resolve('../../src/core/lib/telemetry')];
   } catch (_) {}
 
   if (telemetryModelStub) {
-    require.cache[require.resolve('../../src/models/telemetry-event')] = {
-      id: require.resolve('../../src/models/telemetry-event'),
-      filename: require.resolve('../../src/models/telemetry-event'),
+    require.cache[require.resolve('../../src/core/models/telemetry-event')] = {
+      id: require.resolve('../../src/core/models/telemetry-event'),
+      filename: require.resolve('../../src/core/models/telemetry-event'),
       loaded: true,
       exports: telemetryModelStub,
       parent: null,
@@ -33,7 +33,7 @@ function freshTelemetryWithSink(sinkValue, telemetryModelStub) {
     };
   }
 
-  return require('../../src/lib/telemetry');
+  return require('../../src/core/lib/telemetry');
 }
 
 function freshTelemetryWithEnv({ sinkValue, roleValue, telemetryModelStub } = {}) {
@@ -50,16 +50,16 @@ function freshTelemetryWithEnv({ sinkValue, roleValue, telemetryModelStub } = {}
   }
 
   try {
-    delete require.cache[require.resolve('../../src/models/telemetry-event')];
+    delete require.cache[require.resolve('../../src/core/models/telemetry-event')];
   } catch (_) {}
   try {
-    delete require.cache[require.resolve('../../src/lib/telemetry')];
+    delete require.cache[require.resolve('../../src/core/lib/telemetry')];
   } catch (_) {}
 
   if (telemetryModelStub) {
-    require.cache[require.resolve('../../src/models/telemetry-event')] = {
-      id: require.resolve('../../src/models/telemetry-event'),
-      filename: require.resolve('../../src/models/telemetry-event'),
+    require.cache[require.resolve('../../src/core/models/telemetry-event')] = {
+      id: require.resolve('../../src/core/models/telemetry-event'),
+      filename: require.resolve('../../src/core/models/telemetry-event'),
       loaded: true,
       exports: telemetryModelStub,
       parent: null,
@@ -67,7 +67,7 @@ function freshTelemetryWithEnv({ sinkValue, roleValue, telemetryModelStub } = {}
     };
   }
 
-  return require('../../src/lib/telemetry');
+  return require('../../src/core/lib/telemetry');
 }
 
 test('telemetry.js exports publishTelemetry, subscribeTelemetry, listTelemetry', () => {
@@ -220,41 +220,41 @@ test('TELEMETRY_SINK=mongodb also enables mongo sink writes', async () => {
 test('TELEMETRY_SINK=mongo activates mongo sink (useMongo flag)', () => {
   const origSink = process.env.TELEMETRY_SINK;
   process.env.TELEMETRY_SINK = 'mongo';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
-  const tel = require('../../src/lib/telemetry');
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
+  const tel = require('../../src/core/lib/telemetry');
   assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=mongo should set useMongo=true');
   process.env.TELEMETRY_SINK = origSink || 'memory';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
 });
 
 test('TELEMETRY_SINK=mongodb activates mongo sink (useMongo flag)', () => {
   const origSink = process.env.TELEMETRY_SINK;
   process.env.TELEMETRY_SINK = 'mongodb';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
-  const tel = require('../../src/lib/telemetry');
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
+  const tel = require('../../src/core/lib/telemetry');
   assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=mongodb should set useMongo=true');
   process.env.TELEMETRY_SINK = origSink || 'memory';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
 });
 
 test('TELEMETRY_SINK=MONGO (uppercase) activates mongo sink', () => {
   const origSink = process.env.TELEMETRY_SINK;
   process.env.TELEMETRY_SINK = 'MONGO';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
-  const tel = require('../../src/lib/telemetry');
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
+  const tel = require('../../src/core/lib/telemetry');
   assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=MONGO (uppercase) should set useMongo=true');
   process.env.TELEMETRY_SINK = origSink || 'memory';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
 });
 
 test('TELEMETRY_SINK=MONGODB (uppercase) activates mongo sink', () => {
   const origSink = process.env.TELEMETRY_SINK;
   process.env.TELEMETRY_SINK = 'MONGODB';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
-  const tel = require('../../src/lib/telemetry');
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
+  const tel = require('../../src/core/lib/telemetry');
   assert.equal(tel.__testHooks.useMongo, true, 'TELEMETRY_SINK=MONGODB (uppercase) should set useMongo=true');
   process.env.TELEMETRY_SINK = origSink || 'memory';
-  delete require.cache[require.resolve('../../src/lib/telemetry')];
+  delete require.cache[require.resolve('../../src/core/lib/telemetry')];
 });
 
 test('split ROLE defaults telemetry sink to mongo when TELEMETRY_SINK is unset', () => {

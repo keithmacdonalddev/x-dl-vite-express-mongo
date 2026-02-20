@@ -1,6 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs');
-const { JOB_STATUSES, SOURCE_TYPES } = require('../constants/job-status');
+const { JOB_STATUSES, SOURCE_TYPES } = require('../core/constants/job-status');
 const { extractFromTweet } = require('../services/extractor-service');
 const { downloadMedia, downloadDirect, downloadDirectWithPlaywrightSession, downloadDirectWithBrowserNavigation, isSignedUrlExpired } = require('../services/downloader-service');
 const { createPlaywrightPageFactory } = require('../services/playwright-adapter');
@@ -9,12 +9,12 @@ const {
   inferExtensionFromUrl,
   normalizePathForApi,
   sanitizeAccountSlug,
-} = require('../utils/account-profile');
-const { isHttpUrl } = require('../utils/validation');
-const { platformNeeds403Refresh } = require('../platforms/registry');
+} = require('../core/utils/account-profile');
+const { isHttpUrl } = require('../core/utils/validation');
+const { platformNeeds403Refresh } = require('../core/platforms/registry');
 const { routeJobByDomain } = require('../core/dispatch/route-job-by-domain');
 const { claimNextQueuedJob } = require('./queue');
-const { logger } = require('../lib/logger');
+const { logger } = require('../core/lib/logger');
 
 function buildTargetPath(jobId, accountSlug = 'unknown') {
   const safeSlug = sanitizeAccountSlug(accountSlug || 'unknown');

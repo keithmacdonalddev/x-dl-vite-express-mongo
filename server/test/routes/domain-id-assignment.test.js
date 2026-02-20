@@ -115,13 +115,13 @@ test('new POST /api/jobs assigns domainId from platform map', async () => {
 
   const teardowns = [
     injectStub(require.resolve('mongoose'), mongooseStub),
-    injectStub(path.join(serverSrc, 'models/job.js'), jobStub),
-    injectStub(path.join(serverSrc, 'lib/logger.js'), loggerStub),
+    injectStub(path.join(serverSrc, 'core/models/job.js'), jobStub),
+    injectStub(path.join(serverSrc, 'core/lib/logger.js'), loggerStub),
   ];
 
   try {
-    delete require.cache[path.join(serverSrc, 'routes/jobs.js')];
-    const { jobsRouter } = require('../../src/routes/jobs');
+    delete require.cache[path.join(serverSrc, 'api/routes/jobs.js')];
+    const { jobsRouter } = require('../../src/api/routes/jobs');
 
     const app = express();
     app.use(express.json());
@@ -194,13 +194,13 @@ test('retry path preserves or deterministically reassigns domainId', async () =>
 
   const teardowns = [
     injectStub(require.resolve('mongoose'), mongooseStub),
-    injectStub(path.join(serverSrc, 'models/job.js'), jobStub),
-    injectStub(path.join(serverSrc, 'lib/logger.js'), loggerStub),
+    injectStub(path.join(serverSrc, 'core/models/job.js'), jobStub),
+    injectStub(path.join(serverSrc, 'core/lib/logger.js'), loggerStub),
   ];
 
   try {
-    delete require.cache[path.join(serverSrc, 'routes/retry.js')];
-    const { retryRouter } = require('../../src/routes/retry');
+    delete require.cache[path.join(serverSrc, 'api/routes/retry.js')];
+    const { retryRouter } = require('../../src/api/routes/retry');
 
     const app = express();
     app.use(express.json());
@@ -273,13 +273,13 @@ test('status mutation repairs missing domainId deterministically', async () => {
 
   const teardowns = [
     injectStub(require.resolve('mongoose'), mongooseStub),
-    injectStub(path.join(serverSrc, 'models/job.js'), jobStub),
-    injectStub(path.join(serverSrc, 'lib/logger.js'), loggerStub),
+    injectStub(path.join(serverSrc, 'core/models/job.js'), jobStub),
+    injectStub(path.join(serverSrc, 'core/lib/logger.js'), loggerStub),
   ];
 
   try {
-    delete require.cache[path.join(serverSrc, 'routes/status.js')];
-    const { statusRouter } = require('../../src/routes/status');
+    delete require.cache[path.join(serverSrc, 'api/routes/status.js')];
+    const { statusRouter } = require('../../src/api/routes/status');
 
     const app = express();
     app.use(express.json());

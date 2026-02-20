@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const { Job } = require('../models/job');
-const { JOB_STATUSES } = require('../constants/job-status');
+const { Job } = require('../core/models/job');
+const { JOB_STATUSES } = require('../core/constants/job-status');
 
 const RECOVERED_FROM_RESTART = 'RECOVERED_FROM_RESTART';
 

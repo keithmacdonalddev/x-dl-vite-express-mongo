@@ -121,13 +121,13 @@ test('POST /api/jobs blocks active duplicate URL before create', async () => {
 
   const teardowns = [
     injectStub(require.resolve('mongoose'), mongooseStub),
-    injectStub(path.join(serverSrc, 'models/job.js'), jobStub),
-    injectStub(path.join(serverSrc, 'lib/logger.js'), loggerStub),
+    injectStub(path.join(serverSrc, 'core/models/job.js'), jobStub),
+    injectStub(path.join(serverSrc, 'core/lib/logger.js'), loggerStub),
   ];
 
   try {
-    delete require.cache[path.join(serverSrc, 'routes/jobs.js')];
-    const { jobsRouter } = require('../../src/routes/jobs');
+    delete require.cache[path.join(serverSrc, 'api/routes/jobs.js')];
+    const { jobsRouter } = require('../../src/api/routes/jobs');
 
     const app = express();
     app.use(express.json());
@@ -148,4 +148,3 @@ test('POST /api/jobs blocks active duplicate URL before create', async () => {
     clearModuleCache(serverSrc);
   }
 });
-

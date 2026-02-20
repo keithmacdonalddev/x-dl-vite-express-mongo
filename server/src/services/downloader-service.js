@@ -3,8 +3,8 @@ const path = require('node:path');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { spawn } = require('node:child_process');
-const { logger } = require('../lib/logger');
-const { resolvePlatformByMediaHost } = require('../platforms/registry');
+const { logger } = require('../core/lib/logger');
+const { resolvePlatformByMediaHost } = require('../core/platforms/registry');
 
 const DOWNLOAD_TIMEOUT_MS = Number.parseInt(process.env.DOWNLOAD_TIMEOUT_MS || '120000', 10);
 
