@@ -3,6 +3,14 @@
 ## 2026-02-20
 
 - Status: Informational
+- Title: Manual regression checklist for dashboard and extractor failure flows
+- Details: Until full E2E automation exists, these checks should be performed manually before each release:
+  1. **Contact chip overlap (REG-UI-001):** Open dashboard with a contact that has no thumbnail. Verify name and meta text do not overlap at desktop width AND mobile width (<= 980px).
+  2. **Failed job messaging (REG-UI-002):** View a failed job row. Verify it displays the backend failure reason (e.g., "Video is unavailable on source platform") or "Download failed." fallback — NOT "Download not ready yet."
+  3. **Extractor failure codes (REG-SRV-001):** Submit an unavailable TikTok URL. Verify job ends in `failed` with `errorCode=EXTRACT_VIDEO_UNAVAILABLE` in MongoDB.
+- Evidence policy: Require timestamp + screenshot/console note for each manual run until full E2E automation exists.
+
+- Status: Informational
 - Title: Extractor failure codes available for operational queries
 - Details: Failed jobs now persist an `errorCode` field. Two codes are defined:
   - `EXTRACT_VIDEO_UNAVAILABLE` — TikTok page contains "Video currently unavailable" text
