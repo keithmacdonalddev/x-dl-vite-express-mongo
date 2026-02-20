@@ -57,3 +57,17 @@ Manual split smoke test status:
 | REG-UI-002 | Failed job row shows failure reason/fallback failed text | `client/src/features/dashboard/jobPresentation.test.js` | Pre-merge + CI |
 | REG-SRV-001 | Extractor rejects placeholder playback media and emits unavailable/no-media failure codes | `server/test/services/extractor-quality-selection.test.js`, `server/test/services/extractor-failure-classification.test.js` | Pre-merge + CI |
 | REG-SRV-002 | Worker persists typed extractor failure outcomes to job metadata | `server/test/worker/process-job-failure-outcome.test.js` | Pre-merge + CI |
+
+## Unified Regression Command
+
+Run the full regression pack with one command:
+
+```bash
+npm run test:regression
+```
+
+**Expected:** All server extractor/worker regression tests pass (node:test), followed by all client Vitest regression tests passing.
+
+**Pass criteria:**
+- Server: 0 failures across extractor-quality-selection, extractor-failure-classification, process-job-failure-outcome, process-job-failure-identity
+- Client: 0 failures across jobPresentation, contactChipPresentation
