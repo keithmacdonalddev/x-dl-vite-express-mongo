@@ -32,6 +32,7 @@ test('extractFromTweet throws typed unavailable error for unavailable page diagn
       assert.equal(err.details.title, 'TikTok - Make Your Day');
       assert.equal(err.details.canonicalUrl, '');
       assert.match(err.details.bodySnippet, /Video currently unavailable/i);
+      assert.equal(err.details.finalUrl, 'https://www.tiktok.com/@addisonre/video/7321895430207577390');
       return true;
     }
   );
