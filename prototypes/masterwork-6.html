@@ -1,0 +1,1706 @@
+<!--
+  Media Vault — Masterwork
+  Agent: 6
+  Concept: Chromatic Lens — stained-glass light navigation where color IS wayfinding
+-->
+<!-- SPECIAL FEATURE: Color Memory Trail — A living aurora ribbon accumulates the hues of every section visited, creating a unique chromatic fingerprint of the user's session that subtly shifts and breathes -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Chromatic Lens</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --intake-hue: 270;
+  --jobs-hue: 200;
+  --contacts-hue: 150;
+  --activity-hue: 30;
+  --settings-hue: 340;
+
+  --intake-color: hsl(270, 70%, 65%);
+  --intake-glow: hsl(270, 80%, 45%);
+  --intake-bg: hsl(270, 30%, 8%);
+  --intake-surface: hsl(270, 25%, 14%);
+  --intake-text: hsl(270, 20%, 88%);
+  --intake-muted: hsl(270, 15%, 55%);
+
+  --jobs-color: hsl(200, 70%, 60%);
+  --jobs-glow: hsl(200, 80%, 42%);
+  --jobs-bg: hsl(200, 30%, 7%);
+  --jobs-surface: hsl(200, 25%, 13%);
+  --jobs-text: hsl(200, 15%, 88%);
+  --jobs-muted: hsl(200, 15%, 52%);
+
+  --contacts-color: hsl(150, 60%, 55%);
+  --contacts-glow: hsl(150, 70%, 38%);
+  --contacts-bg: hsl(150, 25%, 7%);
+  --contacts-surface: hsl(150, 20%, 13%);
+  --contacts-text: hsl(150, 15%, 88%);
+  --contacts-muted: hsl(150, 12%, 50%);
+
+  --activity-color: hsl(30, 80%, 60%);
+  --activity-glow: hsl(30, 85%, 42%);
+  --activity-bg: hsl(30, 25%, 7%);
+  --activity-surface: hsl(30, 20%, 13%);
+  --activity-text: hsl(30, 15%, 88%);
+  --activity-muted: hsl(30, 12%, 52%);
+
+  --settings-color: hsl(340, 65%, 60%);
+  --settings-glow: hsl(340, 75%, 42%);
+  --settings-bg: hsl(340, 25%, 7%);
+  --settings-surface: hsl(340, 20%, 13%);
+  --settings-text: hsl(340, 15%, 88%);
+  --settings-muted: hsl(340, 12%, 52%);
+
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', 'Fira Code', 'SF Mono', monospace;
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #08090c;
+  color: #d4d8e0;
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════
+   COLOR MEMORY TRAIL — Aurora ribbon at top
+   ═══════════════════════════════════════════ */
+#aurora-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* ═══════════════════════════════════════════
+   CHROMATIC LENS — Navigation prism
+   ═══════════════════════════════════════════ */
+#prism-nav {
+  position: fixed;
+  left: 0;
+  top: 48px;
+  bottom: 0;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  z-index: 90;
+  background: linear-gradient(180deg, rgba(8,9,12,0.95) 0%, rgba(8,9,12,0.7) 50%, rgba(8,9,12,0.95) 100%);
+}
+
+.lens-shard {
+  width: 44px;
+  height: calc((100vh - 48px - 40px) / 5);
+  max-height: 120px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  border: none;
+  background: none;
+  padding: 0;
+  outline: none;
+}
+
+.lens-shard .shard-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  opacity: 0.35;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.lens-shard .shard-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 50%, rgba(0,0,0,0.2) 100%);
+  border-radius: inherit;
+}
+
+.lens-shard:hover .shard-fill {
+  opacity: 0.7;
+  transform: scaleX(1.15);
+  box-shadow: 0 0 20px var(--shard-glow);
+}
+
+.lens-shard.active .shard-fill {
+  opacity: 1;
+  transform: scaleX(1.3) scaleY(1.05);
+  box-shadow: 0 0 30px var(--shard-glow), 0 0 60px color-mix(in srgb, var(--shard-glow) 30%, transparent);
+}
+
+.lens-shard:focus-visible .shard-fill {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+/* Shard tooltip — appears on hover, no text in the shard itself */
+.lens-shard::before {
+  content: attr(aria-label);
+  position: absolute;
+  left: 56px;
+  top: 50%;
+  transform: translateY(-50%) translateX(-8px);
+  background: rgba(15,17,22,0.95);
+  color: #d4d8e0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  border: 1px solid rgba(255,255,255,0.08);
+  z-index: 200;
+}
+
+.lens-shard:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.shard-intake .shard-fill { background: var(--intake-color); --shard-glow: var(--intake-glow); }
+.shard-jobs .shard-fill { background: var(--jobs-color); --shard-glow: var(--jobs-glow); }
+.shard-contacts .shard-fill { background: var(--contacts-color); --shard-glow: var(--contacts-glow); }
+.shard-activity .shard-fill { background: var(--activity-color); --shard-glow: var(--activity-glow); }
+.shard-settings .shard-fill { background: var(--settings-color); --shard-glow: var(--settings-glow); }
+
+/* Keyboard hint */
+.shard-key {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.3);
+  font-family: var(--mono);
+  pointer-events: none;
+  transition: color 0.3s;
+}
+
+.lens-shard.active .shard-key { color: rgba(255,255,255,0.7); }
+
+/* ═══════════════════════════════════════════
+   MAIN CONTENT AREA
+   ═══════════════════════════════════════════ */
+#app {
+  position: fixed;
+  left: 72px;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.area {
+  position: absolute;
+  inset: 0;
+  padding: 32px 36px;
+  overflow-y: auto;
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.area.visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* Area ambient glow */
+.area::before {
+  content: '';
+  position: fixed;
+  top: 48px;
+  left: 72px;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: -1;
+}
+
+#area-intake::before { background: var(--intake-color); }
+#area-jobs::before { background: var(--jobs-color); }
+#area-contacts::before { background: var(--contacts-color); }
+#area-activity::before { background: var(--activity-color); }
+#area-settings::before { background: var(--settings-color); }
+
+/* ═══════════════════════════════════════════
+   SHARED COMPONENT STYLES
+   ═══════════════════════════════════════════ */
+.area-title {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+  line-height: 1.2;
+}
+
+#area-intake .area-title { color: var(--intake-color); }
+#area-jobs .area-title { color: var(--jobs-color); }
+#area-contacts .area-title { color: var(--contacts-color); }
+#area-activity .area-title { color: var(--activity-color); }
+#area-settings .area-title { color: var(--settings-color); }
+
+.surface {
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+#area-intake .surface { background: var(--intake-surface); }
+#area-jobs .surface { background: var(--jobs-surface); }
+#area-contacts .surface { background: var(--contacts-surface); }
+#area-activity .surface { background: var(--activity-surface); }
+#area-settings .surface { background: var(--settings-surface); }
+
+/* ═══════════════════════════════════════════
+   INTAKE FORM — The ceremony
+   ═══════════════════════════════════════════ */
+#area-intake {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--intake-bg);
+}
+
+.intake-hero {
+  width: 100%;
+  max-width: 640px;
+  text-align: center;
+}
+
+.intake-hero .area-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin-bottom: 8px;
+}
+
+.intake-subtitle {
+  color: var(--intake-muted);
+  font-size: 14px;
+  margin-bottom: 36px;
+  letter-spacing: 0.03em;
+}
+
+.intake-field-wrap {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.intake-field {
+  width: 100%;
+  padding: 18px 24px;
+  font-size: 16px;
+  font-family: var(--font);
+  background: rgba(255,255,255,0.04);
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  color: var(--intake-text);
+  outline: none;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.intake-field::placeholder {
+  color: var(--intake-muted);
+  font-weight: 450;
+}
+
+.intake-field:focus {
+  border-color: var(--intake-color);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 4px rgba(140, 90, 210, 0.15), 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.intake-field.valid {
+  border-color: hsl(150, 60%, 45%);
+  box-shadow: 0 0 0 4px rgba(80, 180, 120, 0.15);
+}
+
+.intake-field.invalid {
+  border-color: hsl(0, 60%, 50%);
+}
+
+.intake-submit {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font);
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, var(--intake-color), var(--intake-glow));
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.intake-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(140, 90, 210, 0.35);
+}
+
+.intake-submit:active {
+  transform: translateY(0);
+}
+
+.intake-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.intake-submit:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+/* Submit ripple */
+.intake-submit .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  animation: ripple-expand 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ripple-expand {
+  from { width: 0; height: 0; opacity: 1; }
+  to { width: 300px; height: 300px; opacity: 0; margin-left: -150px; margin-top: -150px; }
+}
+
+.intake-platform-indicator {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.intake-platform-indicator.show {
+  opacity: 1;
+}
+
+.intake-platform-indicator.x-platform {
+  background: rgba(255,255,255,0.1);
+  color: #d4d8e0;
+}
+
+.intake-platform-indicator.tiktok-platform {
+  background: rgba(255,80,140,0.15);
+  color: hsl(340, 80%, 70%);
+}
+
+.intake-recent {
+  margin-top: 32px;
+  text-align: left;
+  width: 100%;
+}
+
+.intake-recent-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--intake-muted);
+  margin-bottom: 12px;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.02);
+  margin-bottom: 6px;
+  transition: background 0.2s;
+}
+
+.recent-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.recent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.recent-dot.completed { background: hsl(150, 55%, 50%); }
+.recent-dot.running { background: var(--jobs-color); animation: pulse-dot 1.8s ease-in-out infinite; }
+.recent-dot.failed { background: hsl(0, 55%, 50%); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.recent-url {
+  font-size: 13px;
+  color: var(--intake-text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+}
+
+.recent-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--intake-muted);
+}
+
+/* ═══════════════════════════════════════════
+   JOB LIST
+   ═══════════════════════════════════════════ */
+#area-jobs {
+  background: var(--jobs-bg);
+}
+
+.jobs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.jobs-count {
+  font-size: 13px;
+  color: var(--jobs-muted);
+  font-weight: 500;
+}
+
+.job-card {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--jobs-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 10px;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.job-card:hover {
+  border-color: rgba(255,255,255,0.1);
+  background: hsl(200, 28%, 15%);
+}
+
+.job-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+}
+
+.job-thumb.x-thumb {
+  background: linear-gradient(135deg, hsl(200, 20%, 18%), hsl(200, 25%, 22%));
+  color: #c8d8e8;
+}
+
+.job-thumb.tiktok-thumb {
+  background: linear-gradient(135deg, hsl(340, 25%, 18%), hsl(340, 30%, 22%));
+  color: hsl(340, 60%, 70%);
+}
+
+.job-progress-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.job-progress-ring svg {
+  width: 100%;
+  height: 100%;
+}
+
+.job-info {
+  min-width: 0;
+}
+
+.job-creator {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--jobs-text);
+  margin-bottom: 3px;
+}
+
+.job-url {
+  font-size: 12px;
+  color: var(--jobs-muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.job-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-queued { background: rgba(100,140,180,0.15); color: hsl(200, 40%, 65%); }
+.badge-running { background: rgba(80,160,220,0.15); color: hsl(200, 70%, 65%); }
+.badge-completed { background: rgba(80,180,120,0.12); color: hsl(150, 50%, 58%); }
+.badge-failed { background: rgba(200,80,80,0.15); color: hsl(0, 55%, 62%); }
+.badge-canceled { background: rgba(150,140,130,0.12); color: hsl(30, 10%, 55%); }
+
+.job-time {
+  font-size: 11px;
+  color: var(--jobs-muted);
+}
+
+.job-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.job-action-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 9px;
+  background: rgba(255,255,255,0.03);
+  color: var(--jobs-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.job-action-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--jobs-text);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.job-action-btn:focus-visible {
+  outline: 2px solid var(--jobs-color);
+  outline-offset: 2px;
+}
+
+.job-action-btn.retry-btn:hover { color: var(--jobs-color); border-color: var(--jobs-color); }
+.job-action-btn.delete-btn:hover { color: hsl(0, 55%, 60%); border-color: hsl(0, 55%, 45%); }
+
+/* Running job progress bar */
+.job-card .progress-track {
+  grid-column: 1 / -1;
+  height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.job-card .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--jobs-color), hsl(200, 80%, 70%));
+  border-radius: 2px;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ═══════════════════════════════════════════
+   CONTACTS
+   ═══════════════════════════════════════════ */
+#area-contacts {
+  background: var(--contacts-bg);
+}
+
+.contacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.contact-card {
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--contacts-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: default;
+}
+
+.contact-card:hover {
+  border-color: rgba(255,255,255,0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+}
+
+.contact-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.contact-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.contact-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--contacts-text);
+}
+
+.contact-handle {
+  font-size: 12px;
+  color: var(--contacts-muted);
+  font-family: var(--mono);
+}
+
+.contact-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.contact-stat {
+  text-align: center;
+  padding: 10px 4px;
+  background: rgba(255,255,255,0.03);
+  border-radius: var(--radius);
+}
+
+.contact-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--contacts-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.contact-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--contacts-muted);
+  margin-top: 2px;
+}
+
+.contact-recent-jobs {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 12px;
+}
+
+.contact-recent-jobs-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--contacts-muted);
+  margin-bottom: 8px;
+}
+
+.contact-job-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--contacts-text);
+}
+
+.contact-job-row .recent-dot { width: 6px; height: 6px; }
+
+/* ═══════════════════════════════════════════
+   ACTIVITY FEED
+   ═══════════════════════════════════════════ */
+#area-activity {
+  background: var(--activity-bg);
+}
+
+.activity-stream {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+.activity-event {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+  transition: background 0.2s;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.activity-event:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.event-level-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.event-level-dot.level-info { background: hsl(200, 60%, 55%); }
+.event-level-dot.level-warn { background: hsl(40, 80%, 55%); }
+.event-level-dot.level-error { background: hsl(0, 60%, 55%); }
+.event-level-dot.level-success { background: hsl(150, 55%, 50%); }
+
+.event-message {
+  color: var(--activity-text);
+}
+
+.event-message .event-domain {
+  color: var(--activity-color);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.event-message .event-detail {
+  display: block;
+  color: var(--activity-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.event-time {
+  font-size: 11px;
+  color: var(--activity-muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Live indicator */
+.activity-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--activity-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.activity-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--activity-color);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS
+   ═══════════════════════════════════════════ */
+#area-settings {
+  background: var(--settings-bg);
+}
+
+.settings-section {
+  margin-bottom: 28px;
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--settings-muted);
+  margin-bottom: 14px;
+}
+
+.platform-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--settings-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 10px;
+}
+
+.platform-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.platform-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.platform-icon.x-icon { background: hsl(200, 20%, 18%); color: #c8d8e8; }
+.platform-icon.tiktok-icon { background: hsl(340, 25%, 18%); color: hsl(340, 60%, 70%); }
+
+.platform-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--settings-text);
+}
+
+.platform-desc {
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+
+/* Toggle switch */
+.toggle-switch {
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.3s;
+  background: rgba(255,255,255,0.12);
+  padding: 0;
+  outline: none;
+}
+
+.toggle-switch.on {
+  background: var(--contacts-color);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.toggle-switch.on::after {
+  transform: translateX(22px);
+}
+
+.toggle-switch:focus-visible {
+  outline: 2px solid var(--settings-color);
+  outline-offset: 2px;
+}
+
+/* Settings info cards */
+.settings-info {
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--settings-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 10px;
+}
+
+.settings-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.settings-info-row:not(:last-child) {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.settings-info-label {
+  font-size: 13px;
+  color: var(--settings-muted);
+}
+
+.settings-info-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--settings-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════
+   COLOR TRANSITION BLOOM EFFECT
+   ═══════════════════════════════════════════ */
+#bloom-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+#bloom-overlay.active {
+  opacity: 1;
+  animation: bloom-flash 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes bloom-flash {
+  0% { opacity: 0.25; }
+  100% { opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════
+   SCROLLBAR STYLING
+   ═══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+</style>
+</head>
+<body>
+
+<!-- Aurora Canvas — Color Memory Trail -->
+<canvas id="aurora-canvas" aria-hidden="true"></canvas>
+
+<!-- Bloom overlay for section transitions -->
+<div id="bloom-overlay" aria-hidden="true"></div>
+
+<!-- Chromatic Lens Navigation -->
+<nav id="prism-nav" role="navigation" aria-label="Section navigation — use number keys 1 through 5 or click colored panels">
+  <button class="lens-shard shard-intake active" aria-label="Intake — Submit URLs" data-area="intake" data-key="1" tabindex="0">
+    <div class="shard-fill"></div>
+    <span class="shard-key">1</span>
+  </button>
+  <button class="lens-shard shard-jobs" aria-label="Jobs — Download queue" data-area="jobs" data-key="2" tabindex="0">
+    <div class="shard-fill"></div>
+    <span class="shard-key">2</span>
+  </button>
+  <button class="lens-shard shard-contacts" aria-label="Contacts — Creator profiles" data-area="contacts" data-key="3" tabindex="0">
+    <div class="shard-fill"></div>
+    <span class="shard-key">3</span>
+  </button>
+  <button class="lens-shard shard-activity" aria-label="Activity — Live telemetry" data-area="activity" data-key="4" tabindex="0">
+    <div class="shard-fill"></div>
+    <span class="shard-key">4</span>
+  </button>
+  <button class="lens-shard shard-settings" aria-label="Settings — Configuration" data-area="settings" data-key="5" tabindex="0">
+    <div class="shard-fill"></div>
+    <span class="shard-key">5</span>
+  </button>
+</nav>
+
+<!-- Main App Areas -->
+<main id="app">
+
+  <!-- INTAKE -->
+  <section id="area-intake" class="area visible" role="region" aria-label="Submit a URL for download">
+    <div class="intake-hero">
+      <h1 class="area-title">Media Vault</h1>
+      <p class="intake-subtitle">Paste a link. We handle the rest.</p>
+      <div class="intake-field-wrap">
+        <input id="intake-url" class="intake-field" type="url" placeholder="https://x.com/... or https://tiktok.com/..." autocomplete="off" spellcheck="false" aria-label="Paste a video URL from X or TikTok">
+        <span id="platform-indicator" class="intake-platform-indicator" aria-live="polite"></span>
+      </div>
+      <button id="intake-submit" class="intake-submit" disabled aria-label="Start download">Download</button>
+      <div class="intake-recent" id="intake-recent" role="list" aria-label="Recent submissions"></div>
+    </div>
+  </section>
+
+  <!-- JOBS -->
+  <section id="area-jobs" class="area" role="region" aria-label="Download jobs">
+    <div class="jobs-header">
+      <h1 class="area-title">Downloads</h1>
+      <span class="jobs-count" id="jobs-count" aria-live="polite"></span>
+    </div>
+    <div id="jobs-list" role="list" aria-label="Job list"></div>
+  </section>
+
+  <!-- CONTACTS -->
+  <section id="area-contacts" class="area" role="region" aria-label="Creator profiles">
+    <h1 class="area-title">Creators</h1>
+    <div class="contacts-grid" id="contacts-grid"></div>
+  </section>
+
+  <!-- ACTIVITY -->
+  <section id="area-activity" class="area" role="region" aria-label="Activity feed">
+    <h1 class="area-title">Activity</h1>
+    <div class="activity-live" aria-label="Live telemetry stream active">
+      <span class="activity-live-dot" role="status" aria-label="Streaming"></span>
+      Live
+    </div>
+    <div class="activity-stream" id="activity-stream" role="log" aria-live="polite" aria-label="Telemetry events"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="area-settings" class="area" role="region" aria-label="Settings">
+    <h1 class="area-title">Settings</h1>
+    <div class="settings-section">
+      <div class="settings-section-title">Platforms</div>
+      <div class="platform-toggle-row">
+        <div class="platform-info">
+          <div class="platform-icon x-icon" aria-hidden="true">X</div>
+          <div>
+            <div class="platform-name">X (Twitter)</div>
+            <div class="platform-desc">Video downloads from x.com posts</div>
+          </div>
+        </div>
+        <button class="toggle-switch on" id="toggle-x" role="switch" aria-checked="true" aria-label="Enable X platform downloads"></button>
+      </div>
+      <div class="platform-toggle-row">
+        <div class="platform-info">
+          <div class="platform-icon tiktok-icon" aria-hidden="true">T</div>
+          <div>
+            <div class="platform-name">TikTok</div>
+            <div class="platform-desc">Video downloads from tiktok.com</div>
+          </div>
+        </div>
+        <button class="toggle-switch on" id="toggle-tiktok" role="switch" aria-checked="true" aria-label="Enable TikTok platform downloads"></button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">System</div>
+      <div class="settings-info">
+        <div class="settings-info-row">
+          <span class="settings-info-label">Worker Status</span>
+          <span class="settings-info-value" style="color: hsl(150, 55%, 55%);">Active</span>
+        </div>
+        <div class="settings-info-row">
+          <span class="settings-info-label">Queue Interval</span>
+          <span class="settings-info-value">1s</span>
+        </div>
+        <div class="settings-info-row">
+          <span class="settings-info-label">Telemetry Buffer</span>
+          <span class="settings-info-value" id="telemetry-count">0 events</span>
+        </div>
+        <div class="settings-info-row">
+          <span class="settings-info-label">Playwright</span>
+          <span class="settings-info-value">Chromium (persistent)</span>
+        </div>
+        <div class="settings-info-row">
+          <span class="settings-info-label">ffmpeg</span>
+          <span class="settings-info-value">System PATH</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const state = {
+  currentArea: 'intake',
+  colorTrail: { intake: 0, jobs: 0, contacts: 0, activity: 0, settings: 0 },
+  jobs: [],
+  events: [],
+  jobIdCounter: 1000,
+  eventIdCounter: 0,
+  platforms: { x: true, tiktok: true },
+};
+
+const AREAS = ['intake', 'jobs', 'contacts', 'activity', 'settings'];
+const AREA_HUES = { intake: 270, jobs: 200, contacts: 150, activity: 30, settings: 340 };
+const AREA_COLORS = {
+  intake: [140, 90, 210],
+  jobs: [70, 150, 220],
+  contacts: [80, 180, 120],
+  activity: [220, 160, 70],
+  settings: [210, 90, 130],
+};
+
+// ═══════════════════════════════════════════
+// AURORA CANVAS — Color Memory Trail
+// ═══════════════════════════════════════════
+const auroraCanvas = document.getElementById('aurora-canvas');
+const aCtx = auroraCanvas.getContext('2d');
+let auroraTime = 0;
+
+function resizeAurora() {
+  auroraCanvas.width = window.innerWidth;
+  auroraCanvas.height = 48;
+}
+resizeAurora();
+window.addEventListener('resize', resizeAurora);
+
+function drawAurora() {
+  const w = auroraCanvas.width;
+  const h = auroraCanvas.height;
+  aCtx.clearRect(0, 0, w, h);
+
+  const totalWeight = Object.values(state.colorTrail).reduce((s, v) => s + v, 0);
+  if (totalWeight < 0.1) {
+    auroraTime += 0.003;
+    requestAnimationFrame(drawAurora);
+    return;
+  }
+
+  // Build weighted color segments
+  const segments = [];
+  for (const area of AREAS) {
+    if (state.colorTrail[area] > 0.01) {
+      segments.push({ area, weight: state.colorTrail[area] / totalWeight, color: AREA_COLORS[area] });
+    }
+  }
+
+  // Draw flowing aurora bands
+  for (let x = 0; x < w; x += 2) {
+    const xNorm = x / w;
+    // Determine which color influences this x position
+    let cumWeight = 0;
+    let r = 0, g = 0, b = 0;
+    for (const seg of segments) {
+      // Each segment covers a wave-shifted portion
+      const wave = Math.sin(auroraTime * 2 + xNorm * 6 + cumWeight * 10) * 0.15;
+      const influence = Math.max(0, 1 - Math.abs(xNorm - (cumWeight + seg.weight / 2 + wave)) / (seg.weight + 0.15));
+      r += seg.color[0] * influence;
+      g += seg.color[1] * influence;
+      b += seg.color[2] * influence;
+      cumWeight += seg.weight;
+    }
+
+    const totalInfluence = Math.max(r, g, b) || 1;
+    const normalizer = 255 / totalInfluence;
+    r = Math.min(255, r * normalizer * 0.6);
+    g = Math.min(255, g * normalizer * 0.6);
+    b = Math.min(255, b * normalizer * 0.6);
+
+    const waveH = Math.sin(auroraTime * 1.5 + xNorm * 4) * 8 + 20;
+    const alpha = 0.3 + Math.sin(auroraTime + xNorm * 3) * 0.12;
+
+    const grad = aCtx.createLinearGradient(x, 0, x, h);
+    grad.addColorStop(0, `rgba(${r|0},${g|0},${b|0},0)`);
+    grad.addColorStop(0.3, `rgba(${r|0},${g|0},${b|0},${alpha * 0.6})`);
+    grad.addColorStop(0.6, `rgba(${r|0},${g|0},${b|0},${alpha})`);
+    grad.addColorStop(1, `rgba(${r|0},${g|0},${b|0},0)`);
+    aCtx.fillStyle = grad;
+    aCtx.fillRect(x, h / 2 - waveH, 3, waveH * 2);
+  }
+
+  auroraTime += 0.003;
+  requestAnimationFrame(drawAurora);
+}
+requestAnimationFrame(drawAurora);
+
+// Accumulate color trail — the longer you stay, the more that color dominates
+setInterval(() => {
+  state.colorTrail[state.currentArea] += 0.08;
+  // Gentle decay on inactive areas
+  for (const area of AREAS) {
+    if (area !== state.currentArea) {
+      state.colorTrail[area] *= 0.998;
+    }
+  }
+}, 100);
+
+// ═══════════════════════════════════════════
+// NAVIGATION — Color as wayfinding
+// ═══════════════════════════════════════════
+const shards = document.querySelectorAll('.lens-shard');
+const areas = document.querySelectorAll('.area');
+const bloomOverlay = document.getElementById('bloom-overlay');
+
+function navigateTo(areaName) {
+  if (areaName === state.currentArea) return;
+  state.currentArea = areaName;
+
+  // Update shards
+  shards.forEach(s => s.classList.toggle('active', s.dataset.area === areaName));
+
+  // Update areas
+  areas.forEach(a => a.classList.toggle('visible', a.id === 'area-' + areaName));
+
+  // Bloom flash
+  const [r, g, b] = AREA_COLORS[areaName];
+  bloomOverlay.style.background = `radial-gradient(circle at 36px 50%, rgba(${r},${g},${b},0.15), transparent 60%)`;
+  bloomOverlay.classList.remove('active');
+  void bloomOverlay.offsetWidth;
+  bloomOverlay.classList.add('active');
+}
+
+shards.forEach(shard => {
+  shard.addEventListener('click', () => navigateTo(shard.dataset.area));
+});
+
+// Keyboard navigation: 1-5 keys
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const idx = parseInt(e.key) - 1;
+  if (idx >= 0 && idx < 5) {
+    navigateTo(AREAS[idx]);
+    shards[idx].focus();
+  }
+});
+
+// ═══════════════════════════════════════════
+// SIMULATED DATA
+// ═══════════════════════════════════════════
+const creators = [
+  { name: 'Casey Neistat', handle: '@casey', slug: 'casey', avatarColor: 'hsl(200, 50%, 35%)' },
+  { name: 'MrBeast', handle: '@mrbeast', slug: 'mrbeast', avatarColor: 'hsl(260, 50%, 35%)' },
+  { name: 'Charli D\'Amelio', handle: '@charlidamelio', slug: 'charlidamelio', avatarColor: 'hsl(340, 50%, 35%)' },
+  { name: 'Khaby Lame', handle: '@khaby00', slug: 'khaby00', avatarColor: 'hsl(30, 50%, 35%)' },
+];
+
+const sampleUrls = [
+  { url: 'https://x.com/casey/status/18293847561', platform: 'x', creator: creators[0] },
+  { url: 'https://x.com/mrbeast/status/19374628195', platform: 'x', creator: creators[1] },
+  { url: 'https://tiktok.com/@charlidamelio/video/72839461', platform: 'tiktok', creator: creators[2] },
+  { url: 'https://x.com/casey/status/18462957103', platform: 'x', creator: creators[0] },
+  { url: 'https://tiktok.com/@khaby00/video/83947261', platform: 'tiktok', creator: creators[3] },
+  { url: 'https://x.com/mrbeast/status/19582736401', platform: 'x', creator: creators[1] },
+  { url: 'https://tiktok.com/@charlidamelio/video/72940185', platform: 'tiktok', creator: creators[2] },
+];
+
+// Initialize jobs
+function createJob(sample, statusOverride) {
+  const id = state.jobIdCounter++;
+  const statuses = ['queued', 'running', 'completed', 'failed'];
+  const status = statusOverride || statuses[Math.floor(Math.random() * statuses.length)];
+  return {
+    id,
+    url: sample.url,
+    platform: sample.platform,
+    creator: sample.creator,
+    status,
+    progress: status === 'running' ? Math.random() * 70 + 10 : (status === 'completed' ? 100 : 0),
+    createdAt: Date.now() - Math.floor(Math.random() * 300000),
+  };
+}
+
+// Create initial jobs — guaranteed mix
+state.jobs.push(createJob(sampleUrls[0], 'completed'));
+state.jobs.push(createJob(sampleUrls[1], 'running'));
+state.jobs.push(createJob(sampleUrls[2], 'completed'));
+state.jobs.push(createJob(sampleUrls[3], 'queued'));
+state.jobs.push(createJob(sampleUrls[4], 'failed'));
+state.jobs.push(createJob(sampleUrls[5], 'running'));
+
+// ═══════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════
+function timeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+function renderJobs() {
+  const list = document.getElementById('jobs-list');
+  const count = document.getElementById('jobs-count');
+  const running = state.jobs.filter(j => j.status === 'running').length;
+  const total = state.jobs.length;
+  count.textContent = `${total} jobs${running ? ` · ${running} running` : ''}`;
+
+  list.innerHTML = state.jobs.map(job => {
+    const isX = job.platform === 'x';
+    const thumbClass = isX ? 'x-thumb' : 'tiktok-thumb';
+    const thumbLetter = isX ? 'X' : 'T';
+    const badgeClass = 'badge-' + job.status;
+    const showProgress = job.status === 'running';
+    const showRetry = job.status === 'failed';
+
+    return `<div class="job-card" role="listitem" aria-label="${job.creator.name} — ${job.status}">
+      <div class="job-thumb ${thumbClass}" aria-hidden="true">${thumbLetter}</div>
+      <div class="job-info">
+        <div class="job-creator">${job.creator.name}</div>
+        <div class="job-url">${job.url}</div>
+        <div class="job-meta">
+          <span class="job-status-badge ${badgeClass}" role="status">${job.status}</span>
+          <span class="job-time">${timeAgo(job.createdAt)}</span>
+        </div>
+      </div>
+      <div class="job-actions">
+        ${showRetry ? `<button class="job-action-btn retry-btn" aria-label="Retry download" data-job-id="${job.id}" data-action="retry" title="Retry">&#x21bb;</button>` : ''}
+        <button class="job-action-btn delete-btn" aria-label="Delete job" data-job-id="${job.id}" data-action="delete" title="Delete">&#x2715;</button>
+      </div>
+      ${showProgress ? `<div class="progress-track"><div class="progress-fill" style="width:${job.progress}%"></div></div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Bind actions
+  list.querySelectorAll('.job-action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.jobId);
+      const action = btn.dataset.action;
+      if (action === 'delete') {
+        state.jobs = state.jobs.filter(j => j.id !== id);
+        pushEvent('info', 'jobs.delete', `Job #${id} deleted`);
+        renderJobs();
+        renderContacts();
+      } else if (action === 'retry') {
+        const job = state.jobs.find(j => j.id === id);
+        if (job) {
+          job.status = 'queued';
+          job.progress = 0;
+          pushEvent('info', 'jobs.retry', `Job #${id} queued for retry`);
+          renderJobs();
+        }
+      }
+    });
+  });
+
+  // Update recent submissions in intake
+  renderIntakeRecent();
+}
+
+function renderIntakeRecent() {
+  const el = document.getElementById('intake-recent');
+  const recent = state.jobs.slice(-4).reverse();
+  if (recent.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="intake-recent-title">Recent</div>` +
+    recent.map(j => `<div class="recent-item" role="listitem">
+      <span class="recent-dot ${j.status}" aria-label="${j.status}"></span>
+      <span class="recent-url">${j.url}</span>
+      <span class="recent-status">${j.status}</span>
+    </div>`).join('');
+}
+
+function renderContacts() {
+  const grid = document.getElementById('contacts-grid');
+  const contactMap = {};
+  state.jobs.forEach(j => {
+    const slug = j.creator.slug;
+    if (!contactMap[slug]) contactMap[slug] = { ...j.creator, jobs: [], completed: 0, failed: 0, total: 0 };
+    contactMap[slug].jobs.push(j);
+    contactMap[slug].total++;
+    if (j.status === 'completed') contactMap[slug].completed++;
+    if (j.status === 'failed') contactMap[slug].failed++;
+  });
+
+  grid.innerHTML = Object.values(contactMap).map(c => {
+    const initial = c.name.charAt(0);
+    const recentJobs = c.jobs.slice(-3).reverse();
+    return `<div class="contact-card">
+      <div class="contact-header">
+        <div class="contact-avatar" style="background:${c.avatarColor}" aria-hidden="true">${initial}</div>
+        <div>
+          <div class="contact-name">${c.name}</div>
+          <div class="contact-handle">${c.handle}</div>
+        </div>
+      </div>
+      <div class="contact-stats">
+        <div class="contact-stat">
+          <div class="contact-stat-value">${c.total}</div>
+          <div class="contact-stat-label">Total</div>
+        </div>
+        <div class="contact-stat">
+          <div class="contact-stat-value">${c.completed}</div>
+          <div class="contact-stat-label">Done</div>
+        </div>
+        <div class="contact-stat">
+          <div class="contact-stat-value">${c.failed}</div>
+          <div class="contact-stat-label">Failed</div>
+        </div>
+      </div>
+      <div class="contact-recent-jobs">
+        <div class="contact-recent-jobs-title">Recent</div>
+        ${recentJobs.map(j => `<div class="contact-job-row">
+          <span class="recent-dot ${j.status}"></span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)">${j.url.split('/').pop()}</span>
+          <span style="color:var(--contacts-muted);font-size:11px">${j.status}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// ACTIVITY FEED
+// ═══════════════════════════════════════════
+const eventTemplates = [
+  { level: 'info', domain: 'queue', msg: 'Worker polling — {n} jobs in queue' },
+  { level: 'info', domain: 'extractor', msg: 'Navigating to {url}' },
+  { level: 'info', domain: 'extractor', msg: 'Network interception captured {n} candidates' },
+  { level: 'info', domain: 'downloader', msg: 'Fetching direct MP4 stream — {size}MB' },
+  { level: 'info', domain: 'downloader', msg: 'ffmpeg processing HLS .m3u8 manifest' },
+  { level: 'success', domain: 'pipeline', msg: 'Job #{id} completed — saved to downloads/' },
+  { level: 'warn', domain: 'extractor', msg: 'Cloudflare challenge detected — waiting for solve' },
+  { level: 'error', domain: 'downloader', msg: '403 Forbidden — attempting re-extraction' },
+  { level: 'info', domain: 'playwright', msg: 'Browser context active — persistent session' },
+  { level: 'info', domain: 'telemetry', msg: 'Buffer at {n}/{max} events' },
+];
+
+function pushEvent(level, domain, detail) {
+  const id = state.eventIdCounter++;
+  const evt = { id, level, domain, detail, time: new Date() };
+  state.events.unshift(evt);
+  if (state.events.length > 100) state.events.pop();
+  renderActivityStream();
+  document.getElementById('telemetry-count').textContent = `${state.events.length} events`;
+}
+
+function renderActivityStream() {
+  const stream = document.getElementById('activity-stream');
+  stream.innerHTML = state.events.slice(0, 40).map(evt => {
+    const timeStr = evt.time.toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return `<div class="activity-event">
+      <span class="event-level-dot level-${evt.level}" aria-label="${evt.level}"></span>
+      <div class="event-message">
+        <span class="event-domain">${evt.domain}</span>
+        <span class="event-detail">${evt.detail}</span>
+      </div>
+      <span class="event-time">${timeStr}</span>
+    </div>`;
+  }).join('');
+}
+
+function generateRandomEvent() {
+  const tpl = eventTemplates[Math.floor(Math.random() * eventTemplates.length)];
+  const runningJobs = state.jobs.filter(j => j.status === 'running');
+  const queuedJobs = state.jobs.filter(j => j.status === 'queued');
+  let msg = tpl.msg
+    .replace('{n}', Math.floor(Math.random() * 8 + 1))
+    .replace('{url}', runningJobs.length ? runningJobs[0].url : 'https://x.com/...')
+    .replace('{size}', (Math.random() * 50 + 5).toFixed(1))
+    .replace('{id}', runningJobs.length ? runningJobs[0].id : '---')
+    .replace('{max}', '4000');
+  pushEvent(tpl.level, tpl.domain, msg);
+}
+
+// ═══════════════════════════════════════════
+// INTAKE FORM LOGIC
+// ═══════════════════════════════════════════
+const intakeInput = document.getElementById('intake-url');
+const intakeSubmit = document.getElementById('intake-submit');
+const platformIndicator = document.getElementById('platform-indicator');
+
+function detectPlatform(url) {
+  if (/x\.com|twitter\.com/i.test(url)) return 'x';
+  if (/tiktok\.com/i.test(url)) return 'tiktok';
+  return null;
+}
+
+intakeInput.addEventListener('input', () => {
+  const val = intakeInput.value.trim();
+  const platform = detectPlatform(val);
+  const isValid = platform !== null && val.startsWith('http');
+
+  intakeSubmit.disabled = !isValid;
+  intakeInput.classList.toggle('valid', isValid);
+  intakeInput.classList.toggle('invalid', val.length > 10 && !isValid);
+
+  if (platform) {
+    platformIndicator.textContent = platform === 'x' ? 'X' : 'TikTok';
+    platformIndicator.className = 'intake-platform-indicator show ' + (platform === 'x' ? 'x-platform' : 'tiktok-platform');
+  } else {
+    platformIndicator.className = 'intake-platform-indicator';
+  }
+});
+
+intakeSubmit.addEventListener('click', (e) => {
+  const val = intakeInput.value.trim();
+  const platform = detectPlatform(val);
+  if (!platform) return;
+
+  // Ripple
+  const rect = intakeSubmit.getBoundingClientRect();
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.left = (e.clientX - rect.left) + 'px';
+  ripple.style.top = (e.clientY - rect.top) + 'px';
+  intakeSubmit.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+
+  // Create job
+  const creator = creators[Math.floor(Math.random() * creators.length)];
+  const job = {
+    id: state.jobIdCounter++,
+    url: val,
+    platform,
+    creator,
+    status: 'queued',
+    progress: 0,
+    createdAt: Date.now(),
+  };
+  state.jobs.unshift(job);
+  pushEvent('info', 'jobs.create', `Job #${job.id} queued — ${val}`);
+
+  intakeInput.value = '';
+  intakeInput.classList.remove('valid');
+  intakeSubmit.disabled = true;
+  platformIndicator.className = 'intake-platform-indicator';
+
+  renderJobs();
+  renderContacts();
+});
+
+// Enter to submit
+intakeInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !intakeSubmit.disabled) {
+    intakeSubmit.click();
+  }
+});
+
+// ═══════════════════════════════════════════
+// SETTINGS TOGGLES
+// ═══════════════════════════════════════════
+document.getElementById('toggle-x').addEventListener('click', function() {
+  state.platforms.x = !state.platforms.x;
+  this.classList.toggle('on', state.platforms.x);
+  this.setAttribute('aria-checked', state.platforms.x);
+  pushEvent('info', 'config', `X platform ${state.platforms.x ? 'enabled' : 'disabled'}`);
+});
+
+document.getElementById('toggle-tiktok').addEventListener('click', function() {
+  state.platforms.tiktok = !state.platforms.tiktok;
+  this.classList.toggle('on', state.platforms.tiktok);
+  this.setAttribute('aria-checked', state.platforms.tiktok);
+  pushEvent('info', 'config', `TikTok platform ${state.platforms.tiktok ? 'enabled' : 'disabled'}`);
+});
+
+// ═══════════════════════════════════════════
+// SIMULATION ENGINE — Bring it to life
+// ═══════════════════════════════════════════
+
+// Job progression: queued → running → completed/failed (8-15s cycle)
+setInterval(() => {
+  let changed = false;
+
+  // Advance queued → running
+  const queued = state.jobs.filter(j => j.status === 'queued');
+  if (queued.length > 0 && Math.random() < 0.3) {
+    const job = queued[0];
+    job.status = 'running';
+    job.progress = 5;
+    pushEvent('info', 'queue', `Job #${job.id} claimed — starting extraction`);
+    changed = true;
+  }
+
+  // Advance running progress
+  state.jobs.filter(j => j.status === 'running').forEach(job => {
+    job.progress = Math.min(98, job.progress + Math.random() * 12 + 3);
+
+    // Complete or fail
+    if (job.progress > 90 && Math.random() < 0.25) {
+      if (Math.random() < 0.85) {
+        job.status = 'completed';
+        job.progress = 100;
+        pushEvent('success', 'pipeline', `Job #${job.id} completed — ${job.creator.name}`);
+      } else {
+        job.status = 'failed';
+        pushEvent('error', 'downloader', `Job #${job.id} failed — 403 Forbidden`);
+      }
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    renderJobs();
+    renderContacts();
+  }
+}, 2000);
+
+// Inject new jobs periodically
+setInterval(() => {
+  if (state.jobs.length < 8 && Math.random() < 0.3) {
+    const sample = sampleUrls[Math.floor(Math.random() * sampleUrls.length)];
+    const job = createJob(sample, 'queued');
+    state.jobs.unshift(job);
+    pushEvent('info', 'jobs.create', `Job #${job.id} queued — ${sample.url}`);
+    renderJobs();
+    renderContacts();
+  }
+}, 8000);
+
+// Activity feed events every 2-4s
+setInterval(generateRandomEvent, 2500);
+
+// ═══════════════════════════════════════════
+// INITIAL RENDER
+// ═══════════════════════════════════════════
+renderJobs();
+renderContacts();
+
+// Seed some initial activity
+for (let i = 0; i < 8; i++) generateRandomEvent();
+
+// Initial trail seed
+state.colorTrail.intake = 1;
+</script>
+</body>
+</html>
