@@ -50,3 +50,15 @@ test('pickMediaUrl does not fall back to login placeholder media when no real ca
   assert.deepEqual(selected.candidateUrls, []);
 });
 
+test('pickMediaUrl selects valid candidate when placeholder is also present', () => {
+  const placeholder =
+    'https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/webapp/main/webapp-desktop/playback1.mp4';
+  const realVideo =
+    'https://v16-webapp-prime.tiktok.com/video/tos/alisg/clip/?br=1566&bt=783&mime_type=video_mp4&expire=1771651195&policy=2&signature=abc123';
+
+  const selected = pickMediaUrl([placeholder, realVideo]);
+
+  assert.equal(selected.mediaUrl, realVideo);
+  assert.equal(selected.sourceType, 'direct');
+});
+

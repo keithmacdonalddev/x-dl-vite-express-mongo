@@ -43,12 +43,18 @@ test('extractFromTweet throws NO_MEDIA_URL code when diagnostics do not indicate
     collectMediaUrls: async () => [],
     collectImageUrls: async () => [],
     collectPostMetadata: async () => ({ title: 'TikTok - Make Your Day', canonicalUrl: '', pageUrl: 'https://www.tiktok.com/@x/video/1' }),
-    collectPageDiagnostics: async () => ({ bodySnippet: 'Some generic page content', title: 'TikTok - Make Your Day', canonicalUrl: '' }),
+    collectPageDiagnostics: async () => ({ bodySnippet: 'Some generic page content', title: 'TikTok - Make Your Day', canonicalUrl: '', finalUrl: 'https://www.tiktok.com/@x/video/1' }),
     close: async () => {},
   });
 
   await assert.rejects(
     extractFromTweet('https://www.tiktok.com/@x/video/1', { pageFactory }),
-    (err) => err && err.code === EXTRACTOR_ERROR_CODES.NO_MEDIA_URL
+    (err) => {
+      assert.equal(err.code, EXTRACTOR_ERROR_CODES.NO_MEDIA_URL);
+      assert.equal(err.details.mediaUrlCount, 0);
+      assert.equal(err.details.imageUrlCount, 0);
+      assert.equal(err.details.title, 'TikTok - Make Your Day');
+      return true;
+    }
   );
 });
