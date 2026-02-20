@@ -56,6 +56,15 @@ function applyFailureIdentity(job) {
   job.accountSlug = sanitizeAccountSlug(job.accountSlug || derived.accountSlug || derived.handle || derived.platform);
 }
 
+function applyFailureOutcome(job, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  applyFailureIdentity(job);
+  job.errorCode = typeof error?.code === 'string' ? error.code : 'EXTRACT_UNKNOWN';
+  job.status = JOB_STATUSES.FAILED;
+  job.failedAt = new Date();
+  job.error = message;
+}
+
 const productionPageFactory = createPlaywrightPageFactory();
 
 async function productionExtractor(tweetUrl, options = {}) {
@@ -681,14 +690,9 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
 
     return job.toObject();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    applyFailureIdentity(job);
-    job.errorCode = typeof error?.code === 'string' ? error.code : 'EXTRACT_UNKNOWN';
-    job.status = JOB_STATUSES.FAILED;
-    job.failedAt = new Date();
-    job.error = message;
+    applyFailureOutcome(job, error);
     await job.save();
+    const message = error instanceof Error ? error.message : String(error);
     const isTimeout = error instanceof TimeoutError;
     logger.error('worker.job.failed', {
       jobId,
@@ -722,4 +726,5 @@ module.exports = {
   buildTargetPath,
   productionExtractor,
   applyFailureIdentity,
+  applyFailureOutcome,
 };

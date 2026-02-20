@@ -12,7 +12,7 @@ This domain owns all files under `server/src/worker/`. No agent outside the work
 
 | File | Purpose |
 |------|---------|
-| `process-job.js` | Job processing orchestrator: claim -> extract -> pick media -> download (with retry strategies) -> save results. Exports `{ processOneCycle, buildTargetPath, productionExtractor, applyFailureIdentity }`. ~724 lines. |
+| `process-job.js` | Job processing orchestrator: claim -> extract -> pick media -> download (with retry strategies) -> save results. Exports `{ processOneCycle, buildTargetPath, productionExtractor, applyFailureIdentity, applyFailureOutcome }`. ~731 lines. |
 | `queue.js` | Queue worker: 1s `setInterval` poll loop, atomic job claim via `findOneAndUpdate`, tick-overlap guard, 30s heartbeat upsert. Exports `{ claimNextQueuedJob, startQueueWorker, stopQueueWorker }`. ~126 lines. |
 | `recovery.js` | Stale job recovery: marks `running` jobs older than `maxAgeMs` as `failed` with `RECOVERED_FROM_RESTART` error. Exports `{ RECOVERED_FROM_RESTART, recoverStaleJobs }`. ~36 lines. |
 
@@ -86,6 +86,7 @@ module.exports = {
   buildTargetPath,       // (jobId: string, accountSlug: string) => string
   productionExtractor,   // async (tweetUrl, options?) => ExtractionResult
   applyFailureIdentity,  // (job: JobDocument) => void — derives platform/handle/slug from tweetUrl, idempotent
+  applyFailureOutcome,   // (job: JobDocument, error: Error|any) => void — applies all failure fields; testable helper for catch-block logic
 }
 
 // queue.js
