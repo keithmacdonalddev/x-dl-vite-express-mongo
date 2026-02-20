@@ -1,0 +1,58 @@
+{
+  "env": {
+    "NODE_ENV": "development",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "SLASH_COMMAND_TOOL_CHAR_BUDGET": "50000",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-4-6[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6[1m]"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(findstr:*)",
+      "Bash(git push:*)",
+      "Bash(dir /s /b)",
+      "Bash(node scripts/migrateNotesProcessed.js:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(git restore:*)",
+      "Bash(npm test)",
+      "Bash(timeout 5 node:*)",
+      "Bash(node -e:*)",
+      "Bash(node scripts/migrateUserRoles.js:*)",
+      "Bash(xargs:*)",
+      "Bash(node --check:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(netstat:*)",
+      "Bash(taskkill //F //PID 38536)",
+      "Bash(curl:*)",
+      "WebFetch(domain:loggingsucks.com)",
+      "Bash(node scripts/migrateDefaultCategories.js:*)",
+      "Bash(node scripts/migrateDefaultTags.js:*)",
+      "Bash(node scripts/seedRoleConfigs.js:*)",
+      "Bash(grep:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(cd:*)",
+      "Bash(git checkout:*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pm-rules.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {}
+}
