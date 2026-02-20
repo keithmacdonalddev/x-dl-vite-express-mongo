@@ -12,9 +12,9 @@ This domain owns all files under `server/src/services/`. No agent outside the se
 
 | File | Purpose |
 |------|---------|
-| `extractor-service.js` | Playwright-based media URL extraction: navigates to post URL, intercepts network responses for video/image URLs, scrapes DOM for TikTok rehydration data, ranks candidates by quality (resolution, bitrate, watermark, codec). Exports `{ extractFromTweet, pickMediaUrl, listCandidateMediaUrls, getMediaCandidateFacts }`. ~454 lines. |
+| `extractor-service.js` | Playwright-based media URL extraction: navigates to post URL, intercepts network responses for video/image URLs, scrapes DOM for TikTok rehydration data, ranks candidates by quality (resolution, bitrate, watermark, codec). Exports `{ extractFromTweet, pickMediaUrl, listCandidateMediaUrls, getMediaCandidateFacts, createExtractorError }`. ~499 lines. |
 | `downloader-service.js` | Media download: direct HTTP fetch with stream pipeline, ffmpeg HLS download, Playwright-authenticated download (cookies), browser navigation download (full TLS fingerprint). Includes signed URL expiry detection. Exports `{ isAuthBlockedStatus, isSignedUrlExpired, chooseDownloadMode, downloadDirect, downloadDirectWithPlaywrightSession, downloadDirectWithBrowserNavigation, downloadHlsWithFfmpeg, downloadMedia }`. ~571 lines. |
-| `playwright-adapter.js` | Singleton persistent Chromium context management: launch with recovery, page factory (creates pages with network interception for media/image URLs), access state assessment (bot challenge, auth wall), manual solve polling, TikTok rehydration URL extraction. Exports `{ createPlaywrightPageFactory, getPersistentContext, closePersistentContext, getAdapterConfig, assessAccessState, extractTikTokRehydrationUrls }`. ~700 lines. |
+| `playwright-adapter.js` | Singleton persistent Chromium context management: launch with recovery, page factory (creates pages with network interception for media/image URLs + page diagnostics), access state assessment (bot challenge, auth wall), manual solve polling, TikTok rehydration URL extraction. Exports `{ createPlaywrightPageFactory, getPersistentContext, closePersistentContext, getAdapterConfig, assessAccessState, extractTikTokRehydrationUrls, hasPersistentContext }`. ~728 lines. |
 | `profile-discovery-service.js` | TikTok profile discovery: scrapes a user's profile page for video posts, deduplicates against existing Jobs and DiscoveredPosts, creates DiscoveredPost documents, downloads thumbnails. **Exception to statelessness rule**: imports `Job` model for deduplication queries (read-only `distinct()`) and `DiscoveredPost` model for persistence. Exports `{ triggerProfileDiscovery, scrapeProfileVideos, extractHandleFromTikTokUrl }`. ~255 lines. |
 
 **File count:** 4 source files in 1 directory.
@@ -77,6 +77,7 @@ downloadMedia(mediaUrl, { targetPath, telemetryContext })
 | Source Domain | Module | What We Use |
 |---------------|--------|-------------|
 | core | `core/constants/job-status` | `SOURCE_TYPES` (in extractor-service.js) |
+| core | `core/constants/extractor-error-codes` | `EXTRACTOR_ERROR_CODES` (in extractor-service.js) |
 | core | `core/lib/logger` | `logger` structured logging (all 3 files) |
 | core | `core/utils/validation` | `isSupportedPostUrl` (in extractor-service.js) |
 | core | `core/platforms/registry` | `resolvePlatformByMediaHost` (downloader), `getAuthBlockingHosts`, `getAllMediaPathPatterns` (playwright-adapter) |
@@ -109,6 +110,7 @@ module.exports = {
   pickMediaUrl,            // (urls: string[]) => { mediaUrl, sourceType, candidateUrls }
   listCandidateMediaUrls,  // (urls: string[]) => string[]
   getMediaCandidateFacts,  // (url: string) => CandidateFacts
+  createExtractorError,    // ({ code, message, details?, cause? }) => Error (with .code + .details)
 }
 
 // downloader-service.js
@@ -131,7 +133,10 @@ module.exports = {
   getAdapterConfig,            // (input?) => AdapterConfig
   assessAccessState,           // ({ title, visibleText, content, finalUrl }) => string
   extractTikTokRehydrationUrls, // async (page) => Array<{ url, source }>
+  hasPersistentContext,        // () => boolean (read-only check, no side effects)
 }
+// PageWrapper (returned by pageFactory()) now includes:
+// goto, collectMediaUrls, collectImageUrls, collectPostMetadata, collectPageDiagnostics, close
 
 // profile-discovery-service.js
 module.exports = {
