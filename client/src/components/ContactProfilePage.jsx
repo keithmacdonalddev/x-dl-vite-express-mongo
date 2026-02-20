@@ -32,6 +32,11 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [discoveredPosts, setDiscoveredPosts] = useState([])
   const [isDiscoveryDownloading, setIsDiscoveryDownloading] = useState(false)
+  const [expandedJobId, setExpandedJobId] = useState('')
+
+  function toggleExpanded(jobId) {
+    setExpandedJobId((prev) => (prev === jobId ? '' : jobId))
+  }
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
@@ -231,43 +236,76 @@ export function ContactProfilePage({ contactSlug, onBack }) {
 
           {!isLoading && visibleContactJobs.length > 0 && (
             <ul className="profile-grid">
-              {visibleContactJobs.map((job) => (
-                <li key={job._id} className="profile-card">
-                  {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) ? (
-                    <img
-                      className="profile-card-thumb"
-                      src={toAssetHref(job.thumbnailPath || job.imageUrls[0])}
-                      alt={job.accountDisplayName || job.accountHandle || contactSlug}
-                    />
-                  ) : (
-                    <div className="profile-card-thumb profile-card-placeholder" />
-                  )}
-                  <div className="profile-card-content">
-                    <div className="row-actions-top">
-                      <label className="select-box">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selection.selectedJobIds[job._id])}
-                          onChange={() => selection.toggleSelection(job._id)}
+              {visibleContactJobs.map((job) => {
+                const isExpanded = expandedJobId === job._id
+                return (
+                  <li key={job._id} className={`profile-card${isExpanded ? ' is-expanded' : ''}`}>
+                    <div className="profile-card-media" onClick={() => toggleExpanded(job._id)}>
+                      {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) ? (
+                        <img
+                          className="profile-card-thumb"
+                          src={toAssetHref(job.thumbnailPath || job.imageUrls[0])}
+                          alt={job.accountDisplayName || job.accountHandle || contactSlug}
                         />
-                        <span>Select</span>
-                      </label>
-                      <OverflowMenu items={buildMenuItems(job)} />
+                      ) : (
+                        <div className="profile-card-thumb profile-card-placeholder" />
+                      )}
+                      <span className={`status-dot is-${job.status}`} />
                     </div>
-                    {actions.editingJobId === job._id && (
-                      <JobEditForm
-                        job={job}
-                        draft={actions.editDraftByJobId[job._id]}
-                        isMutating={actions.isMutating}
-                        onUpdateDraft={actions.updateEditDraft}
-                        onSubmit={actions.submitEdit}
-                        onCancel={actions.cancelEdit}
-                        idPrefix="profile-"
-                      />
-                    )}
-                  </div>
-                </li>
-              ))}
+                    <div className="profile-card-content">
+                      <div className="row-actions-top">
+                        <label className="select-box">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selection.selectedJobIds[job._id])}
+                            onChange={() => selection.toggleSelection(job._id)}
+                          />
+                          <span>Select</span>
+                        </label>
+                        <OverflowMenu items={buildMenuItems(job)} />
+                      </div>
+                      {isExpanded && (
+                        <div className="profile-card-details">
+                          <p className="profile-card-status-line">
+                            <span className={`status-chip is-${job.status}`}>{job.status}</span>
+                            <span className="profile-card-date">{formatTimestamp(job.createdAt)}</span>
+                          </p>
+                          <p className="profile-card-url">
+                            <a href={job.tweetUrl} target="_blank" rel="noreferrer">
+                              {job.tweetUrl && job.tweetUrl.length > 50 ? job.tweetUrl.slice(0, 50) + '...' : job.tweetUrl}
+                            </a>
+                          </p>
+                          {job.outputPath && (
+                            <a href={toAssetHref(job.outputPath)} target="_blank" rel="noreferrer" className="profile-card-file-link">
+                              Open downloaded file
+                            </a>
+                          )}
+                          {job.metadata && (job.metadata.title || job.metadata.durationSeconds || (job.metadata.videoWidth && job.metadata.videoHeight)) && (
+                            <div className="profile-card-meta">
+                              {job.metadata.title && <p className="meta-title">{job.metadata.title}</p>}
+                              <p className="meta-specs">
+                                {job.metadata.videoWidth && job.metadata.videoHeight && <span>{job.metadata.videoWidth}x{job.metadata.videoHeight}</span>}
+                                {job.metadata.durationSeconds && <span>{job.metadata.durationSeconds}s</span>}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {actions.editingJobId === job._id && (
+                        <JobEditForm
+                          job={job}
+                          draft={actions.editDraftByJobId[job._id]}
+                          isMutating={actions.isMutating}
+                          onUpdateDraft={actions.updateEditDraft}
+                          onSubmit={actions.submitEdit}
+                          onCancel={actions.cancelEdit}
+                          idPrefix="profile-"
+                        />
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>
