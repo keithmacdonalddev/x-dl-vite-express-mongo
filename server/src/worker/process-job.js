@@ -650,6 +650,20 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       accountSlug: job.accountSlug,
     });
 
+    // Fire-and-forget: trigger profile discovery after successful TikTok extraction
+    // Discovery runs AFTER extraction so the browser session has fresh CAPTCHA-cleared cookies
+    if (job.accountPlatform === 'tiktok' && job.tweetUrl) {
+      const { triggerProfileDiscovery } = require('../services/profile-discovery-service');
+      triggerProfileDiscovery({
+        tweetUrl: job.tweetUrl,
+        accountSlug: job.accountSlug || '',
+        traceId: job.traceId || '',
+      }).catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error('discovery.trigger.failed', { traceId: job.traceId, message: msg });
+      });
+    }
+
     return job.toObject();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

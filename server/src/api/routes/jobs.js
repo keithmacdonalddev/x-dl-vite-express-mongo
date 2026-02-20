@@ -18,8 +18,6 @@ const {
   sanitizeDisplayName,
   ensureEnabledPlatform,
 } = require('./helpers/route-utils');
-const { triggerProfileDiscovery } = require('../../services/profile-discovery-service');
-
 const jobsRouter = express.Router();
 const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
 
@@ -173,18 +171,6 @@ jobsRouter.post('/', async (req, res) => {
       durationMs: Date.now() - startedAt,
       createdAt: job.createdAt,
     });
-
-    // Fire-and-forget: trigger TikTok profile discovery after response
-    if (postInfo.platform === 'tiktok') {
-      triggerProfileDiscovery({
-        tweetUrl,
-        accountSlug: job.accountSlug || '',
-        traceId,
-      }).catch((err) => {
-        const discMsg = err instanceof Error ? err.message : String(err);
-        logger.error('discovery.trigger.failed', { traceId, message: discMsg });
-      });
-    }
 
     return res.status(201).json({
       ok: true,

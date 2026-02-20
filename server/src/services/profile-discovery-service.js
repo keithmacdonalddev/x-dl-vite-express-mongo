@@ -46,6 +46,44 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
       await page.waitForTimeout(5000);
     }
 
+    // Check for CAPTCHA/bot challenge and wait for manual solve if needed
+    const { assessAccessState } = require('./playwright-adapter');
+
+    const pageTitle = await page.title().catch(() => '');
+    const visibleText = await page.locator('body').innerText().catch(() => '');
+    const finalUrl = typeof page.url === 'function' ? page.url() : profileUrl;
+    const accessState = assessAccessState({ title: pageTitle, visibleText, content: '', finalUrl });
+
+    if (accessState === 'BOT_CHALLENGE') {
+      logger.info('discovery.scrape.captcha_detected', { traceId, handle });
+
+      // Poll for up to 60 seconds for manual solve
+      const pollMs = 2000;
+      const maxAttempts = 30;
+      let solved = false;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await page.waitForTimeout(pollMs);
+        const retryTitle = await page.title().catch(() => '');
+        const retryText = await page.locator('body').innerText().catch(() => '');
+        const retryUrl = typeof page.url === 'function' ? page.url() : profileUrl;
+        const retryState = assessAccessState({ title: retryTitle, visibleText: retryText, content: '', finalUrl: retryUrl });
+
+        if (!retryState) {
+          solved = true;
+          logger.info('discovery.scrape.captcha_solved', { traceId, handle, attempts: attempt + 1 });
+          // Wait a bit more for grid to render after solve
+          await page.waitForTimeout(3000);
+          break;
+        }
+      }
+
+      if (!solved) {
+        logger.error('discovery.scrape.captcha_timeout', { traceId, handle });
+        return [];
+      }
+    }
+
     // Diagnostic screenshot
     const screenshotDir = path.resolve(process.cwd(), 'tmp');
     await fs.promises.mkdir(screenshotDir, { recursive: true });
