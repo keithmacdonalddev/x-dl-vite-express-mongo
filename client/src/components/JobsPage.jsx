@@ -191,6 +191,7 @@ export function JobsPage({ onOpenContact }) {
             onUpdateEditDraft={actions.updateEditDraft}
             onOpenSingleDelete={openSingleDelete}
             onOpenBulkDelete={openBulkDelete}
+            onRetry={actions.handleRetry}
             highlightedJobId={highlightedJobId}
           />
         </section>

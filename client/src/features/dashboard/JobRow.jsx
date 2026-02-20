@@ -3,6 +3,7 @@ import {
   toAssetHref,
 } from '../../lib/contacts'
 import { JobEditForm } from './JobEditForm'
+import { OverflowMenu } from '../../components/OverflowMenu'
 
 export function JobRow({
   job,
@@ -16,6 +17,7 @@ export function JobRow({
   onSubmitEdit,
   onUpdateEditDraft,
   onDelete,
+  onRetry,
   isHighlighted,
 }) {
   const accountLabel =
@@ -24,6 +26,13 @@ export function JobRow({
     deriveHandleFromUrl(job.tweetUrl || '')
 
   const thumbnailSrc = job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0]) || ''
+
+  const menuItems = [
+    { label: 'Edit', onClick: () => onStartEdit(job) },
+    { label: 'Copy URL', onClick: () => navigator.clipboard.writeText(job.tweetUrl || '') },
+    { label: 'Retry', onClick: () => onRetry(job.tweetUrl), hidden: job.status !== 'failed' },
+    { label: 'Delete', onClick: () => onDelete(job._id), danger: true, disabled: isMutating },
+  ]
 
   return (
     <li
@@ -39,25 +48,14 @@ export function JobRow({
           />
           <span>Select</span>
         </label>
-        <div className="row-buttons">
-          <button type="button" className="ghost-btn small-btn" onClick={() => onStartEdit(job)}>
-            Edit
-          </button>
-          <button
-            type="button"
-            className="danger-btn small-btn"
-            onClick={() => onDelete(job._id)}
-            disabled={isMutating}
-          >
-            Delete
-          </button>
-        </div>
+        <OverflowMenu items={menuItems} />
       </div>
 
       <div className="job-top">
         <div className="job-primary">
           <p className="job-account-label">
             <strong>{accountLabel || 'unknown account'}</strong>
+            <span className={`status-chip is-${job.status}`}>{job.status}</span>
           </p>
           {job.status === 'completed' && job.outputPath ? (
             <div className="job-media-preview">

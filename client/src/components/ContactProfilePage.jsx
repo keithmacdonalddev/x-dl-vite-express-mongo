@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  bulkDeleteJobs,
-  deleteContactProfile,
-  deleteJob,
-  updateContactProfile,
-  updateJob,
-} from '../api/jobsApi'
+import { deleteContactProfile, updateContactProfile } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
 import {
   buildContacts,
@@ -14,7 +8,11 @@ import {
   parseQualityLabel,
   toAssetHref,
 } from '../lib/contacts'
+import { useSelection } from '../features/dashboard/useSelection'
+import { useJobActions } from '../features/dashboard/useJobActions'
+import { JobEditForm } from '../features/dashboard/JobEditForm'
 import { ConfirmModal } from './ConfirmModal'
+import { OverflowMenu } from './OverflowMenu'
 
 function sortNewestFirst(left, right) {
   const l = left.createdAt ? new Date(left.createdAt).getTime() : 0
@@ -24,20 +22,10 @@ function sortNewestFirst(left, right) {
 
 export function ContactProfilePage({ contactSlug, onBack }) {
   const { jobs, isLoading, error, refresh } = useJobsPolling({ intervalMs: 3000 })
-  const [selectedJobIds, setSelectedJobIds] = useState({})
-  const [editingJobId, setEditingJobId] = useState('')
-  const [editDraftByJobId, setEditDraftByJobId] = useState({})
   const [editContactName, setEditContactName] = useState('')
-  const [isMutating, setIsMutating] = useState(false)
-  const [actionError, setActionError] = useState('')
-  const [hiddenJobIds, setHiddenJobIds] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({
-    isOpen: false,
-    mode: '',
-    jobId: '',
-    count: 0,
-  })
+  const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
 
+  const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
   const normalizedSlug = String(contactSlug || '').toLowerCase()
 
@@ -51,198 +39,76 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     [jobs, normalizedSlug]
   )
   const visibleContactJobs = useMemo(
-    () => contactJobs.filter((job) => !hiddenJobIds[job._id]),
-    [contactJobs, hiddenJobIds]
+    () => contactJobs.filter((job) => !actions.hiddenJobIds[job._id]),
+    [contactJobs, actions.hiddenJobIds]
   )
 
-  const selectedIds = useMemo(
-    () => visibleContactJobs.map((job) => job._id).filter((id) => Boolean(selectedJobIds[id])),
-    [visibleContactJobs, selectedJobIds]
-  )
-  const selectedCount = selectedIds.length
+  const allJobIds = useMemo(() => visibleContactJobs.map((j) => j._id), [visibleContactJobs])
+  const selection = useSelection(allJobIds)
 
   useEffect(() => {
-    const validIds = new Set(visibleContactJobs.map((job) => job._id))
-    setSelectedJobIds((current) => {
-      const next = {}
-      for (const key of Object.keys(current)) {
-        if (validIds.has(key)) {
-          next[key] = current[key]
-        }
-      }
-      return next
-    })
-  }, [visibleContactJobs])
-
-  useEffect(() => {
-    const jobIds = new Set(contactJobs.map((job) => job._id))
-    setHiddenJobIds((current) => {
-      const next = {}
-      for (const key of Object.keys(current)) {
-        if (jobIds.has(key)) {
-          next[key] = current[key]
-        }
-      }
-      return next
-    })
-  }, [contactJobs])
-
-  function toggleSelection(jobId) {
-    setSelectedJobIds((current) => ({
-      ...current,
-      [jobId]: !current[jobId],
-    }))
-  }
-
-  function toggleAllSelection() {
-    if (selectedCount === visibleContactJobs.length) {
-      setSelectedJobIds({})
-      return
-    }
-    const next = {}
-    for (const job of visibleContactJobs) {
-      next[job._id] = true
-    }
-    setSelectedJobIds(next)
-  }
+    actions.cleanupHiddenIds(contactJobs.map((j) => j._id))
+  }, [contactJobs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function openSingleDelete(jobId) {
-    setConfirmDelete({
-      isOpen: true,
-      mode: 'single',
-      jobId,
-      count: 1,
-    })
+    setConfirmDelete({ isOpen: true, mode: 'single', jobId, count: 1 })
   }
 
   function openBulkDelete() {
-    if (selectedCount === 0) {
-      return
-    }
-    setConfirmDelete({
-      isOpen: true,
-      mode: 'bulk',
-      jobId: '',
-      count: selectedCount,
-    })
+    if (selection.selectedCount === 0) return
+    setConfirmDelete({ isOpen: true, mode: 'bulk', jobId: '', count: selection.selectedCount })
   }
 
   function openContactDelete() {
-    setConfirmDelete({
-      isOpen: true,
-      mode: 'contact',
-      jobId: '',
-      count: visibleContactJobs.length,
-    })
+    setConfirmDelete({ isOpen: true, mode: 'contact', jobId: '', count: visibleContactJobs.length })
   }
 
   function closeDeleteModal() {
-    if (isMutating) {
-      return
-    }
-    setConfirmDelete({
-      isOpen: false,
-      mode: '',
-      jobId: '',
-      count: 0,
-    })
+    if (actions.isMutating) return
+    setConfirmDelete({ isOpen: false, mode: '', jobId: '', count: 0 })
   }
 
   async function handleConfirmDelete() {
-    setIsMutating(true)
-    setActionError('')
-    try {
-      if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
-        await deleteJob(confirmDelete.jobId)
-        setHiddenJobIds((current) => ({ ...current, [confirmDelete.jobId]: true }))
-      } else if (confirmDelete.mode === 'bulk') {
-        await bulkDeleteJobs(selectedIds)
-        setHiddenJobIds((current) => {
-          const next = { ...current }
-          for (const jobId of selectedIds) {
-            next[jobId] = true
-          }
-          return next
-        })
-        setSelectedJobIds({})
-      } else if (confirmDelete.mode === 'contact') {
+    if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
+      await actions.handleDeleteJob(confirmDelete.jobId)
+    } else if (confirmDelete.mode === 'bulk') {
+      await actions.handleBulkDelete(selection.selectedIds, selection.clearSelection)
+    } else if (confirmDelete.mode === 'contact') {
+      try {
         await deleteContactProfile(normalizedSlug)
-        if (typeof onBack === 'function') {
-          onBack()
-        }
+        if (typeof onBack === 'function') onBack()
+      } catch (err) {
+        actions.setActionError(err instanceof Error ? err.message : String(err))
       }
-
       await refresh()
-      closeDeleteModal()
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsMutating(false)
     }
+    closeDeleteModal()
   }
 
   async function saveContactEdit(event) {
     event.preventDefault()
     const nextName = editContactName.trim()
-    if (!nextName) {
-      return
-    }
+    if (!nextName) return
 
-    setIsMutating(true)
-    setActionError('')
     try {
       await updateContactProfile(normalizedSlug, nextName)
       setEditContactName('')
       await refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsMutating(false)
+      actions.setActionError(err instanceof Error ? err.message : String(err))
     }
   }
 
-  function startEditJob(job) {
-    setEditingJobId(job._id)
-    setEditDraftByJobId((current) => ({
-      ...current,
-      [job._id]: {
-        tweetUrl: job.tweetUrl || '',
-        accountDisplayName: job.accountDisplayName || '',
-      },
-    }))
+  function buildMenuItems(job) {
+    return [
+      { label: 'Edit', onClick: () => actions.startEdit(job) },
+      { label: 'Copy URL', onClick: () => navigator.clipboard.writeText(job.tweetUrl || '') },
+      { label: 'Retry', onClick: () => actions.handleRetry(job.tweetUrl), hidden: job.status !== 'failed' },
+      { label: 'Delete', onClick: () => openSingleDelete(job._id), danger: true, disabled: actions.isMutating },
+    ]
   }
 
-  async function saveJobEdit(event, job) {
-    event.preventDefault()
-    const draft = editDraftByJobId[job._id] || {}
-    const payload = {}
-
-    if (typeof draft.tweetUrl === 'string' && draft.tweetUrl.trim() && draft.tweetUrl.trim() !== job.tweetUrl) {
-      payload.tweetUrl = draft.tweetUrl.trim()
-    }
-    if (typeof draft.accountDisplayName === 'string' && draft.accountDisplayName.trim() !== (job.accountDisplayName || '')) {
-      payload.accountDisplayName = draft.accountDisplayName.trim()
-    }
-
-    if (Object.keys(payload).length === 0) {
-      setEditingJobId('')
-      return
-    }
-
-    setIsMutating(true)
-    setActionError('')
-    try {
-      await updateJob(job._id, payload)
-      setEditingJobId('')
-      await refresh()
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsMutating(false)
-    }
-  }
-
-  const errorMessage = actionError || error
+  const errorMessage = actions.actionError || error
 
   return (
     <main className="app">
@@ -267,24 +133,12 @@ export function ContactProfilePage({ contactSlug, onBack }) {
               alt={contact.displayName || contact.handle || contact.slug}
             />
           )}
-          <p>
-            <strong>Handle:</strong> {contact?.handle || 'n/a'}
-          </p>
-          <p>
-            <strong>Platform:</strong> {contact?.platform || 'unknown'}
-          </p>
-          <p>
-            <strong>Total jobs:</strong> {contact?.totalJobs || 0}
-          </p>
-          <p>
-            <strong>Completed:</strong> {contact?.completedJobs || 0}
-          </p>
-          <p>
-            <strong>First seen:</strong> {formatTimestamp(contact?.firstSeenAt)}
-          </p>
-          <p>
-            <strong>Latest:</strong> {formatTimestamp(contact?.latestAt)}
-          </p>
+          <p><strong>Handle:</strong> {contact?.handle || 'n/a'}</p>
+          <p><strong>Platform:</strong> {contact?.platform || 'unknown'}</p>
+          <p><strong>Total jobs:</strong> {contact?.totalJobs || 0}</p>
+          <p><strong>Completed:</strong> {contact?.completedJobs || 0}</p>
+          <p><strong>First seen:</strong> {formatTimestamp(contact?.firstSeenAt)}</p>
+          <p><strong>Latest:</strong> {formatTimestamp(contact?.latestAt)}</p>
           <form className="edit-form" onSubmit={saveContactEdit}>
             <label htmlFor="contact-display-name">Edit display name</label>
             <input
@@ -294,14 +148,14 @@ export function ContactProfilePage({ contactSlug, onBack }) {
               value={editContactName}
               onChange={(event) => setEditContactName(event.target.value)}
             />
-            <button type="submit" disabled={isMutating}>
-              {isMutating ? 'Saving...' : 'Save profile'}
+            <button type="submit" disabled={actions.isMutating}>
+              {actions.isMutating ? 'Saving...' : 'Save profile'}
             </button>
           </form>
           <button type="button" className="refresh-btn" onClick={refresh}>
             Refresh now
           </button>
-          <button type="button" className="danger-btn" onClick={openContactDelete} disabled={isMutating}>
+          <button type="button" className="danger-btn" onClick={openContactDelete} disabled={actions.isMutating}>
             Delete contact permanently
           </button>
           {errorMessage && <p className="error">{errorMessage}</p>}
@@ -314,11 +168,11 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           </div>
 
           <div className="bulk-toolbar">
-            <button type="button" className="ghost-btn" onClick={toggleAllSelection} disabled={visibleContactJobs.length === 0}>
-              {selectedCount === visibleContactJobs.length && visibleContactJobs.length > 0 ? 'Clear all' : 'Select all'}
+            <button type="button" className="ghost-btn" onClick={selection.toggleAllSelection} disabled={visibleContactJobs.length === 0}>
+              {selection.selectedCount === visibleContactJobs.length && visibleContactJobs.length > 0 ? 'Clear all' : 'Select all'}
             </button>
-            <button type="button" className="danger-btn" onClick={openBulkDelete} disabled={selectedCount === 0 || isMutating}>
-              Delete selected ({selectedCount})
+            <button type="button" className="danger-btn" onClick={openBulkDelete} disabled={selection.selectedCount === 0 || actions.isMutating}>
+              Delete selected ({selection.selectedCount})
             </button>
           </div>
 
@@ -341,106 +195,46 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                       <label className="select-box">
                         <input
                           type="checkbox"
-                          checked={Boolean(selectedJobIds[job._id])}
-                          onChange={() => toggleSelection(job._id)}
+                          checked={Boolean(selection.selectedJobIds[job._id])}
+                          onChange={() => selection.toggleSelection(job._id)}
                         />
                         <span>Select</span>
                       </label>
-                      <div className="row-buttons">
-                        <button type="button" className="ghost-btn small-btn" onClick={() => startEditJob(job)}>
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="danger-btn small-btn"
-                          onClick={() => openSingleDelete(job._id)}
-                          disabled={isMutating}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <OverflowMenu items={buildMenuItems(job)} />
                     </div>
-                    <p>
-                      <strong>Status:</strong> {job.status}
+                    <p className="profile-card-status">
+                      <span className={`status-chip is-${job.status}`}>{job.status}</span>
+                      <span className="profile-card-date">{formatTimestamp(job.createdAt)}</span>
                     </p>
-                    <p>
-                      <strong>Created:</strong> {formatTimestamp(job.createdAt)}
-                    </p>
-                    <p>
-                      <strong>Source:</strong>{' '}
-                      <a href={job.tweetUrl} target="_blank" rel="noreferrer">
-                        {job.tweetUrl}
-                      </a>
+                    <p className="profile-card-url">
+                      <a href={job.tweetUrl} target="_blank" rel="noreferrer">{job.tweetUrl}</a>
                     </p>
                     {job.outputPath && (
                       <p>
-                        <strong>Local file:</strong>{' '}
-                        <a href={toAssetHref(job.outputPath)} target="_blank" rel="noreferrer">
-                          {job.outputPath}
+                        <a href={toAssetHref(job.outputPath)} target="_blank" rel="noreferrer" className="profile-card-file-link">
+                          Open downloaded file
                         </a>
                       </p>
                     )}
-                    {editingJobId === job._id && (
-                      <form className="edit-form" onSubmit={(event) => saveJobEdit(event, job)}>
-                        <label htmlFor={`profile-edit-url-${job._id}`}>Post URL</label>
-                        <input
-                          id={`profile-edit-url-${job._id}`}
-                          type="url"
-                          value={editDraftByJobId[job._id]?.tweetUrl || ''}
-                          onChange={(event) =>
-                            setEditDraftByJobId((current) => ({
-                              ...current,
-                              [job._id]: {
-                                ...(current[job._id] || {}),
-                                tweetUrl: event.target.value,
-                              },
-                            }))
-                          }
-                          required
-                        />
-                        <label htmlFor={`profile-edit-display-${job._id}`}>Display name</label>
-                        <input
-                          id={`profile-edit-display-${job._id}`}
-                          type="text"
-                          value={editDraftByJobId[job._id]?.accountDisplayName || ''}
-                          onChange={(event) =>
-                            setEditDraftByJobId((current) => ({
-                              ...current,
-                              [job._id]: {
-                                ...(current[job._id] || {}),
-                                accountDisplayName: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        <div className="row-buttons">
-                          <button type="submit" disabled={isMutating}>
-                            {isMutating ? 'Saving...' : 'Save edit'}
-                          </button>
-                          <button type="button" className="ghost-btn" onClick={() => setEditingJobId('')}>
-                            Cancel
-                          </button>
-                        </div>
-                      </form>
+                    {actions.editingJobId === job._id && (
+                      <JobEditForm
+                        job={job}
+                        draft={actions.editDraftByJobId[job._id]}
+                        isMutating={actions.isMutating}
+                        onUpdateDraft={actions.updateEditDraft}
+                        onSubmit={actions.submitEdit}
+                        onCancel={actions.cancelEdit}
+                        idPrefix="profile-"
+                      />
                     )}
                     {job.metadata && (
                       <details>
                         <summary>Metadata</summary>
-                        <p>
-                          <strong>Title:</strong> {job.metadata.title || 'n/a'}
-                        </p>
-                        <p>
-                          <strong>Description:</strong> {job.metadata.description || 'n/a'}
-                        </p>
-                        <p>
-                          <strong>Author:</strong> {job.metadata.author || 'n/a'}
-                        </p>
-                        <p>
-                          <strong>Published:</strong> {job.metadata.publishedAt || 'n/a'}
-                        </p>
-                        <p>
-                          <strong>Duration (sec):</strong> {job.metadata.durationSeconds || 'n/a'}
-                        </p>
+                        <p><strong>Title:</strong> {job.metadata.title || 'n/a'}</p>
+                        <p><strong>Description:</strong> {job.metadata.description || 'n/a'}</p>
+                        <p><strong>Author:</strong> {job.metadata.author || 'n/a'}</p>
+                        <p><strong>Published:</strong> {job.metadata.publishedAt || 'n/a'}</p>
+                        <p><strong>Duration (sec):</strong> {job.metadata.durationSeconds || 'n/a'}</p>
                         <p>
                           <strong>Resolution:</strong>{' '}
                           {job.metadata.videoWidth && job.metadata.videoHeight
@@ -456,9 +250,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                           {job.candidateUrls.map((candidateUrl, index) => (
                             <li key={candidateUrl}>
                               <p>{parseQualityLabel(candidateUrl, index)}</p>
-                              <a href={candidateUrl} target="_blank" rel="noreferrer">
-                                {candidateUrl}
-                              </a>
+                              <a href={candidateUrl} target="_blank" rel="noreferrer">{candidateUrl}</a>
                             </li>
                           ))}
                         </ul>
@@ -489,7 +281,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
               : 'Permanently delete this post?'
         }
         confirmLabel="Delete permanently"
-        isBusy={isMutating}
+        isBusy={actions.isMutating}
         onCancel={closeDeleteModal}
         onConfirm={handleConfirmDelete}
       />

@@ -19,6 +19,7 @@ export function JobsList({
   onUpdateEditDraft,
   onOpenSingleDelete,
   onOpenBulkDelete,
+  onRetry,
   highlightedJobId,
 }) {
   return (
@@ -60,6 +61,7 @@ export function JobsList({
               onSubmitEdit={onSubmitEdit}
               onUpdateEditDraft={onUpdateEditDraft}
               onDelete={onOpenSingleDelete}
+              onRetry={onRetry}
               isHighlighted={highlightedJobId === job._id}
             />
           ))}
