@@ -169,6 +169,7 @@ const translations = {
   'extractor.page.goto.completed': (m) => ({ text: `Browser loaded the page${m.durationMs ? ` (${fmtSec(m.durationMs)})` : ''}`, icon: '\u2713' }),
   'extractor.collect.media_urls.completed': (m) => { const c = m.mediaUrlCount ?? m.count ?? '?'; return { text: `Found ${c} video URL${c === 1 ? '' : 's'}`, icon: '\u2713' } },
   'extractor.collect.image_urls.completed': (m) => { const c = m.imageUrlCount ?? m.count ?? '?'; return { text: `Found ${c} image${c === 1 ? '' : 's'}`, icon: '\u2713' } },
+  'extractor.metadata.selectors.started': (m) => ({ text: `Collecting page metadata (${m.selectorCount || '?'} selectors)...`, icon: '\u2192' }),
   'extractor.collect.metadata.completed': () => ({ text: 'Page metadata collected', icon: '\u2713' }),
   'extractor.pick_media.failed': () => ({ text: 'Could not find any usable video on the page', icon: '\u2717' }),
   'extractor.request.completed': (m) => ({ text: `Extraction finished${m.durationMs ? ` (${fmtSec(m.durationMs)})` : ''}`, icon: '\u2713' }),

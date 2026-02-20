@@ -1,9 +1,10 @@
 const path = require('node:path');
 const fs = require('node:fs');
+const { logger } = require('../core/lib/logger');
 
 const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
 const IMAGE_URL_PATTERN = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
-const { getAuthBlockingHosts, getAllMediaPathPatterns } = require('../platforms/registry');
+const { getAuthBlockingHosts, getAllMediaPathPatterns } = require('../core/platforms/registry');
 
 const VIDEO_CONTENT_TYPE_PATTERN = /^(video\/|application\/(vnd\.apple\.mpegurl|x-mpegurl))/i;
 const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
@@ -356,7 +357,12 @@ async function readPostMetadata(page) {
     return metadata;
   }
 
-  const metadataSelectorTimeoutMs = 1200;
+  const metadataSelectorTimeoutMs = 300;
+
+  logger.info('extractor.metadata.selectors.started', {
+    selectorCount: 18,
+    timeoutMs: metadataSelectorTimeoutMs,
+  });
 
   const selectors = [
     ['description', 'meta[name="description"]'],
@@ -373,19 +379,6 @@ async function readPostMetadata(page) {
     ['twitterSite', 'meta[name="twitter:site"]'],
   ];
 
-  for (const [field, selector] of selectors) {
-    try {
-      const locator = page.locator(selector).first();
-      const attr = selector.startsWith('link') ? 'href' : 'content';
-      const value = await locator.getAttribute(attr, { timeout: metadataSelectorTimeoutMs });
-      if (value && !metadata[field]) {
-        metadata[field] = value.trim();
-      }
-    } catch {
-      // ignore selector failures
-    }
-  }
-
   const numericSelectors = [
     ['videoWidth', 'meta[property="og:video:width"]'],
     ['videoHeight', 'meta[property="og:video:height"]'],
@@ -394,28 +387,56 @@ async function readPostMetadata(page) {
     ['durationSeconds', 'meta[property="video:duration"]'],
   ];
 
-  for (const [field, selector] of numericSelectors) {
-    try {
-      const locator = page.locator(selector).first();
-      const value = await locator.getAttribute('content', { timeout: metadataSelectorTimeoutMs });
-      const parsed = Number.parseInt(value || '', 10);
-      if (Number.isFinite(parsed) && parsed > 0 && !metadata[field]) {
-        metadata[field] = parsed;
-      }
-    } catch {
-      // ignore selector failures
+  // Run all text selectors, numeric selectors, and author selector in parallel
+  const textSelectorPromises = selectors.map(([field, selector]) => {
+    const locator = page.locator(selector).first();
+    const attr = selector.startsWith('link') ? 'href' : 'content';
+    return locator.getAttribute(attr, { timeout: metadataSelectorTimeoutMs })
+      .then((value) => ({ field, value: value || null }))
+      .catch(() => ({ field, value: null }));
+  });
+
+  const numericSelectorPromises = numericSelectors.map(([field, selector]) => {
+    const locator = page.locator(selector).first();
+    return locator.getAttribute('content', { timeout: metadataSelectorTimeoutMs })
+      .then((value) => ({ field, value: value || null, numeric: true }))
+      .catch(() => ({ field, value: null, numeric: true }));
+  });
+
+  const authorSelectorPromise = page.locator('meta[name="author"]').first()
+    .getAttribute('content', { timeout: metadataSelectorTimeoutMs })
+    .then((value) => ({ field: 'author', value: value || null, isAuthor: true }))
+    .catch(() => ({ field: 'author', value: null, isAuthor: true }));
+
+  const allResults = await Promise.allSettled([
+    ...textSelectorPromises,
+    ...numericSelectorPromises,
+    authorSelectorPromise,
+  ]);
+
+  // Apply text selector results (first non-empty value wins per field)
+  for (let i = 0; i < selectors.length; i++) {
+    const result = allResults[i];
+    if (result.status === 'fulfilled' && result.value.value && !metadata[result.value.field]) {
+      metadata[result.value.field] = result.value.value.trim();
     }
   }
 
-  try {
-    const authorMeta = await page.locator('meta[name="author"]').first().getAttribute('content', {
-      timeout: metadataSelectorTimeoutMs,
-    });
-    if (authorMeta) {
-      metadata.author = authorMeta.trim();
+  // Apply numeric selector results (first valid positive integer wins per field)
+  for (let i = 0; i < numericSelectors.length; i++) {
+    const result = allResults[selectors.length + i];
+    if (result.status === 'fulfilled' && result.value.value) {
+      const parsed = Number.parseInt(result.value.value, 10);
+      if (Number.isFinite(parsed) && parsed > 0 && !metadata[result.value.field]) {
+        metadata[result.value.field] = parsed;
+      }
     }
-  } catch {
-    // ignore selector failures
+  }
+
+  // Apply author selector result
+  const authorResult = allResults[selectors.length + numericSelectors.length];
+  if (authorResult.status === 'fulfilled' && authorResult.value.value) {
+    metadata.author = authorResult.value.value.trim();
   }
 
   if (!metadata.author && metadata.pageUrl) {
