@@ -1,12 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { Job } = require('../../models/job');
-const { getPostUrlInfo, isTweetUrl, canonicalizePostUrl } = require('../../utils/validation');
-const { JOB_STATUSES } = require('../../constants/job-status');
-const { ERROR_CODES } = require('../../lib/error-codes');
-const { logger } = require('../../lib/logger');
-const { getPlatformCapabilities } = require('../../config/platform-capabilities');
-const { PLATFORMS } = require('../../platforms/registry');
+const { Job } = require('../../core/models/job');
+const { getPostUrlInfo, isTweetUrl, canonicalizePostUrl } = require('../../core/utils/validation');
+const { JOB_STATUSES } = require('../../core/constants/job-status');
+const { ERROR_CODES } = require('../../core/lib/error-codes');
+const { logger } = require('../../core/lib/logger');
+const { getPlatformCapabilities } = require('../../core/config/platform-capabilities');
+const { PLATFORMS } = require('../../core/platforms/registry');
 const { resolveDomainId } = require('../../core/dispatch/resolve-domain-id');
 const {
   sendError,
@@ -18,6 +18,7 @@ const {
   sanitizeDisplayName,
   ensureEnabledPlatform,
 } = require('./helpers/route-utils');
+const { triggerProfileDiscovery } = require('../../services/profile-discovery-service');
 
 const jobsRouter = express.Router();
 const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
@@ -172,6 +173,18 @@ jobsRouter.post('/', async (req, res) => {
       durationMs: Date.now() - startedAt,
       createdAt: job.createdAt,
     });
+
+    // Fire-and-forget: trigger TikTok profile discovery after response
+    if (postInfo.platform === 'tiktok') {
+      triggerProfileDiscovery({
+        tweetUrl,
+        accountSlug: job.accountSlug || '',
+        traceId,
+      }).catch((err) => {
+        const discMsg = err instanceof Error ? err.message : String(err);
+        logger.error('discovery.trigger.failed', { traceId, message: discMsg });
+      });
+    }
 
     return res.status(201).json({
       ok: true,
