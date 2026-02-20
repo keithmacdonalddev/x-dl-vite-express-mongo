@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-02-20
+
+### Extractor Hardening: Unavailable Detection + Failure Identity
+
+- Added typed extractor error codes (`EXTRACT_VIDEO_UNAVAILABLE`, `EXTRACT_NO_MEDIA_URL`) for deterministic failure classification.
+- Blocked TikTok placeholder playback URLs (`ttwstatic.com/.../webapp-desktop/playback*.mp4`) from being selected as media in `pickMediaUrl()` fallback.
+- Added `collectPageDiagnostics()` to Playwright adapter page factory — collects page title, final URL, canonical URL, og:title, and body text snippet (500 chars) for failure diagnostics.
+- Extractor now classifies "Video currently unavailable" pages as `EXTRACT_VIDEO_UNAVAILABLE` with structured error details (title, canonicalUrl, finalUrl, bodySnippet, media/image counts).
+- Failed jobs now persist `errorCode` field on the Job model (new schema field).
+- Failed jobs now retain account identity (`accountPlatform`, `accountHandle`, `accountSlug`) derived from the post URL even when extraction fails before metadata is available (via `applyFailureIdentity()`).
+- Failure telemetry (`worker.job.failed`) now includes `errorCode`, `pageTitle`, `canonicalUrl`, and `finalUrl` for page-level diagnostic evidence.
+- Added test suite: extractor failure classification, placeholder URL blocking, failure identity derivation.
+
 ## 2026-02-17
 
 - Added server-side platform feature flags: `ENABLE_X` and `ENABLE_TIKTOK`.

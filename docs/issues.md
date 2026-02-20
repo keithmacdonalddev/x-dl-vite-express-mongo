@@ -1,5 +1,33 @@
 # Issue Log
 
+## 2026-02-20
+
+- Status: Informational
+- Title: Extractor failure codes available for operational queries
+- Details: Failed jobs now persist an `errorCode` field. Two codes are defined:
+  - `EXTRACT_VIDEO_UNAVAILABLE` — TikTok page contains "Video currently unavailable" text
+  - `EXTRACT_NO_MEDIA_URL` — No media URL extracted, but page is not explicitly unavailable
+- Mongo queries for diagnosis:
+  ```js
+  // Find all unavailable-video failures
+  db.jobs.find({ status: 'failed', errorCode: 'EXTRACT_VIDEO_UNAVAILABLE' })
+
+  // Find failures with no media URL (not unavailable)
+  db.jobs.find({ status: 'failed', errorCode: 'EXTRACT_NO_MEDIA_URL' })
+
+  // Count failures by error code
+  db.jobs.aggregate([
+    { $match: { status: 'failed', errorCode: { $ne: '' } } },
+    { $group: { _id: '$errorCode', count: { $sum: 1 } } }
+  ])
+  ```
+- Impact: Enables operational filtering and dashboarding of extraction failures by root cause.
+
+- Status: Informational
+- Title: Failed jobs now retain account identity from URL
+- Details: When extraction fails before metadata is available, the worker now derives `accountPlatform`, `accountHandle`, and `accountSlug` from the post URL. This means failed jobs are no longer orphaned from their contact/account grouping.
+- Impact: Contact views and account-level filtering now include failed jobs correctly.
+
 ## 2026-02-18
 
 - Status: Resolved (runtime + docs)
