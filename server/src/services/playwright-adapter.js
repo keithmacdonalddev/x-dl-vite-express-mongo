@@ -682,12 +682,13 @@ function createPlaywrightPageFactory(options = {}) {
         return readPostMetadata(page);
       },
       async collectPageDiagnostics() {
+        const diagnosticsTimeoutMs = 300;
         const [title, finalUrl, canonicalUrl, ogTitle, bodyText] = await Promise.all([
           page.title().catch(() => ''),
           Promise.resolve(typeof page.url === 'function' ? page.url() : ''),
-          page.locator('link[rel="canonical"]').first().getAttribute('href').catch(() => ''),
-          page.locator('meta[property="og:title"]').first().getAttribute('content').catch(() => ''),
-          page.locator('body').innerText().catch(() => ''),
+          page.locator('link[rel="canonical"]').first().getAttribute('href', { timeout: diagnosticsTimeoutMs }).catch(() => ''),
+          page.locator('meta[property="og:title"]').first().getAttribute('content', { timeout: diagnosticsTimeoutMs }).catch(() => ''),
+          page.locator('body').innerText({ timeout: diagnosticsTimeoutMs }).catch(() => ''),
         ]);
         return {
           title: title || '',
