@@ -1,3 +1,16 @@
+# ⛔ DO NOT USE THIS DIRECTORY AS A WORKING DIRECTORY
+
+**Valid working directories for server agents are ONLY the 5 domain directories:**
+- `server/src/api/` — API domain (api-steward)
+- `server/src/core/` — Core domain (core-steward)
+- `server/src/platforms/` — Platforms domain (platforms-steward)
+- `server/src/services/` — Services domain (services-steward)
+- `server/src/worker/` — Worker domain (worker-steward)
+
+If you are an agent and your working directory is `server/`, you are misconfigured. Report this to the lead and stop work.
+
+---
+
 # server/ -- Domain Architecture Hub
 
 The server is organized into 5 autonomous domains, each with strict ownership boundaries. Every domain has its own CLAUDE.md containing the authoritative file inventory, dependency map, interface contract, and coding rules.
