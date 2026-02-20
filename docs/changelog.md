@@ -2,6 +2,13 @@
 
 ## 2026-02-20
 
+### Dashboard UI Fixes
+
+- Fixed contact chip text overlap when thumbnails are missing — added `is-no-thumb` layout variant and `contact-chip-content` wrapper with `min-width: 0` overflow protection.
+- Failed job rows now display the backend error message (e.g., "Video is unavailable on source platform") instead of the generic "Download not ready yet." Falls back to "Download failed." when no error text is available.
+- Added client-side presentation helper tests (`jobPresentation.test.js`, `contactChipPresentation.test.js`) using Node's built-in test runner.
+- Enabled `npm run test --prefix client` for UI logic tests.
+
 ### Extractor Hardening: Unavailable Detection + Failure Identity
 
 - Added typed extractor error codes (`EXTRACT_VIDEO_UNAVAILABLE`, `EXTRACT_NO_MEDIA_URL`) for deterministic failure classification.
