@@ -681,6 +681,22 @@ function createPlaywrightPageFactory(options = {}) {
       async collectPostMetadata() {
         return readPostMetadata(page);
       },
+      async collectPageDiagnostics() {
+        const [title, finalUrl, canonicalUrl, ogTitle, bodyText] = await Promise.all([
+          page.title().catch(() => ''),
+          Promise.resolve(typeof page.url === 'function' ? page.url() : ''),
+          page.locator('link[rel="canonical"]').first().getAttribute('href').catch(() => ''),
+          page.locator('meta[property="og:title"]').first().getAttribute('content').catch(() => ''),
+          page.locator('body').innerText().catch(() => ''),
+        ]);
+        return {
+          title: title || '',
+          finalUrl: finalUrl || '',
+          canonicalUrl: canonicalUrl || '',
+          ogTitle: ogTitle || '',
+          bodySnippet: String(bodyText || '').replace(/\s+/g, ' ').trim().slice(0, 500),
+        };
+      },
       async close() {
         page.off('response', onResponse);
         await opened.close();

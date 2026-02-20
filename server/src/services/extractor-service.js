@@ -1,10 +1,21 @@
 const { SOURCE_TYPES } = require('../core/constants/job-status');
+const { EXTRACTOR_ERROR_CODES } = require('../core/constants/extractor-error-codes');
 const { isSupportedPostUrl } = require('../core/utils/validation');
 const { logger } = require('../core/lib/logger');
 
 function isAccessChallengeError(error) {
   const message = error instanceof Error ? error.message : String(error);
   return /(?:AUTH_REQUIRED|BOT_CHALLENGE)/i.test(message);
+}
+
+function createExtractorError({ code, message, details = {}, cause = null }) {
+  const error = new Error(message);
+  error.code = code;
+  error.details = details;
+  if (cause) {
+    error.cause = cause;
+  }
+  return error;
 }
 
 function isHlsCandidate(url) {
@@ -305,9 +316,13 @@ function pickMediaUrl(urls) {
     return { mediaUrl: hls, sourceType: SOURCE_TYPES.HLS, candidateUrls };
   }
 
-  const firstValid = urls.find((url) => typeof url === 'string' && /^https?:\/\//i.test(url));
-  if (firstValid) {
-    return { mediaUrl: firstValid, sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls };
+  const fallbackCandidates = sanitizeUrlArray(urls).filter((url) => isDirectVideoCandidate(url) || isHlsCandidate(url));
+  if (fallbackCandidates.length > 0) {
+    return {
+      mediaUrl: fallbackCandidates[0],
+      sourceType: SOURCE_TYPES.UNKNOWN,
+      candidateUrls,
+    };
   }
 
   return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls };
@@ -369,12 +384,41 @@ async function extractFromTweet(tweetUrl, { pageFactory, telemetryContext } = {}
     const { mediaUrl, sourceType, candidateUrls } = pickMediaUrl(mediaUrls);
 
     if (!mediaUrl) {
+      const diagnostics = typeof page.collectPageDiagnostics === 'function'
+        ? await page.collectPageDiagnostics()
+        : {};
+
+      const unavailable = /video currently unavailable/i.test(diagnostics.bodySnippet || '');
+
+      const code = unavailable ? EXTRACTOR_ERROR_CODES.VIDEO_UNAVAILABLE : EXTRACTOR_ERROR_CODES.NO_MEDIA_URL;
+      const message = unavailable
+        ? 'Video is unavailable on source platform'
+        : 'No media URL extracted from post';
+
+      const mediaUrlCount = Array.isArray(mediaUrls) ? mediaUrls.length : 0;
+      const imageUrlCount = Array.isArray(imageUrls) ? imageUrls.length : 0;
+      const details = {
+        mediaUrlCount,
+        imageUrlCount,
+        title: metadata?.title || diagnostics?.title || '',
+        canonicalUrl: metadata?.canonicalUrl || diagnostics?.canonicalUrl || '',
+        pageUrl: metadata?.pageUrl || '',
+        finalUrl: diagnostics?.finalUrl || '',
+        bodySnippet: diagnostics?.bodySnippet || '',
+      };
+
       logger.error('extractor.pick_media.failed', {
         ...contextMeta,
         tweetUrl,
-        mediaUrlCount: Array.isArray(mediaUrls) ? mediaUrls.length : 0,
+        mediaUrlCount,
+        imageUrlCount,
+        title: details.title,
+        canonicalUrl: details.canonicalUrl,
+        finalUrl: details.finalUrl,
+        errorCode: code,
       });
-      throw new Error('No media URL extracted from post');
+
+      throw createExtractorError({ code, message, details });
     }
 
     const selectedFacts = getMediaCandidateFacts(mediaUrl);
@@ -450,4 +494,5 @@ module.exports = {
   pickMediaUrl,
   listCandidateMediaUrls,
   getMediaCandidateFacts,
+  createExtractorError,
 };
