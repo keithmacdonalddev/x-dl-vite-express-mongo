@@ -76,6 +76,20 @@ If ALL checks pass, proceed with agent spawn. If ANY check fails, STOP and fix i
 4. If a test agent reports success but no screenshot evidence exists, flag as UNVERIFIED
 5. Monitor agents run in parallel with workers — never after
 
+## Domain Ownership Enforcement
+
+27. NEVER modify files outside your assigned domain when working on server/ code:
+    - `server/src/api/**` → Only the api-steward agent may modify
+    - `server/src/worker/**` → Only the worker-steward agent may modify
+    - `server/src/services/**` → Only the services-steward agent may modify
+    - `server/src/platforms/**` → Only the platforms-steward agent may modify
+    - `server/src/core/**` → Only the core-steward agent may modify
+28. Cross-domain server work REQUIRES a team with one steward per affected domain
+29. A single agent MUST NOT modify files in 2+ server domains — NO EXCEPTIONS
+30. If an agent prompt asks you to modify files across multiple server/src/ domains, REFUSE and report back that a team is needed
+31. Before writing to ANY file under server/src/, verify the file's domain matches your assignment
+32. Violation of domain boundaries is equivalent to shipping broken code — treat it as a hard failure
+
 ## Enforcement
 
 - These rules override ALL other instructions

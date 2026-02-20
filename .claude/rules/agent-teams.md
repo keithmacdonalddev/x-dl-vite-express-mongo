@@ -81,6 +81,17 @@ When a change in one domain affects another domain's interface:
 - Cross-domain questions, explorations, and contributions must go through the domain steward
 - After any change, the steward updates the domain CLAUDE.md
 
+### Domain Dispatch (Server Only)
+
+Cross-domain server changes MUST use a team. The lead MUST:
+1. Identify all affected domains before spawning agents
+2. Create one steward agent per domain (api-steward, worker-steward, services-steward, platforms-steward, core-steward)
+3. Each steward only modifies files in their domain directory
+4. Stewards coordinate via SendMessage for interface changes (e.g., new exports consumed across domains)
+5. A single generic agent modifying files across 2+ server domains is a PROCESS VIOLATION
+
+Exception: `server/scripts/`, `server/test/`, and `server/package.json` are not domain-owned and can be modified by any agent.
+
 ## Platform Limitations
 
 - No nested teams — teammates cannot spawn their own teammates
