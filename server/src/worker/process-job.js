@@ -684,7 +684,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     const message = error instanceof Error ? error.message : String(error);
 
     applyFailureIdentity(job);
-    job.errorCode = typeof error?.code === 'string' ? error.code : '';
+    job.errorCode = typeof error?.code === 'string' ? error.code : 'EXTRACT_UNKNOWN';
     job.status = JOB_STATUSES.FAILED;
     job.failedAt = new Date();
     job.error = message;
@@ -703,6 +703,8 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       pageTitle: error?.details?.title || '',
       canonicalUrl: error?.details?.canonicalUrl || '',
       finalUrl: error?.details?.finalUrl || '',
+      mediaUrlCount: error?.details?.mediaUrlCount ?? 0,
+      imageUrlCount: error?.details?.imageUrlCount ?? 0,
       progressPct: job.progressPct,
       sourceType: job.sourceType,
       candidateCount: Array.isArray(job.candidateUrls) ? job.candidateUrls.length : 0,
