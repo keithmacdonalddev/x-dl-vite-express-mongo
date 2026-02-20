@@ -8,6 +8,7 @@ import { useSelection } from '../features/dashboard/useSelection'
 import { useJobActions } from '../features/dashboard/useJobActions'
 import { ActivityPanel } from '../features/activity/ActivityPanel'
 import { ConfirmModal } from './ConfirmModal'
+import { getContactChipClassName } from '../lib/contactChipPresentation'
 
 const MAX_TELEMETRY_EVENTS = 800
 const JOB_ROW_ID_PREFIX = 'job-row-'
@@ -154,7 +155,7 @@ export function JobsPage({ onOpenContact }) {
               <li key={contact.slug}>
                 <button
                   type="button"
-                  className="contact-chip"
+                  className={getContactChipClassName(contact)}
                   onClick={() => {
                     if (typeof onOpenContact === 'function') onOpenContact(contact.slug)
                   }}
@@ -162,8 +163,10 @@ export function JobsPage({ onOpenContact }) {
                   {contact.latestThumbnail && (
                     <img src={toAssetHref(contact.latestThumbnail)} alt={contact.handle || contact.slug} />
                   )}
-                  <span>{contact.displayName || contact.handle || `@${contact.slug}`}</span>
-                  <small>{contact.completedJobs} downloads | view profile</small>
+                  <span className="contact-chip-content">
+                    <span className="contact-chip-name">{contact.displayName || contact.handle || `@${contact.slug}`}</span>
+                    <small>{contact.completedJobs} downloads | view profile</small>
+                  </span>
                 </button>
               </li>
             ))}
