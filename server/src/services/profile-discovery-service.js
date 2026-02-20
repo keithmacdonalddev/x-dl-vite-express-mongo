@@ -38,8 +38,24 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
       timeout: 20000,
     });
 
-    // Wait for video grid to load
-    await page.waitForTimeout(3000);
+    // Try to wait for video grid to appear, fall back to fixed wait
+    try {
+      await page.waitForSelector('[data-e2e="user-post-item"], [data-e2e="user-post-item-list"], a[href*="/video/"]', { timeout: 10000 });
+    } catch {
+      // Grid selector not found — wait a fixed time and try anyway
+      await page.waitForTimeout(5000);
+    }
+
+    // Diagnostic screenshot
+    const screenshotDir = path.resolve(process.cwd(), 'tmp');
+    await fs.promises.mkdir(screenshotDir, { recursive: true });
+    const screenshotPath = path.join(screenshotDir, `discovery-debug-${handle.replace('@', '')}-${Date.now()}.png`);
+    try {
+      await page.screenshot({ path: screenshotPath, fullPage: false });
+      logger.info('discovery.scrape.screenshot', { traceId, handle, screenshotPath });
+    } catch (screenshotErr) {
+      logger.error('discovery.scrape.screenshot_failed', { traceId, handle, message: screenshotErr.message || String(screenshotErr) });
+    }
 
     const items = await page.evaluate(() => {
       const results = [];
@@ -102,6 +118,26 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
 
       return results;
     });
+
+    // Diagnostic DOM snippet
+    if (items.length === 0) {
+      try {
+        const bodySnippet = await page.evaluate(() => {
+          const body = document.body;
+          if (!body) return 'NO BODY';
+          return JSON.stringify({
+            title: document.title,
+            url: window.location.href,
+            bodyText: body.innerText.slice(0, 1500),
+            scriptIds: Array.from(document.querySelectorAll('script[id]')).map(s => s.id),
+            anchorCount: document.querySelectorAll('a').length,
+            videoLinkCount: document.querySelectorAll('a[href*="/video/"]').length,
+            hasRehydration: !!document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__'),
+          });
+        });
+        logger.info('discovery.scrape.dom_debug', { traceId, handle, bodySnippet });
+      } catch { /* ignore */ }
+    }
 
     logger.info('discovery.scrape.completed', {
       traceId,
