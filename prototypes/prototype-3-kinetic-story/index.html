@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 3 | Kinetic Story</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <header class="mast reveal">
+    <p class="label">Prototype 3</p>
+    <h1>Velocity Studio</h1>
+    <p class="subtitle">First 50ms feeling: momentum and craft.</p>
+
+    <nav class="pill-nav" aria-label="Primary">
+      <button class="pill is-active" data-target="launch">Launch</button>
+      <button class="pill" data-target="queue">Queue</button>
+      <button class="pill" data-target="profiles">Profiles</button>
+      <button class="pill" data-target="trace">Trace</button>
+    </nav>
+  </header>
+
+  <main class="stack">
+    <section id="launch" class="scene is-active reveal">
+      <article class="hero-card panel">
+        <p class="eyebrow">Primary Goal</p>
+        <h2>Create and ship a new media job instantly.</h2>
+        <p>Fast choices, strong contrast, zero hesitation. One input field, one launch button.</p>
+        <div class="action-line">
+          <input type="url" placeholder="Paste source URL" />
+          <button class="magnetic action">Launch Job</button>
+        </div>
+      </article>
+
+      <article class="panel stats" data-secondary>
+        <div><strong>18</strong><span>Jobs today</span></div>
+        <div><strong>4</strong><span>In progress</span></div>
+        <div><strong>97%</strong><span>Pass rate</span></div>
+      </article>
+    </section>
+
+    <section id="queue" class="scene reveal">
+      <article class="panel">
+        <div class="scene-head">
+          <h2>Queue Radar</h2>
+          <button class="magnetic ghost action-log">Auto-prioritize</button>
+        </div>
+        <div class="queue-grid">
+          <article class="queue-card">
+            <h3>Creator Reel 05</h3>
+            <p>Running</p>
+            <div class="bar"><span style="--bar:66%"></span></div>
+          </article>
+          <article class="queue-card">
+            <h3>Campaign Snippet</h3>
+            <p>Ready</p>
+            <div class="bar"><span style="--bar:100%"></span></div>
+          </article>
+          <article class="queue-card" data-secondary>
+            <h3>Live Session Cut</h3>
+            <p>Queued</p>
+            <div class="bar"><span style="--bar:22%"></span></div>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section id="profiles" class="scene reveal">
+      <article class="panel">
+        <div class="scene-head">
+          <h2>Creator Profiles</h2>
+          <button class="magnetic ghost action-log">Sort by output</button>
+        </div>
+        <div class="profile-track">
+          <button class="profile-tile action-log">Ana M - 44 assets</button>
+          <button class="profile-tile action-log">Dion R - 28 assets</button>
+          <button class="profile-tile action-log">Kay J - 17 assets</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="trace" class="scene reveal">
+      <article class="panel">
+        <div class="scene-head">
+          <h2>Trace Stream</h2>
+          <button class="magnetic ghost action-log">Filter errors</button>
+        </div>
+        <ul class="trace-list">
+          <li><span>10:52:12</span> request.accepted job=9281</li>
+          <li><span>10:52:13</span> extract.goto source=tiktok</li>
+          <li><span>10:52:19</span> media.downloaded quality=best</li>
+          <li data-secondary><span>10:52:20</span> artifact.persisted output=/downloads/9281.mp4</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+
+  <aside class="replay panel reveal">
+    <p class="eyebrow">Special Feature</p>
+    <h2>Momentum Replay</h2>
+    <p>Capture key interactions, replay them in sequence, and verify whether your flow feels premium.</p>
+    <div class="replay-controls">
+      <button id="replay-run" class="magnetic action">Replay Last Interactions</button>
+      <button id="replay-clear" class="ghost">Clear</button>
+    </div>
+    <ol id="event-log" class="event-log"></ol>
+  </aside>
+
+  <script src="script.js"></script>
+</body>
+</html>

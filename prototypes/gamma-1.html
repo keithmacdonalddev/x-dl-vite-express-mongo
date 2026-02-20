@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Gamma-1: Arc Tabs + PiP</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f8fa;--white:#fff;--ink:#0d1117;--muted:#6b7683;--faint:#a8b1bb;
+  --line:#e3e7ed;--acc:#0969da;--acc-l:#dbeafe;--acc-s:#f0f6ff;
+  --grn:#1a7f37;--grn-l:#d2f4e0;--red:#cf222e;--red-l:#ffe1e4;
+  --amb:#9a6700;--amb-l:#fff3b0;--purp:#7c3aed;
+  --s1:0 1px 3px rgba(0,0,0,.06);--s2:0 4px 12px rgba(0,0,0,.08);--s3:0 16px 40px rgba(0,0,0,.12);
+  --r:14px;--rl:20px;--rf:999px;
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+  --mono:'SF Mono','Fira Code',monospace;
+}
+html{font-family:var(--f);background:var(--bg);color:var(--ink)}
+body{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── TAB BAR ─── */
+.tb{display:flex;align-items:center;height:56px;padding:0 18px;background:var(--white);border-bottom:1px solid var(--line);flex-shrink:0;gap:2px;position:relative;box-shadow:0 1px 0 var(--line)}
+.logo{font-weight:800;font-size:15.5px;letter-spacing:-.4px;margin-right:14px;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.lm{width:24px;height:24px;background:linear-gradient(135deg,#0969da,#7c3aed);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900}
+.tab{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--f);color:var(--muted);background:transparent;transition:all .14s;position:relative;white-space:nowrap}
+.tab:hover{background:rgba(0,0,0,.04);color:var(--ink)}
+.tab.on[data-t=dl]{color:#0969da;background:rgba(9,105,218,.08)}
+.tab.on[data-t=cr]{color:#7c3aed;background:rgba(124,58,237,.08)}
+.tab.on[data-t=ac]{color:#1a7f37;background:rgba(26,127,55,.08)}
+.tab.on[data-t=se]{color:#9a6700;background:rgba(154,103,0,.08)}
+.ti{width:15px;height:15px}
+.tb-sep{width:1px;height:20px;background:var(--line);margin:0 5px;flex-shrink:0}
+.tb-sp{flex:1}
+.tb-badge{background:#cf222e;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:var(--rf)}
+.tb-rail{position:absolute;bottom:0;left:0;right:0;height:2px;pointer-events:none}
+.tb-line{position:absolute;height:2px;border-radius:1px;transition:left .22s cubic-bezier(.4,0,.2,1),width .22s cubic-bezier(.4,0,.2,1),background .15s}
+
+/* ─── PANES ─── */
+.main{flex:1;overflow:hidden;position:relative}
+.pane{position:absolute;inset:0;overflow-y:auto;opacity:0;transform:translateY(5px);pointer-events:none;transition:opacity .18s,transform .18s}
+.pane.on{opacity:1;transform:none;pointer-events:all}
+.pane::-webkit-scrollbar{width:5px}
+.pane::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+
+/* ─── DOWNLOADS ─── */
+.dh{text-align:center;padding:48px 18px 32px;background:linear-gradient(155deg,#eef4ff 0%,#f9f9ff 50%,#fff2f7 100%)}
+.dh h1{font-size:clamp(24px,3.5vw,38px);font-weight:800;letter-spacing:-1px;margin-bottom:6px}
+.dh p{color:var(--muted);font-size:14.5px;margin-bottom:28px}
+.uw{max-width:600px;margin:0 auto;position:relative}
+.ui{width:100%;padding:14px 106px 14px 17px;font-size:15px;border:2px solid var(--line);border-radius:var(--rl);background:var(--white);font-family:var(--f);outline:none;transition:border-color .14s,box-shadow .14s;box-shadow:var(--s2)}
+.ui::placeholder{color:var(--faint)}
+.ui:focus{border-color:var(--acc);box-shadow:0 0 0 4px rgba(9,105,218,.10)}
+.ui.ok{border-color:var(--grn);box-shadow:0 0 0 4px rgba(26,127,55,.09)}
+.ub{position:absolute;right:7px;top:50%;transform:translateY(-50%);padding:8px 17px;background:var(--acc);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f);transition:all .14s}
+.ub:hover{background:#0550ae;transform:translateY(-50%) scale(1.03)}
+.pchips{display:flex;gap:7px;justify-content:center;margin-top:11px}
+.pchip{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--rf);font-size:11px;font-weight:700}
+.cx{background:#e7f0fd;color:#0969da;border:1.5px solid #bcd4f5}
+.ctt{background:#fce8f8;color:#be185d;border:1.5px solid #f5b8e5}
+
+.db{padding:18px;max-width:840px;margin:0 auto}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.sl{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.prow{display:flex;gap:5px}
+.pill{padding:3px 10px;border-radius:var(--rf);font-size:11.5px;font-weight:600;border:1px solid var(--line);background:var(--white);cursor:pointer;color:var(--muted);transition:all .12s}
+.pill:hover{border-color:var(--acc);color:var(--acc)}
+.pill.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.sa-btn{padding:4px 11px;border-radius:8px;border:1px solid var(--line);background:var(--white);font-size:11.5px;font-weight:600;cursor:pointer;color:var(--muted)}
+
+.jl{display:flex;flex-direction:column;gap:8px}
+.jc{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--s1);transition:box-shadow .14s,transform .14s;cursor:pointer;position:relative;overflow:hidden}
+.jc:hover{box-shadow:var(--s2);transform:translateY(-1px)}
+.jc.sel{border-color:var(--acc);background:rgba(9,105,218,.03)}
+.jbar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0}
+.jbar-q{background:var(--faint)}
+.jbar-r{background:var(--acc);animation:bp 1.4s ease-in-out infinite}
+.jbar-c{background:var(--grn)}
+.jbar-f{background:var(--red)}
+@keyframes bp{0%,100%{opacity:1}50%{opacity:.3}}
+.jth{width:50px;height:36px;border-radius:7px;background:var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px}
+.ji{flex:1;min-width:0}
+.jt{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jm{display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap}
+.jp{font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px}
+.jpx{background:#e7f0fd;color:#0969da}
+.jptt{background:#fce8f8;color:#be185d}
+.jh{font-size:11px;color:var(--muted)}
+.jtime{font-size:10.5px;color:var(--faint)}
+.jbad{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:var(--rf);flex-shrink:0}
+.jbad-q{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.jbad-r{background:var(--acc-l);color:var(--acc)}
+.jbad-c{background:var(--grn-l);color:var(--grn)}
+.jbad-f{background:var(--red-l);color:var(--red)}
+.jprog{position:absolute;bottom:0;left:3px;height:2px;background:var(--acc);transition:width .4s ease}
+.jacts{display:flex;gap:4px}
+.ja{width:27px;height:27px;border-radius:7px;border:1px solid var(--line);background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .12s;font-size:12px}
+.ja:hover{background:var(--white);color:var(--ink)}
+.ja.del:hover{background:var(--red-l);color:var(--red);border-color:var(--red)}
+.jchk{width:15px;height:15px;accent-color:var(--acc);cursor:pointer;flex-shrink:0}
+
+.bbar{background:var(--ink);color:#fff;padding:10px 14px;border-radius:var(--r);display:flex;align-items:center;gap:10px;margin-bottom:10px;animation:sd .16s ease}
+@keyframes sd{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bcnt{font-weight:700;font-size:13px}
+.bsp{flex:1}
+.bb{padding:5px 12px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--f)}
+.bdel{background:var(--red);color:#fff}
+.bcan{background:rgba(255,255,255,.14);color:#fff}
+
+/* ─── CREATORS ─── */
+.crp{padding:26px 18px;max-width:1060px;margin:0 auto}
+.crh{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:14px;flex-wrap:wrap}
+.cr-h1{font-size:25px;font-weight:800;letter-spacing:-.4px}
+.cr-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.cr-si input{padding:8px 13px;border:1px solid var(--line);border-radius:9px;font-size:13px;font-family:var(--f);background:var(--white);outline:none;width:195px;transition:border-color .12s,box-shadow .12s}
+.cr-si input:focus{border-color:var(--purp);box-shadow:0 0 0 3px rgba(124,58,237,.10)}
+.cgg{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:11px}
+.cc{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:18px;cursor:pointer;transition:all .18s;box-shadow:var(--s1)}
+.cc:hover{box-shadow:var(--s3);transform:translateY(-3px);border-color:rgba(124,58,237,.3)}
+.cav{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;margin-bottom:10px}
+.cn{font-size:14.5px;font-weight:700}
+.chn{font-size:12px;color:var(--muted);margin-top:2px}
+.cst{display:flex;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.cs{text-align:center;flex:1}
+.csv{font-size:16px;font-weight:800}
+.csl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+
+/* ─── ACTIVITY ─── */
+.acp{padding:26px 18px;max-width:800px;margin:0 auto}
+.ac-h1{font-size:25px;font-weight:800;letter-spacing:-.4px}
+.ac-sub{font-size:13px;color:var(--muted);margin-top:3px;margin-bottom:11px}
+.aclive{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--grn-l);border-radius:var(--rf);font-size:11.5px;font-weight:700;color:var(--grn);margin-bottom:15px}
+.adot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:adp 1.5s ease-in-out infinite}
+@keyframes adp{0%,100%{opacity:1}50%{opacity:.4}}
+.afilt{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.alist{display:flex;flex-direction:column;gap:1px}
+.arow{display:flex;gap:10px;padding:8px 11px;border-radius:8px;align-items:flex-start;transition:background .12s}
+.arow:hover{background:var(--white)}
+.atime{font-size:10px;color:var(--faint);font-family:var(--mono);white-space:nowrap;padding-top:2px;min-width:50px}
+.alvl{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0;margin-top:1px}
+.alvl-info{background:var(--acc-l);color:var(--acc)}
+.alvl-warn{background:var(--amb-l);color:var(--amb)}
+.alvl-error{background:var(--red-l);color:var(--red)}
+.alvl-debug{background:var(--bg);color:var(--faint);border:1px solid var(--line)}
+.amsg{font-size:12.5px;line-height:1.5;flex:1}
+.atag{font-size:10px;font-family:var(--mono);padding:1px 5px;border-radius:3px;background:var(--bg);color:var(--muted);margin-top:3px;display:inline-block}
+
+/* ─── SETTINGS ─── */
+.sep{padding:34px 18px;max-width:620px;margin:0 auto}
+.se-h1{font-size:25px;font-weight:800;letter-spacing:-.4px;margin-bottom:5px}
+.se-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
+.se-s{margin-bottom:26px}
+.se-sh{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:11px}
+.se-c{background:var(--white);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--s1)}
+.se-r{display:flex;align-items:center;padding:14px 16px;gap:12px;border-bottom:1px solid var(--line);transition:background .12s}
+.se-r:last-child{border-bottom:none}
+.se-r:hover{background:var(--bg)}
+.se-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.se-in{flex:1}
+.se-lb{font-size:13px;font-weight:600}
+.se-d{font-size:11.5px;color:var(--muted);margin-top:1px}
+.tog{width:40px;height:22px;border-radius:11px;background:var(--line);border:none;cursor:pointer;position:relative;transition:background .16s;flex-shrink:0}
+.tog.on{background:var(--grn)}
+.togt{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:left .16s cubic-bezier(.4,0,.2,1)}
+.tog.on .togt{left:20px}
+
+/* ─── PiP ─── */
+.pip{position:fixed;bottom:16px;left:16px;width:245px;background:#0d1117;border-radius:var(--r);box-shadow:var(--s3);padding:13px;z-index:9999;cursor:move;user-select:none;display:none}
+.pip.on{display:block;animation:pipa .26s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pipa{from{opacity:0;transform:scale(.8) translateY(8px)}to{opacity:1;transform:none}}
+.pip-h{display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.pipdot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pd 1.5s ease-in-out infinite}
+@keyframes pd{0%,100%{opacity:1}50%{opacity:.35}}
+.pip-ti{color:#fff;font-size:11.5px;font-weight:700;flex:1}
+.pip-cl{background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;font-size:17px;padding:0;line-height:1;transition:color .12s}
+.pip-cl:hover{color:#fff}
+.pip-j{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.pip-j:last-child{border-bottom:none;padding-bottom:0}
+.pip-jn{color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pip-tr{height:2.5px;background:rgba(255,255,255,.13);border-radius:2px;margin-top:5px}
+.pip-tf{height:100%;background:var(--acc);border-radius:2px;transition:width .4s ease}
+.pip-ft{margin-top:9px}
+.pip-sn{width:100%;padding:6px;background:rgba(255,255,255,.09);border:none;color:#fff;font-size:11.5px;font-weight:600;border-radius:7px;cursor:pointer;font-family:var(--f);transition:background .12s}
+.pip-sn:hover{background:rgba(255,255,255,.16)}
+
+/* ─── PROFILE MODAL ─── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.36);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .16s}
+.ov.on{opacity:1;pointer-events:all}
+.mod{background:var(--white);border-radius:var(--rl);width:100%;max-width:660px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--s3);transform:scale(.93);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.ov.on .mod{transform:scale(1)}
+.mhd{padding:20px 20px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
+.mav{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:21px;color:#fff}
+.mn{font-size:18px;font-weight:800}
+.mhn{font-size:13px;color:var(--muted)}
+.mcl{margin-left:auto;width:28px;height:28px;border-radius:50%;background:var(--bg);border:1px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .12s;line-height:1}
+.mcl:hover{background:var(--red-l);color:var(--red);border-color:var(--red)}
+.mbd{padding:16px 20px;overflow-y:auto}
+.psr{display:flex;gap:9px;margin-bottom:16px}
+.psrc{flex:1;background:var(--bg);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--line)}
+.psrv{font-size:21px;font-weight:800}
+.psrl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+
+.empty{text-align:center;padding:50px 16px;color:var(--muted)}
+.ei{font-size:42px;margin-bottom:12px}
+.eh{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:5px}
+
+@media(max-width:980px){
+  .tb{padding:0 8px}
+  .tab{padding:6px 8px;font-size:12px}
+  .tab .tlb{display:none}
+  .dh{padding:28px 12px 20px}
+  .ui{padding-right:80px;font-size:14px}
+  .ub{padding:7px 11px;font-size:12px}
+  .db,.crp,.acp,.sep{padding:12px}
+  .crh{flex-direction:column}
+  .cgg{grid-template-columns:repeat(auto-fill,minmax(185px,1fr))}
+  .psr{flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="tb" id="tb">
+  <div class="logo"><div class="lm">V</div>Media Vault</div>
+  <div class="tb-sep"></div>
+  <button class="tab on" data-t="dl" onclick="sw(this)">
+    <svg class="ti" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v8.586l2.293-2.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 11.586V3a1 1 0 011-1z"/><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg>
+    <span class="tlb">Downloads</span>
+    <span class="tb-badge" id="rb">2</span>
+  </button>
+  <button class="tab" data-t="cr" onclick="sw(this)">
+    <svg class="ti" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+    <span class="tlb">Creators</span>
+  </button>
+  <button class="tab" data-t="ac" onclick="sw(this)">
+    <svg class="ti" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8zM8 9a1 1 0 00-2 0v2a1 1 0 102 0V9z" clip-rule="evenodd"/></svg>
+    <span class="tlb">Activity</span>
+  </button>
+  <button class="tab" data-t="se" onclick="sw(this)">
+    <svg class="ti" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+    <span class="tlb">Settings</span>
+  </button>
+  <div class="tb-sp"></div>
+  <span style="font-size:11px;color:var(--faint)">Gamma-1 &mdash; Tabs + PiP</span>
+  <div class="tb-rail"><div class="tb-line" id="tl"></div></div>
+</div>
+
+<div class="main">
+
+  <!-- DOWNLOADS -->
+  <div class="pane on" id="p-dl">
+    <div class="dh">
+      <h1>Download Media</h1>
+      <p>Paste an X or TikTok URL to save videos to your vault</p>
+      <div class="uw">
+        <input class="ui" id="urli" placeholder="https://x.com/user/status/... or tiktok.com/..." oninput="chkU(this)" onkeydown="if(event.key==='Enter')doDown()">
+        <button class="ub" onclick="doDown()">Download</button>
+      </div>
+      <div class="pchips">
+        <div class="pchip cx">&#120143; X (Twitter) Enabled</div>
+        <div class="pchip ctt">&#9654; TikTok Enabled</div>
+      </div>
+    </div>
+    <div class="db">
+      <div class="sh">
+        <div class="sl">Recent Downloads</div>
+        <div style="display:flex;gap:7px;align-items:center">
+          <div class="prow">
+            <button class="pill on" onclick="fJ(this,'all')">All</button>
+            <button class="pill" onclick="fJ(this,'running')">Running</button>
+            <button class="pill" onclick="fJ(this,'completed')">Done</button>
+            <button class="pill" onclick="fJ(this,'failed')">Failed</button>
+          </div>
+          <button class="sa-btn" onclick="saAll()">Select All</button>
+        </div>
+      </div>
+      <div id="bulk" style="display:none" class="bbar">
+        <span class="bcnt" id="bcnt">0 sel</span><span class="bsp"></span>
+        <button class="bb bdel" onclick="bDel()">Delete</button>
+        <button class="bb bcan" onclick="clrS()">Cancel</button>
+      </div>
+      <div class="jl" id="jl"></div>
+    </div>
+  </div>
+
+  <!-- CREATORS -->
+  <div class="pane" id="p-cr">
+    <div class="crp">
+      <div class="crh">
+        <div><div class="cr-h1">Creators</div><div class="cr-sub">Accounts you have downloaded content from</div></div>
+        <div class="cr-si"><input placeholder="Search creators..." oninput="fCr(this.value)"></div>
+      </div>
+      <div class="cgg" id="cgg"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div class="pane" id="p-ac">
+    <div class="acp">
+      <div class="ac-h1">Activity Log</div>
+      <div class="ac-sub">Real-time telemetry from the download pipeline</div>
+      <div class="aclive"><div class="adot"></div> Live &mdash; 3 events/min</div>
+      <div class="afilt">
+        <button class="pill on" onclick="fAc(this,'all')">All</button>
+        <button class="pill" onclick="fAc(this,'info')">Info</button>
+        <button class="pill" onclick="fAc(this,'warn')">Warnings</button>
+        <button class="pill" onclick="fAc(this,'error')">Errors</button>
+      </div>
+      <div class="alist" id="al"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="pane" id="p-se">
+    <div class="sep">
+      <div class="se-h1">Settings</div>
+      <div class="se-sub">Configure platforms, limits and behavior</div>
+      <div class="se-s">
+        <div class="se-sh">Platforms</div>
+        <div class="se-c">
+          <div class="se-r">
+            <div class="se-ic" style="background:#e7f0fd">&#120143;</div>
+            <div class="se-in"><div class="se-lb">X (Twitter)</div><div class="se-d">Download videos from X posts</div></div>
+            <button class="tog on" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
+          </div>
+          <div class="se-r">
+            <div class="se-ic" style="background:#fce8f8">&#9654;</div>
+            <div class="se-in"><div class="se-lb">TikTok</div><div class="se-d">Download TikTok videos via Playwright</div></div>
+            <button class="tog on" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
+          </div>
+        </div>
+      </div>
+      <div class="se-s">
+        <div class="se-sh">Interface</div>
+        <div class="se-c">
+          <div class="se-r">
+            <div class="se-ic" style="background:#ede9fe">&#8863;</div>
+            <div class="se-in"><div class="se-lb">Picture-in-Picture Widget</div><div class="se-d">Float progress when leaving Downloads tab</div></div>
+            <button class="tog on" id="pip-tog" onclick="tPip()"><div class="togt"></div></button>
+          </div>
+          <div class="se-r">
+            <div class="se-ic" style="background:#d2f4e0">&#9790;</div>
+            <div class="se-in"><div class="se-lb">Compact Mode</div><div class="se-d">Denser job list layout</div></div>
+            <button class="tog" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
+          </div>
+        </div>
+      </div>
+      <div class="se-s">
+        <div class="se-sh">Processing</div>
+        <div class="se-c">
+          <div class="se-r">
+            <div class="se-ic" style="background:#fff3b0">&#9881;</div>
+            <div class="se-in"><div class="se-lb">Extraction Timeout</div><div class="se-d">Max time for Playwright media extraction</div></div>
+            <span style="font-size:12.5px;color:var(--muted);font-weight:600">180s</span>
+          </div>
+          <div class="se-r">
+            <div class="se-ic" style="background:#e7f0fd">&#8635;</div>
+            <div class="se-in"><div class="se-lb">Auto-Retry on Failure</div><div class="se-d">Automatically retry failed jobs once</div></div>
+            <button class="tog" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PiP WIDGET -->
+<div class="pip" id="pip">
+  <div class="pip-h">
+    <div class="pipdot"></div>
+    <div class="pip-ti">Downloads Active</div>
+    <button class="pip-cl" onclick="hidePip()">&times;</button>
+  </div>
+  <div id="pipj"></div>
+  <div class="pip-ft"><button class="pip-sn" onclick="snap()">&#8599; View Downloads</button></div>
+</div>
+
+<!-- PROFILE OVERLAY -->
+<div class="ov" id="ov" onclick="if(event.target===this)closeO()">
+  <div class="mod">
+    <div class="mhd" id="mhd"></div>
+    <div class="mbd" id="mbd"></div>
+  </div>
+</div>
+
+<script>
+const J=[
+  {id:'j1',t:'@elonmusk tweet about Mars colonization',c:'elonmusk',p:'x',s:'running',pct:67,ti:'2m ago',e:'🚀'},
+  {id:'j2',t:'@natgeo deep ocean documentary',c:'natgeo',p:'x',s:'running',pct:34,ti:'4m ago',e:'🌊'},
+  {id:'j3',t:"@charlidamelio viral dance routine",c:'charlidamelio',p:'tiktok',s:'completed',pct:100,ti:'12m ago',e:'💃'},
+  {id:'j4',t:'@mkbhd latest phone review',c:'mkbhd',p:'x',s:'completed',pct:100,ti:'28m ago',e:'📱'},
+  {id:'j5',t:'@nasa ISS orbital time-lapse',c:'nasa',p:'x',s:'failed',pct:0,ti:'1h ago',e:'🛸'},
+  {id:'j6',t:'@gordonramsay pasta recipe',c:'gordonramsay',p:'tiktok',s:'queued',pct:0,ti:'just now',e:'👨‍🍳'},
+  {id:'j7',t:'@nytimes breaking news segment',c:'nytimes',p:'x',s:'completed',pct:100,ti:'2h ago',e:'📰'},
+  {id:'j8',t:'@billnye science explainer',c:'billnye',p:'tiktok',s:'completed',pct:100,ti:'3h ago',e:'🔬'},
+];
+const CR=[
+  {sl:'elonmusk',n:'Elon Musk',h:'@elonmusk',j:12,d:10,p:'x',col:'#1a73e8',e:'🚀'},
+  {sl:'natgeo',n:'National Geographic',h:'@natgeo',j:8,d:8,p:'x',col:'#e8a51a',e:'🌍'},
+  {sl:'charlidamelio',n:"Charli D'Amelio",h:'@charlidamelio',j:24,d:22,p:'tiktok',col:'#e81a8e',e:'💃'},
+  {sl:'mkbhd',n:'MKBHD',h:'@mkbhd',j:16,d:15,p:'x',col:'#222',e:'📱'},
+  {sl:'nasa',n:'NASA',h:'@nasa',j:6,d:4,p:'x',col:'#1a4de8',e:'🛸'},
+  {sl:'gordonramsay',n:'Gordon Ramsay',h:'@gordonramsay',j:19,d:19,p:'tiktok',col:'#e8361a',e:'👨‍🍳'},
+  {sl:'nytimes',n:'NY Times',h:'@nytimes',j:11,d:9,p:'x',col:'#333',e:'📰'},
+  {sl:'billnye',n:'Bill Nye',h:'@billnye',j:7,d:6,p:'tiktok',col:'#1ae8b4',e:'🔬'},
+];
+const AC=[
+  {t:'14:32:01',l:'info',m:'Job j1 transitioned to running status',j:'j1'},
+  {t:'14:31:58',l:'info',m:'Playwright extracted 3 media candidates',j:'j1'},
+  {t:'14:31:55',l:'info',m:'Job j2 claimed by worker (atomic FIFO)',j:'j2'},
+  {t:'14:31:50',l:'warn',m:'TikTok rate limit detected, backing off 2s',j:'j6'},
+  {t:'14:31:44',l:'info',m:'Job j3 completed — saved to downloads/charlidamelio/j3.mp4',j:'j3'},
+  {t:'14:31:40',l:'error',m:'Extraction timeout for job j5 after 180s',j:'j5'},
+  {t:'14:31:35',l:'debug',m:'ffmpeg HLS stream started, 47 segments detected',j:'j2'},
+  {t:'14:31:30',l:'info',m:'Worker heartbeat OK — queue depth: 2',j:null},
+  {t:'14:31:25',l:'info',m:'New job j6 queued via POST /api/jobs',j:'j6'},
+  {t:'14:31:10',l:'debug',m:'Playwright browser context reused (singleton)',j:'j1'},
+  {t:'14:30:55',l:'info',m:'Job j4 completed successfully in 34.2s',j:'j4'},
+  {t:'14:30:40',l:'warn',m:'MongoDB slow query detected (>100ms)',j:null},
+];
+let sel=new Set(),cf='all',pipOn=true,atab='dl';
+
+function sw(btn){
+  const prev=atab;atab=btn.dataset.t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b===btn));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+atab));
+  if(prev==='dl'&&atab!=='dl'&&pipOn){const r=J.filter(x=>x.s==='running');if(r.length)showPip(r);}
+  if(atab==='dl')hidePip();
+  updL();
+}
+function updL(){
+  const bar=document.getElementById('tb');
+  const btn=document.querySelector('.tab.on');if(!btn)return;
+  const ln=document.getElementById('tl');
+  const cols={dl:'#0969da',cr:'#7c3aed',ac:'#1a7f37',se:'#9a6700'};
+  const br=bar.getBoundingClientRect(),ar=btn.getBoundingClientRect();
+  ln.style.left=(ar.left-br.left)+'px';ln.style.width=ar.width+'px';ln.style.background=cols[atab];
+}
+function rdJ(f){
+  const l=document.getElementById('jl');
+  const jobs=f==='all'?J:J.filter(x=>x.s===f);
+  if(!jobs.length){l.innerHTML='<div class="empty"><div class="ei">📭</div><div class="eh">No jobs</div><p>Submit a URL above to start downloading.</p></div>';return;}
+  l.innerHTML=jobs.map(j=>`
+    <div class="jc${sel.has(j.id)?' sel':''}">
+      <div class="jbar jbar-${j.s[0]}"></div>
+      <input type="checkbox" class="jchk" ${sel.has(j.id)?'checked':''} onclick="event.stopPropagation();tS('${j.id}')">
+      <div class="jth">${j.e}</div>
+      <div class="ji">
+        <div class="jt">${j.t}</div>
+        <div class="jm">
+          <span class="jp jp${j.p}">${j.p==='x'?'X':'TikTok'}</span>
+          <span class="jh">@${j.c}</span>
+          <span class="jtime">${j.ti}</span>
+        </div>
+      </div>
+      <span class="jbad jbad-${j.s[0]}">${j.s==='running'?'⏳ '+j.pct+'%':j.s}</span>
+      <div class="jacts">
+        ${j.s==='completed'?'<button class="ja" onclick="event.stopPropagation()">⬇</button>':''}
+        ${j.s==='failed'?'<button class="ja" onclick="event.stopPropagation()">↺</button>':''}
+        <button class="ja del" onclick="event.stopPropagation();dJ('${j.id}')">🗑</button>
+      </div>
+      ${j.s==='running'?`<div class="jprog" style="width:${j.pct}%"></div>`:''}
+    </div>`).join('');
+}
+function fJ(btn,f){cf=f;document.querySelectorAll('.prow .pill').forEach(p=>p.classList.toggle('on',p===btn));rdJ(f);}
+function tS(id){if(sel.has(id))sel.delete(id);else sel.add(id);updB();rdJ(cf);}
+function saAll(){const v=cf==='all'?J:J.filter(x=>x.s===cf);if(sel.size===v.length)sel.clear();else v.forEach(x=>sel.add(x.id));updB();rdJ(cf);}
+function clrS(){sel.clear();updB();rdJ(cf);}
+function updB(){const b=document.getElementById('bulk');if(sel.size>0){b.style.display='flex';document.getElementById('bcnt').textContent=sel.size+' selected';}else b.style.display='none';}
+function bDel(){sel.forEach(id=>{const i=J.findIndex(x=>x.id===id);if(i>-1)J.splice(i,1);});sel.clear();updB();rdJ(cf);updRb();}
+function dJ(id){const i=J.findIndex(x=>x.id===id);if(i>-1)J.splice(i,1);sel.delete(id);updB();rdJ(cf);updRb();}
+function updRb(){document.getElementById('rb').textContent=J.filter(x=>x.s==='running').length;}
+function chkU(el){el.classList.toggle('ok',el.value.includes('x.com')||el.value.includes('twitter.com')||el.value.includes('tiktok.com'));}
+function doDown(){
+  const el=document.getElementById('urli');const v=el.value.trim();if(!v)return;
+  const isX=v.includes('x.com')||v.includes('twitter.com');const isTT=v.includes('tiktok.com');
+  if(!isX&&!isTT){el.style.borderColor='#cf222e';setTimeout(()=>el.style.borderColor='',1500);return;}
+  J.unshift({id:'j'+Date.now(),t:'New download from '+(isX?'X':'TikTok'),c:'unknown',p:isX?'x':'tiktok',s:'queued',pct:0,ti:'just now',e:'📥'});
+  el.value='';el.classList.remove('ok');rdJ(cf);updRb();
+}
+function rdCr(f){
+  const g=document.getElementById('cgg');
+  const list=f?CR.filter(c=>c.n.toLowerCase().includes(f.toLowerCase())||c.h.includes(f)):CR;
+  g.innerHTML=list.map(c=>`
+    <div class="cc" onclick="openPr('${c.sl}')">
+      <div class="cav" style="background:${c.col}">${c.e}</div>
+      <div class="cn">${c.n}</div><div class="chn">${c.h}</div>
+      <div class="cst">
+        <div class="cs"><div class="csv">${c.j}</div><div class="csl">Total</div></div>
+        <div class="cs"><div class="csv">${c.d}</div><div class="csl">Done</div></div>
+        <div class="cs"><div class="csv">${c.j-c.d}</div><div class="csl">Active</div></div>
+      </div>
+      <div style="margin-top:9px"><span class="jp jp${c.p}">${c.p==='x'?'X (Twitter)':'TikTok'}</span></div>
+    </div>`).join('');
+}
+function fCr(v){rdCr(v);}
+function rdAc(f){
+  const list=f==='all'?AC:AC.filter(x=>x.l===f);
+  document.getElementById('al').innerHTML=list.map(e=>`
+    <div class="arow">
+      <div class="atime">${e.t}</div>
+      <div class="alvl alvl-${e.l}">${e.l}</div>
+      <div class="amsg">${e.m}${e.j?`<div class="atag">${e.j}</div>`:''}</div>
+    </div>`).join('');
+}
+function fAc(btn,f){document.querySelectorAll('.afilt .pill').forEach(p=>p.classList.toggle('on',p===btn));rdAc(f);}
+function showPip(r){
+  document.getElementById('pipj').innerHTML=r.map(j=>`
+    <div class="pip-j"><div class="pip-jn">${j.t}</div><div class="pip-tr"><div class="pip-tf" style="width:${j.pct}%"></div></div></div>`).join('');
+  document.getElementById('pip').classList.add('on');
+  mkDrag(document.getElementById('pip'));
+}
+function hidePip(){document.getElementById('pip').classList.remove('on');}
+function snap(){sw(document.querySelector('[data-t=dl]'));}
+function tPip(){pipOn=!pipOn;document.getElementById('pip-tog').classList.toggle('on',pipOn);}
+function mkDrag(el){
+  let ox=0,oy=0;
+  el.querySelector('.pip-h').onmousedown=e=>{
+    e.preventDefault();const r=el.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;
+    document.onmousemove=e=>{el.style.left=(e.clientX-ox)+'px';el.style.bottom='auto';el.style.top=(e.clientY-oy)+'px';};
+    document.onmouseup=()=>{document.onmousemove=null;};
+  };
+}
+function openPr(sl){
+  const c=CR.find(x=>x.sl===sl);if(!c)return;
+  const jobs=J.filter(x=>x.c===sl);
+  document.getElementById('mhd').innerHTML=`
+    <div class="mav" style="background:${c.col}">${c.e}</div>
+    <div><div class="mn">${c.n}</div><div class="mhn">${c.h} &middot; ${c.p==='x'?'X (Twitter)':'TikTok'}</div></div>
+    <button class="mcl" onclick="closeO()">&times;</button>`;
+  document.getElementById('mbd').innerHTML=`
+    <div class="psr">
+      <div class="psrc"><div class="psrv">${c.j}</div><div class="psrl">Total</div></div>
+      <div class="psrc"><div class="psrv">${c.d}</div><div class="psrl">Completed</div></div>
+      <div class="psrc"><div class="psrv">${c.j-c.d}</div><div class="psrl">Active</div></div>
+    </div>
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:10px">Download History</div>
+    ${jobs.length?`<div style="display:flex;flex-direction:column;gap:7px">${jobs.map(j=>`
+      <div class="jc" style="cursor:default">
+        <div class="jbar jbar-${j.s[0]}"></div>
+        <div class="jth">${j.e}</div>
+        <div class="ji"><div class="jt">${j.t}</div><div class="jm"><span class="jtime">${j.ti}</span></div></div>
+        <span class="jbad jbad-${j.s[0]}">${j.s}</span>
+      </div>`).join('')}</div>`:'<div class="empty"><div class="ei">📭</div><div class="eh">No downloads yet</div></div>'}`;
+  document.getElementById('ov').classList.add('on');
+}
+function closeO(){document.getElementById('ov').classList.remove('on');}
+
+rdJ('all');rdCr();rdAc('all');
+setTimeout(updL,60);window.addEventListener('resize',updL);
+setInterval(()=>{
+  J.filter(x=>x.s==='running').forEach(x=>{x.pct=Math.min(100,x.pct+Math.random()*7);if(x.pct>=100){x.s='completed';x.pct=100;}});
+  if(atab==='dl')rdJ(cf);
+  const r=J.filter(x=>x.s==='running');
+  document.getElementById('rb').textContent=r.length;
+  if(r.length===0)hidePip();
+  else if(document.getElementById('pip').classList.contains('on'))showPip(r);
+},1500);
+</script>
+</body>
+</html>

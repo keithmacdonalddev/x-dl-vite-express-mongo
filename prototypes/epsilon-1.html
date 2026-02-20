@@ -1,0 +1,1562 @@
+<!--
+  Media Vault Prototype
+  Round: epsilon-1
+  Concept: Radial Orbit — Intake at center, jobs orbit outward in concentric rings by status
+  Special Feature: Adaptive Orbit Rings — jobs orbit the intake form in real CSS/DOM (not canvas), with ring selection that expands jobs into a full reading pane; ring radius scales with job count
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Adaptive Orbit Rings — DOM-based radial job layout where jobs orbit the central intake form; clicking a ring "locks" it open and expands the selected job into a sidebar detail pane; ring count and radius self-adjust as jobs are added -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Epsilon 1</title>
+<style>
+  :root {
+    /* Radius scale */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    /* Shadow elevation */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+    /* Glass recipe */
+    --glass-bg: rgba(255,255,255,0.05);
+    --glass-blur: blur(12px) saturate(140%);
+    --glass-border-top: rgba(255,255,255,0.12);
+    --glass-border-bottom: rgba(0,0,0,0.12);
+
+    /* Spring animations */
+    --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --spring-exit: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --spring-snap: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Status colors — desaturated */
+    --status-complete: hsl(145, 45%, 52%);
+    --status-failed: hsl(0, 48%, 52%);
+    --status-running: hsl(210, 50%, 58%);
+    --status-queued: hsl(30, 15%, 52%);
+    --status-canceled: hsl(220, 20%, 45%);
+
+    /* Accent */
+    --accent: hsl(210, 65%, 58%);
+    --accent-rgb: 77, 149, 208;
+
+    /* Typography */
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #080c14;
+    color: #e2ecf8;
+    font-family: var(--font);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Background mesh */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 80%, rgba(30,50,90,0.4) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 20%, rgba(20,40,80,0.35) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(10,25,55,0.5) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     CHROME HEADER
+  ============================================================ */
+  .chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    position: relative;
+    z-index: 100;
+    opacity: 0;
+    animation: fadeDown 0.4s var(--spring-exit) 80ms forwards;
+  }
+
+  .chrome::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 24px; right: 24px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, hsl(210,65%,40%), hsl(230,55%,30%));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    box-shadow: var(--shadow-md);
+    border-top: 1px solid rgba(255,255,255,0.15);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.15);
+  }
+
+  .logo-text {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #e8f2ff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .chrome-stats {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: #8898b8;
+  }
+
+  .stat-chip strong {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c8d8f0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .chrome-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .btn:active { transform: scale(0.97) translateY(0px); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.04);
+    color: #8898b8;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-left: 1px solid rgba(255,255,255,0.05);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .btn-accent {
+    background: linear-gradient(135deg, hsl(210,60%,45%), hsl(230,55%,38%));
+    color: #fff;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ============================================================
+     MAIN LAYOUT
+  ============================================================ */
+  .main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     ORBIT STAGE
+  ============================================================ */
+  .orbit-stage {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeIn 0.5s var(--spring-exit) 180ms forwards;
+  }
+
+  /* Orbit ring decorations */
+  .orbit-ring-deco {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,0.04);
+    pointer-events: none;
+  }
+
+  /* ============================================================
+     INTAKE CENTER
+  ============================================================ */
+  .intake-center {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    animation: scaleIn 0.5s var(--spring-enter) 480ms forwards;
+  }
+
+  .intake-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8898b8;
+  }
+
+  .intake-shell {
+    position: relative;
+    width: 380px;
+    border-radius: var(--radius-xl);
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.09);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.15);
+    box-shadow:
+      var(--shadow-lg),
+      0 0 20px rgba(var(--accent-rgb), 0.04);
+    animation: intake-breathe 3s ease-in-out infinite;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .intake-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.07) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .intake-shell:focus-within {
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 40px rgba(var(--accent-rgb), 0.14),
+      0 0 80px rgba(var(--accent-rgb), 0.07),
+      var(--shadow-xl);
+    animation: none;
+  }
+
+  @keyframes intake-breathe {
+    0%, 100% { box-shadow: var(--shadow-lg), 0 0 20px rgba(77,149,208,0.04); }
+    50% { box-shadow: var(--shadow-lg), 0 0 32px rgba(77,149,208,0.09); }
+  }
+
+  .intake-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .intake-icon {
+    font-size: 16px;
+    opacity: 0.4;
+    flex-shrink: 0;
+  }
+
+  .intake-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: #e2ecf8;
+    font-family: var(--font);
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .intake-input::placeholder { color: #4a5a72; }
+
+  .platform-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: var(--radius-xs);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transform: scale(0.7);
+    opacity: 0;
+    transition: transform 0.25s var(--spring-enter), opacity 0.2s ease;
+  }
+
+  .platform-chip.visible {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .platform-chip.x-chip {
+    background: rgba(255,255,255,0.08);
+    color: #c8d8f0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .platform-chip.tiktok-chip {
+    background: rgba(255,60,80,0.12);
+    color: #ffb0bc;
+    border-top: 1px solid rgba(255,100,120,0.15);
+    border-left: 1px solid rgba(255,100,120,0.1);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .intake-divider {
+    height: 1px;
+    margin: 0 16px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  }
+
+  .intake-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .intake-hint {
+    font-size: 0.6875rem;
+    color: #4a5a72;
+    letter-spacing: 0.02em;
+  }
+
+  .intake-submit {
+    padding: 7px 18px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, hsl(210,60%,45%), hsl(230,55%,38%));
+    color: #fff;
+    border: none;
+    font-family: var(--font);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .intake-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .intake-submit:active { transform: scale(0.97) translateY(0px); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  .intake-submit.success-state {
+    background: linear-gradient(135deg, hsl(145,45%,38%), hsl(160,40%,30%));
+  }
+
+  /* Hero counter */
+  .hero-counter {
+    text-align: center;
+    margin-top: 12px;
+  }
+
+  .hero-number {
+    font-size: 4rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: #e8f2ff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .hero-label {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: #8898b8;
+    margin-top: 2px;
+  }
+
+  /* ============================================================
+     JOB ORBIT NODES
+  ============================================================ */
+  .orbit-node {
+    position: absolute;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition:
+      transform 0.3s var(--spring-enter),
+      box-shadow 0.2s ease,
+      opacity 0.3s ease;
+    transform-origin: center center;
+    z-index: 10;
+  }
+
+  .orbit-node::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 25% 15%, rgba(255,255,255,0.1) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .orbit-node:hover {
+    transform: scale(1.15) !important;
+    z-index: 15;
+  }
+
+  .orbit-node.selected {
+    transform: scale(1.2) !important;
+    z-index: 16;
+  }
+
+  .orbit-node .node-inner {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    position: relative;
+  }
+
+  .orbit-node .node-status-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #080c14;
+  }
+
+  .orbit-node[data-status="completed"] .node-inner {
+    background: rgba(50,120,80,0.25);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+  }
+  .orbit-node[data-status="completed"] .node-status-dot { background: var(--status-complete); }
+  .orbit-node[data-status="completed"] { box-shadow: 0 0 0 1.5px rgba(80,180,110,0.3), var(--shadow-md); }
+
+  .orbit-node[data-status="running"] .node-inner {
+    background: rgba(40,90,150,0.3);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.09);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+  }
+  .orbit-node[data-status="running"] .node-status-dot {
+    background: var(--status-running);
+    animation: orbit-pulse 1.5s ease-in-out infinite;
+  }
+  .orbit-node[data-status="running"] { box-shadow: 0 0 0 1.5px rgba(77,149,208,0.35), var(--shadow-md); }
+
+  .orbit-node[data-status="queued"] .node-inner {
+    background: rgba(80,65,40,0.2);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+  }
+  .orbit-node[data-status="queued"] .node-status-dot { background: var(--status-queued); }
+  .orbit-node[data-status="queued"] { box-shadow: 0 0 0 1.5px rgba(140,115,80,0.25), var(--shadow-md); }
+
+  .orbit-node[data-status="failed"] .node-inner {
+    background: rgba(130,50,50,0.25);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.09);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+  }
+  .orbit-node[data-status="failed"] .node-status-dot { background: var(--status-failed); }
+  .orbit-node[data-status="failed"] { box-shadow: 0 0 0 1.5px rgba(180,80,80,0.3), var(--shadow-md); }
+
+  @keyframes orbit-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* Orbit node label */
+  .orbit-node-label {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    color: #8898b8;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .orbit-node:hover .orbit-node-label { opacity: 1; }
+
+  /* ============================================================
+     DETAIL PANEL (right side)
+  ============================================================ */
+  .detail-panel {
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(20px);
+    animation: slideInRight 0.5s var(--spring-exit) 320ms forwards;
+    border-left: 1px solid rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.02);
+    backdrop-filter: blur(20px) saturate(120%);
+  }
+
+  .panel-section {
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .panel-heading {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8898b8;
+    margin-bottom: 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  /* Selected job detail */
+  .job-detail-card {
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .job-detail-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .job-detail-empty {
+    text-align: center;
+    color: #4a5a72;
+    font-size: 0.8125rem;
+    padding: 20px 0;
+  }
+
+  .job-detail-platform {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8898b8;
+    margin-bottom: 6px;
+  }
+
+  .job-detail-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: #d0e2f8;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+
+  .job-detail-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .meta-label {
+    font-size: 0.6875rem;
+    color: #8898b8;
+    letter-spacing: 0.02em;
+  }
+
+  .meta-value {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c0d4ee;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.6875rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .status-pill.running {
+    background: rgba(77,149,208,0.15);
+    color: var(--status-running);
+    border-top: 1px solid rgba(77,149,208,0.2);
+    border-left: 1px solid rgba(77,149,208,0.12);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  .status-pill.completed {
+    background: rgba(80,160,100,0.15);
+    color: var(--status-complete);
+    border-top: 1px solid rgba(80,160,100,0.2);
+    border-left: 1px solid rgba(80,160,100,0.12);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  .status-pill.queued {
+    background: rgba(140,115,80,0.15);
+    color: var(--status-queued);
+    border-top: 1px solid rgba(140,115,80,0.2);
+    border-left: 1px solid rgba(140,115,80,0.12);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  .status-pill.failed {
+    background: rgba(180,80,80,0.15);
+    color: var(--status-failed);
+    border-top: 1px solid rgba(180,80,80,0.2);
+    border-left: 1px solid rgba(180,80,80,0.12);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .progress-track {
+    height: 3px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, hsl(210,50%,50%), hsl(230,55%,60%));
+    transition: width 0.8s ease;
+  }
+
+  .job-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  /* Job list (compact) */
+  .job-list-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .job-row-compact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border-top: 1px solid transparent;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+  }
+
+  .job-row-compact:hover {
+    background: rgba(255,255,255,0.04);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .job-row-compact.active {
+    background: rgba(77,149,208,0.08);
+    border-top: 1px solid rgba(77,149,208,0.15);
+    border-left: 1px solid rgba(77,149,208,0.1);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .job-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .job-row-title {
+    flex: 1;
+    font-size: 0.75rem;
+    color: #9aaac0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0em;
+    line-height: 1.5;
+  }
+
+  .job-row-time {
+    font-size: 0.6875rem;
+    color: #8898b8;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+
+  /* Contacts */
+  .contact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .contact-item:hover {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .contact-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #e2ecf8;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  .contact-info { flex: 1; overflow: hidden; }
+
+  .contact-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c0d4ee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .contact-sub {
+    font-size: 0.6875rem;
+    color: #8898b8;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* ============================================================
+     ACTIVITY FEED (bottom stripe)
+  ============================================================ */
+  .activity-strip {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 340px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    z-index: 50;
+    background: rgba(8,12,20,0.85);
+    backdrop-filter: blur(12px) saturate(140%);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    opacity: 0;
+    animation: fadeUp 0.4s var(--spring-exit) 320ms forwards;
+    overflow: hidden;
+  }
+
+  .activity-strip-label {
+    padding: 0 16px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8898b8;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .activity-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--status-running);
+    animation: orbit-pulse 1.5s ease-in-out infinite;
+  }
+
+  .activity-feed {
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
+    position: relative;
+  }
+
+  .activity-ticker {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 16px;
+    transition: transform 0.4s var(--spring-exit);
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 28px;
+    font-size: 0.75rem;
+    color: #8898b8;
+    white-space: nowrap;
+    letter-spacing: 0em;
+    line-height: 1.5;
+  }
+
+  .activity-item .ai-level {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+  }
+
+  .ai-info { background: rgba(77,149,208,0.15); color: hsl(210,60%,70%); }
+  .ai-warn { background: rgba(200,150,60,0.15); color: hsl(38,55%,70%); }
+  .ai-error { background: rgba(180,80,80,0.15); color: hsl(0,50%,70%); }
+
+  .activity-item .ai-msg {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #9aaac0;
+  }
+
+  .activity-item .ai-time {
+    font-size: 0.6875rem;
+    color: #8898b8;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    letter-spacing: 0.02em;
+  }
+
+  /* ============================================================
+     SETTINGS PANEL (inline in detail panel bottom)
+  ============================================================ */
+  .settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.03);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .setting-info { flex: 1; }
+
+  .setting-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c0d4ee;
+    margin-bottom: 1px;
+  }
+
+  .setting-desc {
+    font-size: 0.6875rem;
+    color: #8898b8;
+    letter-spacing: 0.02em;
+  }
+
+  .toggle {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s var(--spring-snap);
+    flex-shrink: 0;
+  }
+
+  .toggle.on {
+    background: hsl(210,55%,38%);
+    border-color: rgba(77,149,208,0.3);
+  }
+
+  .toggle-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s var(--spring-snap);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .toggle.on .toggle-thumb { transform: translateX(16px); }
+
+  /* ============================================================
+     ANIMATIONS
+  ============================================================ */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes nodeEnter {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- CHROME -->
+<header class="chrome">
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    <span class="logo-text">Media Vault</span>
+  </div>
+  <div class="chrome-stats">
+    <span class="stat-chip"><strong id="stat-total">7</strong> jobs</span>
+    <span class="stat-chip"><strong id="stat-complete">3</strong> done</span>
+    <span class="stat-chip"><strong id="stat-running">1</strong> active</span>
+  </div>
+  <div class="chrome-actions">
+    <button class="btn btn-ghost" id="btn-activity">⚡ Activity</button>
+    <button class="btn btn-ghost" id="btn-contacts">👤 Contacts</button>
+    <button class="btn btn-ghost" id="btn-settings">⚙ Settings</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ORBIT STAGE -->
+  <div class="orbit-stage" id="orbit-stage">
+    <!-- Deco rings drawn by JS -->
+    <!-- INTAKE CENTER -->
+    <div class="intake-center" id="intake-center">
+      <span class="intake-label">Add download</span>
+      <div class="intake-shell" id="intake-shell">
+        <div class="intake-row">
+          <span class="intake-icon">🔗</span>
+          <input class="intake-input" id="intake-input" type="text"
+                 placeholder="Paste X or TikTok URL…" autocomplete="off">
+          <span class="platform-chip" id="platform-chip"></span>
+        </div>
+        <div class="intake-divider"></div>
+        <div class="intake-footer">
+          <span class="intake-hint">x.com · tiktok.com</span>
+          <button class="intake-submit" id="intake-submit">Download</button>
+        </div>
+      </div>
+      <div class="hero-counter">
+        <div class="hero-number" id="hero-number">7</div>
+        <div class="hero-label">total downloads</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <aside class="detail-panel" id="detail-panel">
+
+    <!-- Job Detail -->
+    <div class="panel-section">
+      <div class="panel-heading">Selected Job</div>
+      <div id="job-detail-container">
+        <div class="job-detail-empty">Click a job node to inspect</div>
+      </div>
+    </div>
+
+    <!-- All Jobs list -->
+    <div class="panel-section" style="flex:1;overflow-y:auto;">
+      <div class="panel-heading">All Jobs</div>
+      <div class="job-list-compact" id="job-list-compact"></div>
+    </div>
+
+    <!-- Contacts -->
+    <div class="panel-section" id="contacts-section">
+      <div class="panel-heading">Contacts</div>
+      <div class="contact-list" id="contact-list"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="panel-section" id="settings-section">
+      <div class="panel-heading">Settings</div>
+      <div class="settings-grid">
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">X (Twitter)</div>
+            <div class="setting-desc">Enable X platform downloads</div>
+          </div>
+          <div class="toggle on" id="toggle-x">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">TikTok</div>
+            <div class="setting-desc">Enable TikTok platform downloads</div>
+          </div>
+          <div class="toggle on" id="toggle-tiktok">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ACTIVITY STRIP -->
+<div class="activity-strip">
+  <div class="activity-strip-label">
+    <span class="activity-live-dot"></span>
+    Live
+  </div>
+  <div class="activity-feed">
+    <div class="activity-ticker" id="activity-ticker"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const JOBS = [
+  { id: 'j1', platform: 'x', creator: '@elonmusk', slug: 'elonmusk', url: 'x.com/elonmusk/status/1234567890', status: 'completed', size: '48.2 MB', duration: '2:14', progress: 100, age: '3m ago' },
+  { id: 'j2', platform: 'tiktok', creator: '@charlidamelio', slug: 'charlidamelio', url: 'tiktok.com/@charlidamelio/video/12345', status: 'running', size: '—', duration: '0:58', progress: 62, age: '1m ago' },
+  { id: 'j3', platform: 'x', creator: '@mkbhd', slug: 'mkbhd', url: 'x.com/MKBHD/status/9876543210', status: 'completed', size: '112 MB', duration: '4:31', progress: 100, age: '8m ago' },
+  { id: 'j4', platform: 'tiktok', creator: '@khaby.lame', slug: 'khaby-lame', url: 'tiktok.com/@khaby.lame/video/99999', status: 'queued', size: '—', duration: '—', progress: 0, age: '30s ago' },
+  { id: 'j5', platform: 'x', creator: '@naval', slug: 'naval', url: 'x.com/naval/status/1122334455', status: 'failed', size: '—', duration: '—', progress: 0, age: '15m ago' },
+  { id: 'j6', platform: 'tiktok', creator: '@charlidamelio', slug: 'charlidamelio', url: 'tiktok.com/@charlidamelio/video/54321', status: 'completed', size: '22.8 MB', duration: '0:44', progress: 100, age: '22m ago' },
+  { id: 'j7', platform: 'x', creator: '@mkbhd', slug: 'mkbhd', url: 'x.com/MKBHD/status/5544332211', status: 'queued', size: '—', duration: '—', progress: 0, age: '10s ago' },
+];
+
+const CONTACTS = [
+  { slug: 'mkbhd', name: '@mkbhd', platform: 'x', jobs: 2, color: '#1a3a5c' },
+  { slug: 'charlidamelio', name: '@charlidamelio', platform: 'tiktok', jobs: 2, color: '#3c1a2e' },
+  { slug: 'elonmusk', name: '@elonmusk', platform: 'x', jobs: 1, color: '#1a2c3c' },
+  { slug: 'khaby-lame', name: '@khaby.lame', platform: 'tiktok', jobs: 1, color: '#2c1a3c' },
+  { slug: 'naval', name: '@naval', platform: 'x', jobs: 1, color: '#1a2434' },
+];
+
+const ACTIVITY_MSGS = [
+  { level: 'info', msg: 'Playwright context initialized' },
+  { level: 'info', msg: 'Job j2 — extraction started for charlidamelio' },
+  { level: 'info', msg: 'Network interception active on page' },
+  { level: 'info', msg: 'HLS manifest detected — ffmpeg queued' },
+  { level: 'warn', msg: 'Rate limit warning on x.com — backing off 2s' },
+  { level: 'info', msg: 'Job j3 — download complete 112 MB in 8.4s' },
+  { level: 'error', msg: 'Job j5 — extraction failed: 403 Forbidden' },
+  { level: 'info', msg: 'Job j2 — download progress 62%' },
+  { level: 'info', msg: 'MongoDB connected — Atlas cluster healthy' },
+  { level: 'info', msg: 'Queue worker polling — 2 jobs pending' },
+  { level: 'warn', msg: 'Playwright settle timeout extended to 5000ms' },
+  { level: 'info', msg: 'Job j4 — claimed by worker, status → running' },
+];
+
+let selectedJobId = null;
+let activityLog = [];
+let activityIdx = 0;
+
+// ============================================================
+// ORBIT LAYOUT ENGINE
+// ============================================================
+const ORBIT_RADII = [130, 200, 265]; // px from center for each ring
+const PLATFORMS = { x: '✕', tiktok: '♪' };
+
+function getStatusColor(status) {
+  return {
+    completed: 'var(--status-complete)',
+    running: 'var(--status-running)',
+    queued: 'var(--status-queued)',
+    failed: 'var(--status-failed)',
+    canceled: 'var(--status-canceled)',
+  }[status] || '#888';
+}
+
+function buildOrbit() {
+  const stage = document.getElementById('orbit-stage');
+
+  // Remove old nodes & deco
+  stage.querySelectorAll('.orbit-node, .orbit-ring-deco').forEach(el => el.remove());
+
+  // Group jobs into rings by status priority
+  const groups = [
+    JOBS.filter(j => j.status === 'running'),
+    JOBS.filter(j => j.status === 'queued' || j.status === 'failed'),
+    JOBS.filter(j => j.status === 'completed' || j.status === 'canceled'),
+  ].filter(g => g.length);
+
+  const stageW = stage.offsetWidth;
+  const stageH = stage.offsetHeight;
+  const cx = stageW / 2;
+  const cy = stageH / 2;
+
+  // Draw deco rings
+  groups.forEach((_, ri) => {
+    const r = ORBIT_RADII[ri] || (ORBIT_RADII[ORBIT_RADII.length-1] + 60 * ri);
+    const deco = document.createElement('div');
+    deco.className = 'orbit-ring-deco';
+    deco.style.cssText = `
+      width: ${r*2}px; height: ${r*2}px;
+      top: ${cy - r}px; left: ${cx - r}px;
+    `;
+    stage.appendChild(deco);
+  });
+
+  // Place job nodes
+  let nodeIdx = 0;
+  groups.forEach((group, ri) => {
+    const r = ORBIT_RADII[ri] || (ORBIT_RADII[ORBIT_RADII.length-1] + 60 * ri);
+    group.forEach((job, ji) => {
+      const angle = (ji / group.length) * Math.PI * 2 - Math.PI / 2;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+
+      const node = document.createElement('div');
+      node.className = 'orbit-node';
+      node.dataset.status = job.status;
+      node.dataset.jobId = job.id;
+      node.style.cssText = `
+        left: ${x}px;
+        top: ${y}px;
+        transform: translate(-50%, -50%) scale(1);
+        animation: nodeEnter 0.5s var(--spring-enter) ${Math.max(0, 120 - nodeIdx * 18)}ms both;
+      `;
+
+      node.innerHTML = `
+        <div class="node-inner">
+          <span style="font-size:18px">${PLATFORMS[job.platform] || '?'}</span>
+          <span class="node-status-dot"></span>
+        </div>
+        <span class="orbit-node-label">${job.creator}</span>
+      `;
+
+      node.addEventListener('click', () => selectJob(job.id));
+      stage.appendChild(node);
+      nodeIdx++;
+    });
+  });
+}
+
+// ============================================================
+// JOB SELECTION
+// ============================================================
+function selectJob(jobId) {
+  selectedJobId = jobId;
+
+  // Update node highlights
+  document.querySelectorAll('.orbit-node').forEach(n => {
+    n.classList.toggle('selected', n.dataset.jobId === jobId);
+  });
+
+  // Update row highlights
+  document.querySelectorAll('.job-row-compact').forEach(r => {
+    r.classList.toggle('active', r.dataset.jobId === jobId);
+  });
+
+  const job = JOBS.find(j => j.id === jobId);
+  const container = document.getElementById('job-detail-container');
+  if (!job) { container.innerHTML = '<div class="job-detail-empty">Click a job node to inspect</div>'; return; }
+
+  const statusLabel = job.status.charAt(0).toUpperCase() + job.status.slice(1);
+  container.innerHTML = `
+    <div class="job-detail-card">
+      <div class="job-detail-platform">${job.platform === 'x' ? '✕ X (Twitter)' : '♪ TikTok'}</div>
+      <div class="job-detail-title">${job.url}</div>
+      <div class="job-detail-meta">
+        <div class="meta-item">
+          <span class="meta-label">Creator</span>
+          <span class="meta-value">${job.creator}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Size</span>
+          <span class="meta-value">${job.size}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Duration</span>
+          <span class="meta-value">${job.duration}</span>
+        </div>
+      </div>
+      <span class="status-pill ${job.status}">${statusLabel}</span>
+      ${job.status === 'running' ? `<div class="progress-track"><div class="progress-fill" style="width:${job.progress}%"></div></div>` : ''}
+      <div class="job-actions">
+        ${job.status === 'failed' ? `<button class="btn btn-ghost" style="font-size:0.6875rem;padding:5px 10px">↩ Retry</button>` : ''}
+        ${job.status === 'completed' ? `<button class="btn btn-accent" style="font-size:0.6875rem;padding:5px 10px">⬇ Download</button>` : ''}
+        <button class="btn btn-ghost" style="font-size:0.6875rem;padding:5px 10px;color:hsl(0,45%,60%);margin-left:auto">🗑 Delete</button>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// JOB LIST (compact)
+// ============================================================
+function renderJobList() {
+  const container = document.getElementById('job-list-compact');
+  container.innerHTML = '';
+  JOBS.forEach((job, i) => {
+    const row = document.createElement('div');
+    row.className = 'job-row-compact' + (job.id === selectedJobId ? ' active' : '');
+    row.dataset.jobId = job.id;
+    row.style.animationDelay = Math.max(0, 120 - i * 20) + 'ms';
+    row.innerHTML = `
+      <span class="job-dot" style="background:${getStatusColor(job.status)}"></span>
+      <span class="job-row-title">${job.creator} — ${job.platform === 'x' ? 'X' : 'TikTok'}</span>
+      <span class="job-row-time">${job.age}</span>
+    `;
+    row.addEventListener('click', () => selectJob(job.id));
+    container.appendChild(row);
+  });
+}
+
+// ============================================================
+// CONTACTS
+// ============================================================
+function renderContacts() {
+  const container = document.getElementById('contact-list');
+  container.innerHTML = '';
+  CONTACTS.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'contact-item';
+    const initials = c.name.replace('@','').slice(0,2).toUpperCase();
+    item.innerHTML = `
+      <div class="contact-avatar" style="background:${c.color}">${initials}</div>
+      <div class="contact-info">
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-sub">${c.jobs} job${c.jobs!==1?'s':''} · ${c.platform === 'x' ? 'X' : 'TikTok'}</div>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// ============================================================
+// ACTIVITY
+// ============================================================
+function renderActivity() {
+  const ticker = document.getElementById('activity-ticker');
+  ticker.innerHTML = '';
+  const visible = activityLog.slice(-2);
+  visible.forEach(entry => {
+    const div = document.createElement('div');
+    div.className = 'activity-item';
+    div.innerHTML = `
+      <span class="ai-level ai-${entry.level}">${entry.level.toUpperCase()}</span>
+      <span class="ai-msg">${entry.msg}</span>
+      <span class="ai-time">${entry.time}</span>
+    `;
+    ticker.appendChild(div);
+  });
+}
+
+function pushActivity() {
+  const entry = ACTIVITY_MSGS[activityIdx % ACTIVITY_MSGS.length];
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+  activityLog.push({ ...entry, time });
+  activityIdx++;
+  if (activityLog.length > 50) activityLog.shift();
+  renderActivity();
+}
+
+// ============================================================
+// SIMULATION
+// ============================================================
+let simStep = 0;
+function simulate() {
+  const runningJob = JOBS.find(j => j.status === 'running');
+  if (runningJob) {
+    runningJob.progress = Math.min(100, runningJob.progress + Math.random() * 8 + 4);
+    if (runningJob.progress >= 100) {
+      runningJob.status = 'completed';
+      runningJob.size = (Math.random()*80+20).toFixed(1) + ' MB';
+      runningJob.age = 'just now';
+      document.getElementById('stat-complete').textContent = JOBS.filter(j => j.status === 'completed').length;
+      document.getElementById('stat-running').textContent = JOBS.filter(j => j.status === 'running').length;
+
+      // Advance a queued job to running
+      setTimeout(() => {
+        const next = JOBS.find(j => j.status === 'queued');
+        if (next) {
+          next.status = 'running';
+          next.progress = 0;
+          document.getElementById('stat-running').textContent = JOBS.filter(j => j.status === 'running').length;
+          buildOrbit();
+          renderJobList();
+        }
+      }, 2000);
+
+      buildOrbit();
+      renderJobList();
+      if (selectedJobId === runningJob.id) selectJob(runningJob.id);
+    } else {
+      // Update progress fill
+      const fill = document.querySelector('.progress-fill');
+      if (fill) fill.style.width = runningJob.progress + '%';
+    }
+  }
+  simStep++;
+}
+
+// ============================================================
+// INTAKE
+// ============================================================
+const input = document.getElementById('intake-input');
+const chip = document.getElementById('platform-chip');
+const shell = document.getElementById('intake-shell');
+const submitBtn = document.getElementById('intake-submit');
+
+input.addEventListener('input', () => {
+  const val = input.value.toLowerCase();
+  if (val.includes('x.com') || val.includes('twitter.com')) {
+    chip.textContent = '✕ X';
+    chip.className = 'platform-chip x-chip visible';
+  } else if (val.includes('tiktok.com')) {
+    chip.textContent = '♪ TikTok';
+    chip.className = 'platform-chip tiktok-chip visible';
+  } else {
+    chip.className = 'platform-chip';
+  }
+});
+
+// Magnetic hover
+const intakeCenter = document.getElementById('intake-center');
+document.getElementById('orbit-stage').addEventListener('mousemove', e => {
+  const rect = intakeCenter.getBoundingClientRect();
+  const cx2 = rect.left + rect.width / 2;
+  const cy2 = rect.top + rect.height / 2;
+  const dx = e.clientX - cx2;
+  const dy = e.clientY - cy2;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxDist = 200;
+  if (dist < maxDist) {
+    const factor = (1 - dist / maxDist) * 3;
+    shell.style.transform = `translate(${dx/dist*factor}px, ${dy/dist*factor}px)`;
+  } else {
+    shell.style.transform = '';
+  }
+});
+
+submitBtn.addEventListener('click', () => {
+  const val = input.value.trim();
+  if (!val) return;
+
+  const platform = val.includes('tiktok.com') ? 'tiktok' : 'x';
+  const newJob = {
+    id: 'j' + (JOBS.length + 1),
+    platform,
+    creator: '@new_creator',
+    slug: 'new-creator',
+    url: val,
+    status: 'queued',
+    size: '—', duration: '—', progress: 0, age: 'just now'
+  };
+
+  // Success state
+  submitBtn.textContent = '✓ Added!';
+  submitBtn.classList.add('success-state');
+
+  setTimeout(() => {
+    submitBtn.textContent = 'Download';
+    submitBtn.classList.remove('success-state');
+    input.value = '';
+    chip.className = 'platform-chip';
+    JOBS.push(newJob);
+    document.getElementById('hero-number').textContent = JOBS.length;
+    document.getElementById('stat-total').textContent = JOBS.length;
+    buildOrbit();
+    renderJobList();
+  }, 800);
+});
+
+// ============================================================
+// TOGGLES
+// ============================================================
+document.getElementById('toggle-x').addEventListener('click', function() {
+  this.classList.toggle('on');
+});
+document.getElementById('toggle-tiktok').addEventListener('click', function() {
+  this.classList.toggle('on');
+});
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  buildOrbit();
+  renderJobList();
+  renderContacts();
+
+  // Initial activity
+  for (let i = 0; i < 2; i++) pushActivity();
+
+  // Live simulation
+  setInterval(simulate, 1200);
+  setInterval(pushActivity, 2800);
+});
+
+window.addEventListener('resize', () => {
+  buildOrbit();
+});
+</script>
+</body>
+</html>

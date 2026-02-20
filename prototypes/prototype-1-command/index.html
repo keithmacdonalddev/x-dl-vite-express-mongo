@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 1 | Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="mode-standard">
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="topbar card reveal">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <p class="eyebrow">Prototype 1</p>
+        <h1>Command</h1>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="Primary">
+      <button class="nav-btn is-active" data-page="overview">Overview</button>
+      <button class="nav-btn" data-page="jobs">Jobs</button>
+      <button class="nav-btn" data-page="contacts">Contacts</button>
+      <button class="nav-btn" data-page="activity">Activity</button>
+    </nav>
+
+    <div class="mode-switch" aria-label="Clarity Mode">
+      <p class="mode-label">Clarity Mode</p>
+      <div class="chips">
+        <button class="chip" data-mode="essential">Essential</button>
+        <button class="chip is-active" data-mode="standard">Standard</button>
+        <button class="chip" data-mode="expert">Expert</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="overview" class="page is-active">
+      <article class="hero card reveal">
+        <p class="eyebrow">First 50ms feeling: confidence</p>
+        <h2>Operational clarity in one glance.</h2>
+        <p class="lead">Submit a source URL in seconds, confirm system health instantly, and monitor queue state without hunting.</p>
+
+        <div class="primary-lane">
+          <label for="source-url" class="sr-only">Source URL</label>
+          <input id="source-url" type="url" placeholder="https://x.com/... or https://tiktok.com/..." />
+          <button class="cta primary-action">Submit Job</button>
+        </div>
+
+        <div class="trust-strip" data-secondary>
+          <div><strong>API</strong><span>Healthy</span></div>
+          <div><strong>Worker</strong><span>Connected</span></div>
+          <div><strong>Queue</strong><span>4 active</span></div>
+          <div><strong>Success</strong><span>99.2%</span></div>
+        </div>
+      </article>
+
+      <section class="grid reveal">
+        <article class="card goal-card">
+          <header>
+            <h3>Primary Goal</h3>
+            <p>Start a valid job with the least effort possible.</p>
+          </header>
+          <ol>
+            <li>Paste one source URL.</li>
+            <li>Confirm quality preset.</li>
+            <li>Submit and track job state.</li>
+          </ol>
+          <button class="cta">Open Intake Form</button>
+        </article>
+
+        <article class="card" data-secondary>
+          <header>
+            <h3>Signal Snapshot</h3>
+            <p>Non-critical context kept separate.</p>
+          </header>
+          <ul class="checklist">
+            <li><span class="dot ok"></span> Last deployment passed checks</li>
+            <li><span class="dot ok"></span> Telemetry ingest stable</li>
+            <li><span class="dot warn"></span> 2 jobs waiting manual retry</li>
+          </ul>
+        </article>
+      </section>
+    </section>
+
+    <section id="jobs" class="page">
+      <article class="card reveal">
+        <header class="section-head">
+          <div>
+            <p class="eyebrow">Jobs</p>
+            <h2>Queue Management</h2>
+          </div>
+          <button class="ghost">Bulk Resolve</button>
+        </header>
+
+        <div class="job-list">
+          <article class="job-row">
+            <div>
+              <h4>Campaign Recap Cut</h4>
+              <p>Owner: @analee | Status: Running</p>
+            </div>
+            <div class="progress" aria-label="72 percent"><span style="--width:72%"></span></div>
+            <button class="cta small">View</button>
+          </article>
+
+          <article class="job-row">
+            <div>
+              <h4>Creator Storyboard</h4>
+              <p>Owner: @dionjam | Status: Ready</p>
+            </div>
+            <div class="progress" aria-label="100 percent"><span style="--width:100%"></span></div>
+            <button class="cta small">Download</button>
+          </article>
+
+          <article class="job-row" data-secondary>
+            <div>
+              <h4>Weekly Promo Sequence</h4>
+              <p>Owner: @kay-lab | Status: Retry Needed</p>
+            </div>
+            <div class="progress" aria-label="34 percent"><span style="--width:34%"></span></div>
+            <button class="danger small">Retry</button>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section id="contacts" class="page">
+      <article class="card reveal">
+        <header class="section-head">
+          <div>
+            <p class="eyebrow">Contacts</p>
+            <h2>Creator Profiles</h2>
+          </div>
+          <button class="ghost">New Contact</button>
+        </header>
+
+        <div class="contact-grid">
+          <button class="contact-card">
+            <span class="avatar">AL</span>
+            <strong>Ana Lee</strong>
+            <small>12 completed jobs</small>
+            <span class="inline-link">Open Profile</span>
+          </button>
+          <button class="contact-card">
+            <span class="avatar">DJ</span>
+            <strong>Dion James</strong>
+            <small>8 completed jobs</small>
+            <span class="inline-link">Open Profile</span>
+          </button>
+          <button class="contact-card" data-secondary>
+            <span class="avatar">KM</span>
+            <strong>Kay Moore</strong>
+            <small>5 completed jobs</small>
+            <span class="inline-link">Open Profile</span>
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <section id="activity" class="page">
+      <article class="card reveal">
+        <header class="section-head">
+          <div>
+            <p class="eyebrow">Activity</p>
+            <h2>Telemetry Feed</h2>
+          </div>
+          <div class="filters" data-secondary>
+            <button class="chip tiny is-active">All</button>
+            <button class="chip tiny">Warnings</button>
+            <button class="chip tiny">Errors</button>
+          </div>
+        </header>
+
+        <ul class="timeline">
+          <li><span>10:44:10</span> request.accepted trace=8a33</li>
+          <li><span>10:44:11</span> extraction.started source=x.com</li>
+          <li><span>10:44:22</span> media.download.complete quality=1080p</li>
+          <li data-secondary><span>10:44:24</span> artifact.persisted path=/downloads/clip.mp4</li>
+        </ul>
+
+        <button class="cta">Open Full Activity</button>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

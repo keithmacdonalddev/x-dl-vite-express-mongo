@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>x-dl Premium Prototype Pack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --ink: #14263a;
+      --muted: #5b6f83;
+      --line: #ced8e4;
+      --card: #ffffff;
+      --radius: 18px;
+      --ease: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% -5%, #d9e8ff, #f4f7fb 56%), var(--bg);
+      padding: 22px;
+    }
+
+    .wrap {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero,
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: clamp(18px, 2.3vw, 28px);
+    }
+
+    .hero h1,
+    .hero p,
+    .card h2,
+    .card p { margin: 0; }
+
+    .hero {
+      display: grid;
+      gap: 10px;
+      box-shadow: 0 16px 42px rgba(15, 42, 69, 0.12);
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin: 0;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.9rem, 4vw, 3rem);
+      line-height: 1.05;
+      max-width: 22ch;
+    }
+
+    .hero p {
+      color: var(--muted);
+      max-width: 70ch;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      display: grid;
+      gap: 10px;
+      transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease);
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: #9eb6cf;
+      box-shadow: 0 10px 20px rgba(17, 43, 71, 0.1);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .card ul {
+      margin: 0;
+      padding-left: 16px;
+      color: var(--muted);
+      display: grid;
+      gap: 5px;
+    }
+
+    .actions {
+      margin-top: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+      transition: transform 170ms var(--ease), box-shadow 170ms var(--ease), border-color 170ms var(--ease);
+    }
+
+    .btn.primary {
+      background: linear-gradient(120deg, #1789ff, #04b1d6);
+      color: white;
+    }
+
+    .btn.secondary {
+      background: #f6faff;
+      border-color: var(--line);
+      color: #23415f;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 15px rgba(24, 92, 153, 0.18);
+    }
+
+    @media (max-width: 920px) {
+      body { padding: 12px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <p class="eyebrow">x-dl Design Sprint</p>
+      <h1>Premium Prototype Pack: Command, Sanctuary, and Pulse</h1>
+      <p>
+        Three production-candidate directions. Each is intentionally different in emotional first impression,
+        cognitive-load strategy, and microinteraction language.
+      </p>
+    </header>
+
+    <section class="grid" aria-label="Prototype chooser">
+      <article class="card">
+        <span class="tag">Prototype 1: Confidence</span>
+        <h2>Command</h2>
+        <p>High-trust operational interface with strict hierarchy and fast, tactical interaction feedback.</p>
+        <ul>
+          <li>Primary feeling: confidence in control</li>
+          <li>Cognitive strategy: progressive disclosure by density mode</li>
+          <li>Special feature: Clarity Mode (Essential/Standard/Expert)</li>
+        </ul>
+        <div class="actions">
+          <a class="btn primary" href="prototype-1-command/index.html">Open Prototype</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <span class="tag">Prototype 2: Calm</span>
+        <h2>Sanctuary</h2>
+        <p>Editorial, spacious design focused on guided completion and low-friction decision making.</p>
+        <ul>
+          <li>Primary feeling: calm clarity</li>
+          <li>Cognitive strategy: one-goal workflow framing</li>
+          <li>Special feature: Focus Session guided mode</li>
+        </ul>
+        <div class="actions">
+          <a class="btn primary" href="prototype-2-sanctuary/index.html">Open Prototype</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <span class="tag">Prototype 3: Excitement</span>
+        <h2>Pulse</h2>
+        <p>Kinetic, high-energy direction that preserves clarity while amplifying system momentum.</p>
+        <ul>
+          <li>Primary feeling: crafted momentum</li>
+          <li>Cognitive strategy: strict action hierarchy in energetic shell</li>
+          <li>Special feature: Momentum Replay interaction audit</li>
+        </ul>
+        <div class="actions">
+          <a class="btn primary" href="prototype-3-pulse/index.html">Open Prototype</a>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

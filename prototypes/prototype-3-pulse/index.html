@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 3 | Pulse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="matrix" aria-hidden="true"></div>
+
+  <header class="mast panel reveal">
+    <p class="eyebrow">Prototype 3</p>
+    <h1>Pulse</h1>
+    <p class="sub">First 50ms feeling: excitement with control.</p>
+
+    <nav class="tabs" aria-label="Primary">
+      <button class="tab is-active" data-screen="launch">Launch</button>
+      <button class="tab" data-screen="queue">Queue</button>
+      <button class="tab" data-screen="profiles">Profiles</button>
+      <button class="tab" data-screen="trace">Trace</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section id="launch" class="screen is-active reveal">
+      <article class="panel hero">
+        <p class="eyebrow">Primary Goal</p>
+        <h2>Launch one new job right now.</h2>
+        <p>High energy, low confusion: one field, one action, immediate response.</p>
+
+        <div class="launch-row">
+          <label for="pulse-url" class="sr-only">Source URL</label>
+          <input id="pulse-url" type="url" placeholder="Paste source URL" />
+          <button class="action magnetic action-log">Launch Job</button>
+        </div>
+      </article>
+
+      <article class="panel stats" data-secondary>
+        <div><strong>18</strong><span>Jobs Today</span></div>
+        <div><strong>4</strong><span>In Progress</span></div>
+        <div><strong>97%</strong><span>Pass Rate</span></div>
+      </article>
+    </section>
+
+    <section id="queue" class="screen reveal">
+      <article class="panel">
+        <header class="head">
+          <h2>Queue Radar</h2>
+          <button class="ghost magnetic action-log">Prioritize</button>
+        </header>
+
+        <div class="cards">
+          <article class="item">
+            <h3>Creator Loop 6</h3>
+            <p>Running</p>
+            <div class="bar"><span style="--w:68%"></span></div>
+            <button class="action small action-log">Monitor</button>
+          </article>
+          <article class="item">
+            <h3>Campaign Hook</h3>
+            <p>Ready</p>
+            <div class="bar"><span style="--w:100%"></span></div>
+            <button class="action small action-log">Download</button>
+          </article>
+          <article class="item" data-secondary>
+            <h3>Weekly Recut</h3>
+            <p>Retry Needed</p>
+            <div class="bar"><span style="--w:30%"></span></div>
+            <button class="warn small action-log">Retry</button>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section id="profiles" class="screen reveal">
+      <article class="panel">
+        <header class="head">
+          <h2>Creator Profiles</h2>
+          <button class="ghost magnetic action-log">Sort By Output</button>
+        </header>
+
+        <div class="profile-grid">
+          <button class="profile action-log">Ana M · 44 assets</button>
+          <button class="profile action-log">Dion R · 28 assets</button>
+          <button class="profile action-log" data-secondary>Kay J · 17 assets</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="trace" class="screen reveal">
+      <article class="panel">
+        <header class="head">
+          <h2>Trace Stream</h2>
+          <button class="ghost magnetic action-log">Filter Errors</button>
+        </header>
+
+        <ul class="trace-list">
+          <li><span>11:08:12</span> request.accepted id=7391</li>
+          <li><span>11:08:13</span> extract.goto source=tiktok</li>
+          <li><span>11:08:20</span> download.complete quality=best</li>
+          <li data-secondary><span>11:08:21</span> output.persisted /downloads/7391.mp4</li>
+        </ul>
+
+        <button class="action action-log">Open Full Trace</button>
+      </article>
+    </section>
+  </main>
+
+  <aside class="panel replay reveal">
+    <p class="eyebrow">Special Feature</p>
+    <h2>Momentum Replay</h2>
+    <p>Capture key interactions and replay them in sequence to evaluate flow quality.</p>
+
+    <div class="replay-controls">
+      <button id="replay-run" class="action magnetic">Replay Interactions</button>
+      <button id="replay-clear" class="ghost">Clear</button>
+    </div>
+
+    <ol id="replay-log" class="replay-log"></ol>
+  </aside>
+
+  <div id="pulse-note" class="pulse-note" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

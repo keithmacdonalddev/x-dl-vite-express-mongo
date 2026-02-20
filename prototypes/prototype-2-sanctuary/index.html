@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 2 | Sanctuary</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="paper" aria-hidden="true"></div>
+
+  <div class="layout reveal">
+    <aside class="rail card">
+      <p class="eyebrow">Prototype 2</p>
+      <h1>Sanctuary</h1>
+      <p class="intro">A calm interface that protects user attention and makes next actions obvious.</p>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="nav-btn is-active" data-view="do">Do</button>
+        <button class="nav-btn" data-view="review">Review</button>
+        <button class="nav-btn" data-view="maintain">Maintain</button>
+      </nav>
+
+      <button id="focus-open" class="primary">Start Focus Session</button>
+    </aside>
+
+    <main class="content card">
+      <section id="do" class="view is-active">
+        <header class="head">
+          <p class="eyebrow">First 50ms feeling: calm</p>
+          <h2>One clear action to begin.</h2>
+          <p>Paste a source URL and continue. We intentionally remove secondary choices until needed.</p>
+        </header>
+
+        <article class="surface reveal">
+          <h3>Primary Goal</h3>
+          <div class="form-row">
+            <label class="sr-only" for="calm-url">Source URL</label>
+            <input id="calm-url" type="url" placeholder="https://source.example/..." />
+            <button class="primary">Create Job</button>
+          </div>
+        </article>
+
+        <article class="surface muted reveal" data-secondary>
+          <h3>Context, not clutter</h3>
+          <ul>
+            <li>Queue depth: 4 active</li>
+            <li>Average completion: 39 seconds</li>
+            <li>Last error: 26 minutes ago</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="review" class="view">
+        <header class="head">
+          <h2>Review Queue</h2>
+          <p>Status-first list with one obvious next action per job.</p>
+        </header>
+
+        <div class="list reveal">
+          <article class="list-item">
+            <div>
+              <h4>Creator Interview Clip</h4>
+              <p>Running · next best action: monitor</p>
+            </div>
+            <button class="secondary">Open</button>
+          </article>
+          <article class="list-item">
+            <div>
+              <h4>Promo Story A</h4>
+              <p>Ready · next best action: download</p>
+            </div>
+            <button class="primary">Download</button>
+          </article>
+          <article class="list-item" data-secondary>
+            <div>
+              <h4>Live Segment 13</h4>
+              <p>Retry needed · next best action: retry</p>
+            </div>
+            <button class="warn">Retry</button>
+          </article>
+        </div>
+      </section>
+
+      <section id="maintain" class="view">
+        <header class="head">
+          <h2>Maintain System Confidence</h2>
+          <p>Health visibility without noisy telemetry overload.</p>
+        </header>
+
+        <div class="health-grid reveal">
+          <article class="health-card">
+            <span>API</span>
+            <strong>Healthy</strong>
+            <button class="secondary">Inspect</button>
+          </article>
+          <article class="health-card">
+            <span>Worker</span>
+            <strong>Healthy</strong>
+            <button class="secondary">Inspect</button>
+          </article>
+          <article class="health-card" data-secondary>
+            <span>Telemetry</span>
+            <strong>Stable</strong>
+            <button class="secondary">Inspect</button>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <section id="focus-modal" class="focus-modal" hidden>
+    <article class="focus-card card">
+      <p class="eyebrow">Special Feature</p>
+      <h2>Focus Session</h2>
+      <p id="focus-copy">Pick one objective and move through a guided low-noise sequence.</p>
+
+      <div class="goal-tabs">
+        <button class="goal is-active" data-goal="download">Download One Clip</button>
+        <button class="goal" data-goal="cleanup">Cleanup Old Jobs</button>
+        <button class="goal" data-goal="triage">Triage Errors</button>
+      </div>
+
+      <ol id="focus-steps" class="steps"></ol>
+
+      <div class="focus-actions">
+        <button id="focus-next" class="primary">Complete Next Step</button>
+        <button id="focus-close" class="secondary">Exit</button>
+      </div>
+    </article>
+  </section>
+
+  <div id="note" class="note" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

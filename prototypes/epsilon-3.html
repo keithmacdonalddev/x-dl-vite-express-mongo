@@ -1,0 +1,1592 @@
+<!--
+  Media Vault Prototype
+  Round: epsilon-3
+  Concept: Temporal Timeline — jobs displayed on a living horizontal time axis; width = processing time; status encoded in vertical position across swim lanes
+  Special Feature: Velocity-Aware Transitions — the CSS transition duration for panel opens, job detail expansions, and card animations dynamically adapts to the user's current mouse velocity; fast gestures get snappy 80ms transitions, slow deliberate movements get lush 400ms eases; implemented via mousemove velocity tracking
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Velocity-Aware Transitions — mouse velocity is sampled every 50ms; panels, tooltips, and interactive elements inherit a transition duration derived from movement speed: fast = 80ms snap, slow = 380ms spring; the entire interface breathes at the pace of the user -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Epsilon 3</title>
+<style>
+  :root {
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+    --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --spring-exit: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --spring-snap: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --status-complete: hsl(145, 45%, 52%);
+    --status-failed: hsl(0, 48%, 52%);
+    --status-running: hsl(210, 50%, 58%);
+    --status-queued: hsl(30, 15%, 52%);
+    --status-canceled: hsl(220, 20%, 45%);
+
+    --accent: hsl(218, 65%, 58%);
+    --accent-rgb: 70, 143, 212;
+
+    --bg: #060a11;
+    --bg-surface: #0c1220;
+    --text-hi: #ddeafc;
+    --text-mid: #8898b8;
+    --text-lo: #a8b8cc;
+
+    /* velocity-aware transition — overridden by JS */
+    --vel-dur: 220ms;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-hi);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 10% 90%, rgba(18,38,78,0.5) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 90% 10%, rgba(14,30,65,0.4) 0%, transparent 50%),
+      radial-gradient(ellipse 30% 30% at 50% 50%, rgba(8,18,45,0.6) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     VELOCITY CURSOR HINT (visual feedback)
+  ============================================================ */
+  .vel-indicator {
+    position: fixed;
+    top: 14px;
+    right: 50%;
+    transform: translateX(50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: var(--radius-xl);
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.07);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    letter-spacing: 0.02em;
+  }
+
+  .vel-indicator.visible { opacity: 1; }
+
+  .vel-bar {
+    width: 60px; height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+
+  .vel-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, hsl(210,50%,50%), hsl(0,50%,55%));
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  /* ============================================================
+     HEADER
+  ============================================================ */
+  .header {
+    display: flex;
+    align-items: stretch;
+    height: 52px;
+    position: relative;
+    z-index: 100;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    opacity: 0;
+    animation: fadeDown 0.4s var(--spring-exit) 80ms forwards;
+  }
+
+  .h-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+    width: 220px;
+  }
+
+  .brand-icon {
+    width: 28px; height: 28px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, hsl(218,65%,38%), hsl(238,52%,28%));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .brand-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-hi);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .h-center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+  }
+
+  .h-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    letter-spacing: 0.02em;
+  }
+
+  .h-stat strong {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-hi);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .h-divider {
+    width: 1px; height: 20px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .h-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border-left: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: transform var(--vel-dur) var(--spring-exit), box-shadow var(--vel-dur) ease;
+  }
+
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .btn:active { transform: scale(0.97) translateY(0); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.03);
+    color: var(--text-mid);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.09);
+  }
+
+  .btn-accent {
+    background: linear-gradient(135deg, hsl(218,60%,42%), hsl(238,50%,34%));
+    color: #fff;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.09);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ============================================================
+     LAYOUT
+  ============================================================ */
+  .workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     LEFT COLUMN — Intake + Contacts + Settings
+  ============================================================ */
+  .left-col {
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.015);
+    backdrop-filter: blur(20px) saturate(120%);
+    flex-shrink: 0;
+    overflow: hidden;
+    opacity: 0;
+    animation: slideInLeft 0.5s var(--spring-exit) 320ms forwards;
+  }
+
+  /* Intake */
+  .intake-section {
+    padding: 14px 14px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    margin-bottom: 10px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .intake-card {
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.055);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    border-left: 1px solid rgba(255,255,255,0.07);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    box-shadow: var(--shadow-md), 0 0 20px rgba(70,143,212,0.04);
+    animation: intake-breathe 3s ease-in-out infinite;
+    transition: transform var(--vel-dur) var(--spring-exit), box-shadow var(--vel-dur) ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .intake-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.07) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .intake-card:focus-within {
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 40px rgba(70,143,212,0.15),
+      0 0 80px rgba(70,143,212,0.08),
+      var(--shadow-xl);
+    animation: none;
+  }
+
+  @keyframes intake-breathe {
+    0%, 100% { box-shadow: var(--shadow-md), 0 0 20px rgba(70,143,212,0.04); }
+    50% { box-shadow: var(--shadow-md), 0 0 32px rgba(70,143,212,0.1); }
+  }
+
+  .intake-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .intake-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-hi);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    min-width: 0;
+  }
+
+  .intake-input::placeholder { color: #2e3e58; }
+
+  .intake-platform {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    transform: scale(0.7);
+    opacity: 0;
+    transition: transform var(--vel-dur) var(--spring-enter), opacity 0.2s ease;
+  }
+
+  .intake-platform.show { transform: scale(1); opacity: 1; }
+
+  .intake-platform.x { background: rgba(255,255,255,0.07); color: #b8ccec; border-top:1px solid rgba(255,255,255,0.09); border-left:1px solid rgba(255,255,255,0.05); border-right:1px solid rgba(0,0,0,0.06); border-bottom:1px solid rgba(0,0,0,0.09); }
+  .intake-platform.tt { background: rgba(255,40,80,0.1); color: #ffaabe; border-top:1px solid rgba(255,70,100,0.12); border-left:1px solid rgba(255,70,100,0.07); border-right:1px solid rgba(0,0,0,0.06); border-bottom:1px solid rgba(0,0,0,0.09); }
+
+  .intake-actions {
+    display: flex;
+    gap: 6px;
+    padding: 0 12px 10px;
+    position: relative;
+    z-index: 1;
+    justify-content: flex-end;
+  }
+
+  .intake-submit {
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, hsl(218,60%,42%), hsl(238,50%,34%));
+    color: #fff;
+    border: none;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-top: 1px solid rgba(255,255,255,0.13);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.13);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--vel-dur) ease, box-shadow var(--vel-dur) ease;
+  }
+
+  .intake-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .intake-submit:active { transform: scale(0.97) translateY(0); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .intake-submit.success { background: linear-gradient(135deg, hsl(145,40%,35%), hsl(160,38%,28%)); }
+
+  /* Hero counter */
+  .hero-block {
+    padding: 18px 14px 14px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .hero-num {
+    font-size: 4.5rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: #ddeafc;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .hero-lbl {
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    letter-spacing: 0.02em;
+    margin-top: 3px;
+  }
+
+  /* Contact list */
+  .contacts-section {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 10px 10px;
+  }
+
+  .contacts-section::-webkit-scrollbar { display: none; }
+
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--vel-dur) ease;
+  }
+
+  .contact-item:hover { background: rgba(255,255,255,0.04); }
+
+  .contact-avatar {
+    width: 28px; height: 28px;
+    border-radius: var(--radius-xs);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-hi);
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.11);
+    border-left: 1px solid rgba(255,255,255,0.07);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  .contact-info { flex: 1; min-width: 0; }
+
+  .contact-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #b8ccec;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+  }
+
+  .contact-meta {
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Settings */
+  .settings-block {
+    padding: 10px 12px 14px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 6px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--vel-dur) ease;
+    margin-bottom: 2px;
+  }
+
+  .setting-row:hover { background: rgba(255,255,255,0.03); }
+
+  .setting-lbl {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-lo);
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .toggle {
+    width: 30px; height: 17px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.07);
+    cursor: pointer;
+    position: relative;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.07);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    transition: background 0.2s var(--spring-snap);
+  }
+
+  .toggle.on { background: hsl(218,55%,34%); }
+
+  .t-thumb {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px; left: 2px;
+    transition: transform 0.2s var(--spring-snap);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .toggle.on .t-thumb { transform: translateX(13px); }
+
+  /* ============================================================
+     TIMELINE (center + right)
+  ============================================================ */
+  .timeline-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeIn 0.5s var(--spring-exit) 180ms forwards;
+  }
+
+  /* Time ruler */
+  .time-ruler {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(12px) saturate(140%);
+  }
+
+  .ruler-ticks {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: relative;
+    height: 100%;
+  }
+
+  .ruler-tick {
+    flex: 1;
+    height: 100%;
+    border-left: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    padding-left: 6px;
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .now-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1.5px;
+    background: linear-gradient(180deg, var(--status-running), transparent);
+    opacity: 0.6;
+    pointer-events: none;
+    transition: left 1s linear;
+  }
+
+  /* Swimlanes */
+  .swimlanes {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .swimlane {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    position: relative;
+    padding: 0 20px;
+    min-height: 80px;
+    transition: background var(--vel-dur) ease;
+  }
+
+  .swimlane:last-child { border-bottom: none; }
+
+  .swimlane:hover { background: rgba(255,255,255,0.01); }
+
+  .lane-label {
+    position: absolute;
+    left: 20px;
+    top: 8px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .lane-label.running { color: var(--status-running); }
+  .lane-label.queued { color: var(--status-queued); }
+  .lane-label.completed { color: var(--status-complete); }
+  .lane-label.failed { color: var(--status-failed); }
+
+  /* Swimlane track */
+  .lane-track {
+    width: 100%;
+    position: relative;
+    height: 44px;
+    margin-top: 18px;
+  }
+
+  /* Job bar */
+  .job-bar {
+    position: absolute;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    transition:
+      transform var(--vel-dur) var(--spring-enter),
+      box-shadow var(--vel-dur) ease,
+      opacity var(--vel-dur) ease;
+    transform-origin: left center;
+    overflow: hidden;
+    min-width: 50px;
+  }
+
+  .job-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.09) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .job-bar:hover {
+    transform: scaleY(1.06);
+    z-index: 10;
+  }
+
+  .job-bar.selected {
+    transform: scaleY(1.1);
+    z-index: 11;
+  }
+
+  .job-bar.running {
+    background: rgba(40,90,155,0.35);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.09);
+    border-right: 1px solid rgba(0,0,0,0.09);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+    box-shadow: 0 0 0 1.5px rgba(70,143,212,0.3), var(--shadow-md);
+  }
+
+  .job-bar.queued {
+    background: rgba(100,82,52,0.3);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    box-shadow: 0 0 0 1.5px rgba(140,110,75,0.25), var(--shadow-sm);
+  }
+
+  .job-bar.completed {
+    background: rgba(45,110,65,0.3);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    box-shadow: 0 0 0 1.5px rgba(75,150,90,0.25), var(--shadow-sm);
+  }
+
+  .job-bar.failed {
+    background: rgba(120,45,45,0.3);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.09);
+    border-left: 1px solid rgba(255,255,255,0.05);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    box-shadow: 0 0 0 1.5px rgba(165,75,75,0.25), var(--shadow-sm);
+  }
+
+  /* Running bar has progress fill */
+  .job-bar-progress {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(70,143,212,0.18), rgba(70,143,212,0.05));
+    transition: width 0.8s ease;
+    z-index: 0;
+  }
+
+  .job-bar-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    overflow: hidden;
+  }
+
+  .job-bar-icon { font-size: 13px; flex-shrink: 0; opacity: 0.8; }
+
+  .job-bar-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-hi);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  .job-bar-pct {
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    letter-spacing: 0.01em;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* ============================================================
+     DETAIL DRAWER (slides in from right)
+  ============================================================ */
+  .detail-drawer {
+    position: fixed;
+    top: 52px;
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    z-index: 150;
+    background: rgba(10,16,28,0.92);
+    backdrop-filter: blur(12px) saturate(140%);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--vel-dur) var(--spring-exit);
+    overflow: hidden;
+  }
+
+  .detail-drawer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 5%, rgba(70,143,212,0.04) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .detail-drawer.open {
+    transform: translateX(0);
+  }
+
+  .drawer-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .drawer-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 24px; height: 24px;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-mid);
+    transition: background var(--vel-dur) ease;
+  }
+
+  .drawer-close:hover { background: rgba(255,255,255,0.09); }
+
+  .drawer-platform {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    margin-bottom: 5px;
+  }
+
+  .drawer-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--text-hi);
+    word-break: break-all;
+    margin-bottom: 10px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    padding-right: 30px;
+  }
+
+  .drawer-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    scrollbar-width: none;
+  }
+
+  .drawer-scroll::-webkit-scrollbar { display: none; }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .meta-cell {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.03);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.09);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .meta-cell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.04) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .meta-cell-lbl {
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    letter-spacing: 0.02em;
+    margin-bottom: 3px;
+  }
+
+  .meta-cell-val {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c0d4f0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin-bottom: 14px;
+  }
+
+  .status-pill.running { background:rgba(70,143,212,0.15); color:var(--status-running); border-top:1px solid rgba(70,143,212,0.18); border-left:1px solid rgba(70,143,212,0.11); border-right:1px solid rgba(0,0,0,0.05); border-bottom:1px solid rgba(0,0,0,0.08); }
+  .status-pill.completed { background:rgba(75,150,90,0.14); color:var(--status-complete); border-top:1px solid rgba(75,150,90,0.18); border-left:1px solid rgba(75,150,90,0.11); border-right:1px solid rgba(0,0,0,0.05); border-bottom:1px solid rgba(0,0,0,0.08); }
+  .status-pill.queued { background:rgba(130,108,78,0.14); color:var(--status-queued); border-top:1px solid rgba(130,108,78,0.18); border-left:1px solid rgba(130,108,78,0.11); border-right:1px solid rgba(0,0,0,0.05); border-bottom:1px solid rgba(0,0,0,0.08); }
+  .status-pill.failed { background:rgba(165,75,75,0.14); color:var(--status-failed); border-top:1px solid rgba(165,75,75,0.18); border-left:1px solid rgba(165,75,75,0.11); border-right:1px solid rgba(0,0,0,0.05); border-bottom:1px solid rgba(0,0,0,0.08); }
+
+  .drawer-prog-section { margin-bottom: 16px; }
+
+  .drawer-prog-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-mid);
+    margin-bottom: 6px;
+  }
+
+  .prog-track {
+    height: 4px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .prog-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, hsl(210,50%,48%), hsl(230,55%,62%));
+    transition: width 0.7s ease;
+  }
+
+  .drawer-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .drawer-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    margin: 10px 0 14px;
+  }
+
+  /* Activity log in drawer */
+  .drawer-log-head {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--status-running);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .log-row {
+    display: flex;
+    gap: 7px;
+    align-items: flex-start;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    opacity: 0;
+    animation: logFade 0.3s var(--spring-exit) forwards;
+  }
+
+  @keyframes logFade {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .log-lvl {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    flex-shrink: 0;
+    margin-top: 1px;
+    letter-spacing: 0.01em;
+  }
+
+  .l-info { background:rgba(70,143,212,0.14); color:hsl(210,55%,70%); }
+  .l-warn { background:rgba(190,145,55,0.14); color:hsl(38,50%,68%); }
+  .l-error { background:rgba(165,75,75,0.14); color:hsl(0,50%,68%); }
+
+  .log-txt { flex:1; color:var(--text-mid); letter-spacing:0em; }
+
+  .log-ts {
+    font-size: 0.6875rem;
+    color: var(--text-mid);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    margin-top: 1px;
+  }
+
+  /* ============================================================
+     ANIMATIONS
+  ============================================================ */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideInLeft { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes barEnter {
+    from { opacity: 0; transform: scaleX(0); }
+    to { opacity: 1; transform: scaleX(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- VELOCITY INDICATOR -->
+<div class="vel-indicator" id="vel-indicator">
+  <span>Velocity</span>
+  <div class="vel-bar"><div class="vel-fill" id="vel-fill"></div></div>
+  <span id="vel-label">—</span>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="h-brand">
+    <div class="brand-icon">⬡</div>
+    <span class="brand-name">Media Vault</span>
+  </div>
+  <div class="h-center">
+    <div class="h-stat"><strong id="stat-total">7</strong> total</div>
+    <div class="h-divider"></div>
+    <div class="h-stat"><strong id="stat-done" style="color:var(--status-complete)">3</strong> done</div>
+    <div class="h-divider"></div>
+    <div class="h-stat"><strong id="stat-run" style="color:var(--status-running)">1</strong> active</div>
+    <div class="h-divider"></div>
+    <div class="h-stat"><strong id="stat-que" style="color:var(--status-queued)">2</strong> queued</div>
+  </div>
+  <div class="h-right">
+    <button class="btn btn-ghost" id="expand-all">Expand all</button>
+  </div>
+</header>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- LEFT COLUMN -->
+  <div class="left-col">
+    <!-- Intake -->
+    <div class="intake-section">
+      <div class="section-label">New Download</div>
+      <div class="intake-card" id="intake-card">
+        <div class="intake-field">
+          <input class="intake-input" id="intake-input" type="text"
+                 placeholder="Paste URL…" autocomplete="off">
+          <span class="intake-platform" id="intake-platform"></span>
+        </div>
+        <div class="intake-actions">
+          <button class="intake-submit" id="intake-submit">Download</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero number -->
+    <div class="hero-block">
+      <div class="hero-num" id="hero-num">7</div>
+      <div class="hero-lbl">downloads total</div>
+    </div>
+
+    <!-- Contacts -->
+    <div class="contacts-section" id="contacts-section">
+      <div class="section-label" style="padding-bottom:6px">Contacts</div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-block">
+      <div class="section-label" style="margin-bottom:8px">Platforms</div>
+      <div class="setting-row">
+        <span class="setting-lbl"><span>✕</span> X (Twitter)</span>
+        <div class="toggle on" id="tog-x"><div class="t-thumb"></div></div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl"><span>♪</span> TikTok</span>
+        <div class="toggle on" id="tog-tt"><div class="t-thumb"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE AREA -->
+  <div class="timeline-area" id="timeline-area">
+    <!-- Time ruler -->
+    <div class="time-ruler" id="time-ruler">
+      <div class="ruler-ticks" id="ruler-ticks"></div>
+      <div class="now-line" id="now-line"></div>
+    </div>
+
+    <!-- Swimlanes -->
+    <div class="swimlanes" id="swimlanes"></div>
+  </div>
+</div>
+
+<!-- DETAIL DRAWER -->
+<div class="detail-drawer" id="detail-drawer">
+  <div class="drawer-header">
+    <div class="drawer-close" id="drawer-close">✕</div>
+    <div id="drawer-inner"></div>
+  </div>
+  <div class="drawer-scroll" id="drawer-scroll"></div>
+</div>
+
+<script>
+// ============================================================
+// VELOCITY-AWARE TRANSITION SYSTEM — Special Feature
+// ============================================================
+let lastX = 0, lastY = 0, lastT = 0;
+let velocity = 0;
+let velTimer = null;
+const velIndicator = document.getElementById('vel-indicator');
+const velFill = document.getElementById('vel-fill');
+const velLabel = document.getElementById('vel-label');
+
+document.addEventListener('mousemove', e => {
+  const now = performance.now();
+  const dt = now - lastT;
+  if (dt > 0) {
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    velocity = dist / dt; // px/ms
+
+    // Map velocity to transition duration: fast = 80ms, slow = 380ms
+    const rawDur = Math.round(Math.max(80, Math.min(380, 380 - velocity * 300)));
+    document.documentElement.style.setProperty('--vel-dur', rawDur + 'ms');
+
+    // Show velocity indicator
+    const pct = Math.min(100, (velocity / 1.2) * 100);
+    velFill.style.width = pct + '%';
+    velLabel.textContent = rawDur + 'ms';
+    velIndicator.classList.add('visible');
+
+    clearTimeout(velTimer);
+    velTimer = setTimeout(() => {
+      velIndicator.classList.remove('visible');
+      velocity = 0;
+    }, 800);
+  }
+  lastX = e.clientX;
+  lastY = e.clientY;
+  lastT = now;
+});
+
+// ============================================================
+// DATA
+// ============================================================
+let jobs = [
+  { id:'j1', platform:'x',       creator:'@elonmusk',     slug:'elonmusk',     url:'x.com/elonmusk/status/1234567890',      status:'completed', size:'48.2 MB', duration:'2:14', progress:100, startOffset:0,   width:180, age:'3m ago'  },
+  { id:'j2', platform:'tiktok',  creator:'@charlidamelio', slug:'charlidamelio', url:'tiktok.com/@charli.../video/12345',      status:'running',   size:'—',       duration:'0:58', progress:62,  startOffset:0,   width:260, age:'1m ago'  },
+  { id:'j3', platform:'x',       creator:'@mkbhd',        slug:'mkbhd',        url:'x.com/MKBHD/status/9876543210',         status:'completed', size:'112 MB',  duration:'4:31', progress:100, startOffset:200, width:320, age:'8m ago'  },
+  { id:'j4', platform:'tiktok',  creator:'@khaby.lame',   slug:'khaby-lame',   url:'tiktok.com/@khaby.../video/99999',      status:'queued',    size:'—',       duration:'—',    progress:0,   startOffset:80,  width:140, age:'30s ago' },
+  { id:'j5', platform:'x',       creator:'@naval',        slug:'naval',        url:'x.com/naval/status/1122334455',         status:'failed',    size:'—',       duration:'—',    progress:0,   startOffset:150, width:160, age:'15m ago' },
+  { id:'j6', platform:'tiktok',  creator:'@charlidamelio', slug:'charlidamelio', url:'tiktok.com/@charli.../video/54321',     status:'completed', size:'22.8 MB', duration:'0:44', progress:100, startOffset:380, width:120, age:'22m ago' },
+  { id:'j7', platform:'x',       creator:'@mkbhd',        slug:'mkbhd',        url:'x.com/MKBHD/status/5544332211',         status:'queued',    size:'—',       duration:'—',    progress:0,   startOffset:320, width:140, age:'10s ago' },
+];
+
+const CONTACTS = [
+  { slug:'mkbhd',        name:'@mkbhd',         platform:'x',      color:'#0d2540', i:'MK' },
+  { slug:'charlidamelio', name:'@charlidamelio', platform:'tiktok', color:'#2a0d20', i:'CD' },
+  { slug:'elonmusk',     name:'@elonmusk',      platform:'x',      color:'#0d1f36', i:'EM' },
+  { slug:'khaby-lame',   name:'@khaby.lame',    platform:'tiktok', color:'#1a0d30', i:'KL' },
+  { slug:'naval',        name:'@naval',         platform:'x',      color:'#0d1c30', i:'NV' },
+];
+
+const ACTIVITY = [
+  { level:'info',  msg:'Job j2 — ffmpeg encoding 14 segments' },
+  { level:'info',  msg:'Playwright context healthy — 1 page active' },
+  { level:'warn',  msg:'x.com rate limiting — 2s backoff' },
+  { level:'info',  msg:'Job j4 — worker claimed, running' },
+  { level:'error', msg:'Job j5 — 403 Forbidden on media URL' },
+  { level:'info',  msg:'Download complete — 112 MB in 8.4s' },
+  { level:'info',  msg:'Queue poll — 2 jobs pending' },
+  { level:'warn',  msg:'TikTok CDN latency elevated' },
+  { level:'info',  msg:'Job j2 — progress 78%, ETA 14s' },
+  { level:'info',  msg:'MongoDB write acknowledged' },
+  { level:'info',  msg:'Thumbnail written for job j3' },
+  { level:'info',  msg:'Atlas cluster healthy — 12ms ping' },
+];
+
+let actLog = [];
+let actIdx = 0;
+let selectedId = null;
+const drawerEl = document.getElementById('detail-drawer');
+
+// ============================================================
+// HELPERS
+// ============================================================
+const statusLabel = s => ({completed:'Completed',running:'Running',queued:'Queued',failed:'Failed',canceled:'Canceled'}[s]||s);
+const statusColor = s => ({completed:'var(--status-complete)',running:'var(--status-running)',queued:'var(--status-queued)',failed:'var(--status-failed)',canceled:'var(--status-canceled)'}[s]||'#888');
+const platformIcon = p => p === 'x' ? '✕' : '♪';
+function tsNow() {
+  const n = new Date();
+  return `${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}:${n.getSeconds().toString().padStart(2,'0')}`;
+}
+
+// ============================================================
+// HEADER STATS
+// ============================================================
+function updateStats() {
+  document.getElementById('stat-total').textContent = jobs.length;
+  document.getElementById('stat-done').textContent = jobs.filter(j => j.status==='completed').length;
+  document.getElementById('stat-run').textContent = jobs.filter(j => j.status==='running').length;
+  document.getElementById('stat-que').textContent = jobs.filter(j => j.status==='queued').length;
+  document.getElementById('hero-num').textContent = jobs.length;
+}
+
+// ============================================================
+// RULER
+// ============================================================
+function buildRuler() {
+  const ruler = document.getElementById('ruler-ticks');
+  ruler.innerHTML = '';
+  const now = new Date();
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(now.getTime() - (7-i)*5*60000);
+    const tick = document.createElement('div');
+    tick.className = 'ruler-tick';
+    tick.textContent = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+    ruler.appendChild(tick);
+  }
+  // Now-line at 87%
+  document.getElementById('now-line').style.left = '87%';
+}
+
+// ============================================================
+// SWIMLANES & JOB BARS
+// ============================================================
+const LANES = [
+  { key:'running',   label:'Active',    statusClass:'running' },
+  { key:'queued',    label:'Queued',    statusClass:'queued' },
+  { key:'completed', label:'Completed', statusClass:'completed' },
+  { key:'failed',    label:'Failed',    statusClass:'failed' },
+];
+
+function buildTimeline() {
+  const container = document.getElementById('swimlanes');
+  container.innerHTML = '';
+
+  // Max timeline width (we use full lane width)
+  const laneW = container.offsetWidth || 800;
+
+  LANES.forEach(lane => {
+    const laneJobs = jobs.filter(j => j.status === lane.key);
+    if (laneJobs.length === 0 && lane.key !== 'running') return;
+
+    const swimlane = document.createElement('div');
+    swimlane.className = 'swimlane';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = `lane-label ${lane.statusClass}`;
+    labelEl.textContent = lane.label;
+    swimlane.appendChild(labelEl);
+
+    const track = document.createElement('div');
+    track.className = 'lane-track';
+
+    const scaleW = laneW - 40; // padding
+
+    laneJobs.forEach((job, i) => {
+      const bar = document.createElement('div');
+      bar.className = `job-bar ${job.status}` + (job.id === selectedId ? ' selected' : '');
+      bar.dataset.jobId = job.id;
+
+      // Normalize position
+      const maxOff = 400;
+      const left = Math.round((job.startOffset / maxOff) * scaleW * 0.7);
+      const w = Math.max(60, Math.round((job.width / maxOff) * scaleW * 0.7));
+
+      bar.style.left = left + 'px';
+      bar.style.width = w + 'px';
+      bar.style.animationDelay = Math.max(0, 120 - i * 20) + 'ms';
+      bar.style.animation = `barEnter 0.4s var(--spring-enter) ${Math.max(0, 120 - i * 20)}ms both`;
+      bar.style.transformOrigin = 'left center';
+
+      // Progress overlay for running
+      if (job.status === 'running') {
+        const progEl = document.createElement('div');
+        progEl.className = 'job-bar-progress';
+        progEl.id = `prog-bar-${job.id}`;
+        progEl.style.width = job.progress + '%';
+        bar.appendChild(progEl);
+      }
+
+      bar.innerHTML += `
+        <div class="job-bar-content">
+          <span class="job-bar-icon">${platformIcon(job.platform)}</span>
+          <span class="job-bar-name">${job.creator}</span>
+          ${job.status === 'running' ? `<span class="job-bar-pct" id="pct-${job.id}">${Math.round(job.progress)}%</span>` : ''}
+          ${job.size !== '—' ? `<span class="job-bar-pct">${job.size}</span>` : ''}
+        </div>
+      `;
+
+      bar.addEventListener('click', () => selectJob(job.id));
+      track.appendChild(bar);
+    });
+
+    swimlane.appendChild(track);
+    container.appendChild(swimlane);
+  });
+}
+
+// ============================================================
+// JOB SELECTION + DRAWER
+// ============================================================
+function selectJob(jobId) {
+  selectedId = jobId;
+  document.querySelectorAll('.job-bar').forEach(b => {
+    b.classList.toggle('selected', b.dataset.jobId === jobId);
+  });
+
+  const job = jobs.find(j => j.id === jobId);
+  if (!job) { closeDrawer(); return; }
+
+  // Populate drawer header
+  document.getElementById('drawer-inner').innerHTML = `
+    <div class="drawer-platform">${job.platform === 'x' ? '✕ X (Twitter)' : '♪ TikTok'}</div>
+    <div class="drawer-title">${job.url}</div>
+    <span class="status-pill ${job.status}">${statusLabel(job.status)}</span>
+  `;
+
+  // Populate drawer scroll
+  const progSection = job.status === 'running' ? `
+    <div class="drawer-prog-section">
+      <div class="drawer-prog-label">
+        <span>Progress</span>
+        <span id="drawer-pct">${Math.round(job.progress)}%</span>
+      </div>
+      <div class="prog-track">
+        <div class="prog-fill" id="drawer-prog-fill" style="width:${job.progress}%"></div>
+      </div>
+    </div>
+  ` : '';
+
+  const logHtml = actLog.slice(-5).map(e => `
+    <div class="log-row">
+      <span class="log-lvl l-${e.level}">${e.level.toUpperCase()}</span>
+      <span class="log-txt">${e.msg}</span>
+      <span class="log-ts">${e.time}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('drawer-scroll').innerHTML = `
+    ${progSection}
+    <div class="meta-grid">
+      <div class="meta-cell">
+        <div class="meta-cell-lbl">Creator</div>
+        <div class="meta-cell-val">${job.creator}</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-cell-lbl">Platform</div>
+        <div class="meta-cell-val">${job.platform === 'x' ? 'X' : 'TikTok'}</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-cell-lbl">Size</div>
+        <div class="meta-cell-val">${job.size}</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-cell-lbl">Duration</div>
+        <div class="meta-cell-val">${job.duration}</div>
+      </div>
+    </div>
+    <div class="drawer-actions">
+      ${job.status === 'completed' ? `<button class="btn btn-accent">⬇ Download</button>` : ''}
+      ${job.status === 'failed' ? `<button class="btn btn-ghost">↩ Retry</button>` : ''}
+      ${job.status === 'queued' || job.status === 'running' ? `<button class="btn btn-ghost">✕ Cancel</button>` : ''}
+      <button class="btn btn-ghost" style="margin-left:auto;color:hsl(0,45%,60%)">🗑 Delete</button>
+    </div>
+    <div class="drawer-divider"></div>
+    <div class="drawer-log-head">
+      <span class="live-dot"></span>
+      Activity
+    </div>
+    <div class="log-list" id="drawer-log">${logHtml}</div>
+  `;
+
+  openDrawer();
+}
+
+function openDrawer() {
+  drawerEl.classList.add('open');
+}
+
+function closeDrawer() {
+  drawerEl.classList.remove('open');
+  selectedId = null;
+  document.querySelectorAll('.job-bar').forEach(b => b.classList.remove('selected'));
+}
+
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+
+// ============================================================
+// CONTACTS
+// ============================================================
+function renderContacts() {
+  const sec = document.getElementById('contacts-section');
+  sec.innerHTML = '<div class="section-label" style="padding-bottom:6px">Contacts</div>';
+  CONTACTS.forEach(c => {
+    const jobCount = jobs.filter(j => j.slug === c.slug).length;
+    const div = document.createElement('div');
+    div.className = 'contact-item';
+    div.innerHTML = `
+      <div class="contact-avatar" style="background:${c.color}">${c.i}</div>
+      <div class="contact-info">
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-meta">${jobCount} job${jobCount!==1?'s':''} · ${c.platform === 'x' ? 'X' : 'TikTok'}</div>
+      </div>
+    `;
+    sec.appendChild(div);
+  });
+}
+
+// ============================================================
+// ACTIVITY
+// ============================================================
+function pushActivity() {
+  const e = ACTIVITY[actIdx % ACTIVITY.length];
+  const entry = { ...e, time: tsNow() };
+  actLog.push(entry);
+  actIdx++;
+  if (actLog.length > 40) actLog.shift();
+
+  // Add to drawer log if open
+  const logEl = document.getElementById('drawer-log');
+  if (logEl) {
+    const div = document.createElement('div');
+    div.className = 'log-row';
+    div.innerHTML = `
+      <span class="log-lvl l-${e.level}">${e.level.toUpperCase()}</span>
+      <span class="log-txt">${e.msg}</span>
+      <span class="log-ts">${entry.time}</span>
+    `;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+    while (logEl.children.length > 7) logEl.removeChild(logEl.firstChild);
+  }
+}
+
+// ============================================================
+// SIMULATION
+// ============================================================
+function simulate() {
+  const running = jobs.find(j => j.status === 'running');
+  if (running) {
+    running.progress = Math.min(100, running.progress + Math.random()*7 + 4);
+
+    // Update bar progress overlay
+    const pb = document.getElementById(`prog-bar-${running.id}`);
+    if (pb) pb.style.width = running.progress + '%';
+    const pct = document.getElementById(`pct-${running.id}`);
+    if (pct) pct.textContent = Math.round(running.progress) + '%';
+
+    // Update drawer
+    const dp = document.getElementById('drawer-prog-fill');
+    const dc = document.getElementById('drawer-pct');
+    if (dp && selectedId === running.id) dp.style.width = running.progress + '%';
+    if (dc && selectedId === running.id) dc.textContent = Math.round(running.progress) + '%';
+
+    if (running.progress >= 100) {
+      running.status = 'completed';
+      running.size = (Math.random()*80+20).toFixed(1) + ' MB';
+      running.age = 'just now';
+      updateStats();
+      buildTimeline();
+      if (selectedId === running.id) selectJob(running.id);
+
+      // Advance queued
+      setTimeout(() => {
+        const next = jobs.find(j => j.status === 'queued');
+        if (next) {
+          next.status = 'running';
+          next.progress = 0;
+          updateStats();
+          buildTimeline();
+        }
+      }, 1500);
+    }
+  }
+}
+
+// ============================================================
+// INTAKE
+// ============================================================
+const intakeInput = document.getElementById('intake-input');
+const intakePlatform = document.getElementById('intake-platform');
+const intakeSubmit = document.getElementById('intake-submit');
+const intakeCard = document.getElementById('intake-card');
+
+intakeInput.addEventListener('input', () => {
+  const v = intakeInput.value.toLowerCase();
+  if (v.includes('x.com') || v.includes('twitter.com')) {
+    intakePlatform.textContent = '✕ X';
+    intakePlatform.className = 'intake-platform x show';
+  } else if (v.includes('tiktok.com')) {
+    intakePlatform.textContent = '♪ TikTok';
+    intakePlatform.className = 'intake-platform tt show';
+  } else {
+    intakePlatform.className = 'intake-platform';
+  }
+});
+
+// Magnetic hover
+document.querySelector('.left-col').addEventListener('mousemove', e => {
+  const rect = intakeCard.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const dx = e.clientX - cx;
+  const dy = e.clientY - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxD = 160;
+  if (dist < maxD) {
+    const f = (1 - dist/maxD) * 2.5;
+    intakeCard.style.transform = `translate(${(dx/dist)*f}px, ${(dy/dist)*f}px)`;
+  } else {
+    intakeCard.style.transform = '';
+  }
+});
+
+intakeSubmit.addEventListener('click', () => {
+  const v = intakeInput.value.trim();
+  if (!v) return;
+  const platform = v.includes('tiktok.com') ? 'tiktok' : 'x';
+  const newJob = {
+    id: 'j' + (jobs.length+1),
+    platform, creator: '@new_creator', slug: 'new-creator',
+    url: v, status: 'queued',
+    size:'—', duration:'—', progress:0,
+    startOffset: Math.random()*200, width: 100+Math.random()*100,
+    age:'just now'
+  };
+  jobs.push(newJob);
+
+  intakeSubmit.textContent = '✓ Added!';
+  intakeSubmit.classList.add('success');
+
+  setTimeout(() => {
+    intakeSubmit.textContent = 'Download';
+    intakeSubmit.classList.remove('success');
+    intakeInput.value = '';
+    intakePlatform.className = 'intake-platform';
+    updateStats();
+    buildTimeline();
+    renderContacts();
+  }, 800);
+});
+
+// ============================================================
+// TOGGLES
+// ============================================================
+document.getElementById('tog-x').addEventListener('click', function() { this.classList.toggle('on'); });
+document.getElementById('tog-tt').addEventListener('click', function() { this.classList.toggle('on'); });
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  buildRuler();
+  buildTimeline();
+  renderContacts();
+  updateStats();
+
+  for (let i = 0; i < 4; i++) pushActivity();
+
+  setInterval(simulate, 1100);
+  setInterval(pushActivity, 2600);
+  setInterval(buildRuler, 60000); // Update ruler timestamps
+});
+
+window.addEventListener('resize', () => {
+  buildTimeline();
+});
+</script>
+</body>
+</html>

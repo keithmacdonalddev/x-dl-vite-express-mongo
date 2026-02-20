@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 2 | Calm Focus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="app reveal">
+    <aside class="rail">
+      <p class="mark">Prototype 2</p>
+      <h1>Quiet Console</h1>
+      <p class="rail-copy">Calm by default. One clear action per surface.</p>
+      <nav class="rail-nav" aria-label="Primary">
+        <button class="nav-btn is-active" data-target="today">Today</button>
+        <button class="nav-btn" data-target="library">Library</button>
+        <button class="nav-btn" data-target="creators">Creators</button>
+        <button class="nav-btn" data-target="system">System</button>
+      </nav>
+      <button id="focus-toggle" class="soft-btn">Enter Focus Flow</button>
+    </aside>
+
+    <main class="canvas">
+      <section id="today" class="panel is-active">
+        <header class="panel-head">
+          <p class="eyebrow">First 50ms feeling: calm confidence</p>
+          <h2>Your day, distilled.</h2>
+          <p>One queue, one primary action, no crowded choices.</p>
+        </header>
+
+        <article class="card reveal">
+          <h3>Primary Action</h3>
+          <p>Paste a source URL. We handle extraction, quality, and storage defaults for you.</p>
+          <div class="inline-form">
+            <input type="url" placeholder="https://tiktok.com/..." />
+            <button class="soft-btn">Create job</button>
+          </div>
+        </article>
+
+        <article class="card reveal muted" data-secondary>
+          <h3>Current Signals</h3>
+          <ul>
+            <li>3 jobs running</li>
+            <li>11 jobs completed today</li>
+            <li>0 critical failures</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="library" class="panel">
+        <header class="panel-head">
+          <h2>Job Library</h2>
+          <p>Trimmed rows with only status, owner, and next action.</p>
+        </header>
+        <div class="list reveal">
+          <button class="list-item"><strong>Creator Daily Reel</strong><span>Ready</span></button>
+          <button class="list-item"><strong>Interview Segment</strong><span>Running</span></button>
+          <button class="list-item"><strong>Product Teaser</strong><span>Retry needed</span></button>
+        </div>
+      </section>
+
+      <section id="creators" class="panel">
+        <header class="panel-head">
+          <h2>Creator Profiles</h2>
+          <p>Fewer cards, larger targets, easier scanning.</p>
+        </header>
+        <div class="creator-grid reveal">
+          <article class="creator-card">
+            <span>AN</span>
+            <h4>Ana North</h4>
+            <p>12 assets, last active 4m ago</p>
+          </article>
+          <article class="creator-card">
+            <span>DJ</span>
+            <h4>Dion James</h4>
+            <p>8 assets, last active 11m ago</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="system" class="panel">
+        <header class="panel-head">
+          <h2>System Health</h2>
+          <p>Readable telemetry summary with optional deep details.</p>
+        </header>
+        <article class="card reveal">
+          <div class="health-row">
+            <p>API</p>
+            <strong>Healthy</strong>
+          </div>
+          <div class="health-row">
+            <p>Worker</p>
+            <strong>Healthy</strong>
+          </div>
+          <div class="health-row" data-secondary>
+            <p>Telemetry stream</p>
+            <strong>4.2/sec</strong>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <section id="focus-flow" class="focus-flow" aria-live="polite" hidden>
+    <div class="flow-card">
+      <p class="eyebrow">Special Feature</p>
+      <h2>One-Goal Focus Flow</h2>
+      <p id="flow-description">Choose a goal, then follow one guided path to completion.</p>
+      <div class="goal-row">
+        <button class="goal is-active" data-goal="download">Download one clip</button>
+        <button class="goal" data-goal="clean">Clean old jobs</button>
+        <button class="goal" data-goal="review">Review telemetry</button>
+      </div>
+      <ol id="flow-steps" class="steps"></ol>
+      <button id="flow-next" class="soft-btn">Mark next step complete</button>
+      <button id="flow-close" class="text-btn">Exit focus flow</button>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Gamma-2: Terminal CLI</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e1a;--bg2:#13131f;--bg3:#1a1a2e;--bg4:#1f1f35;
+  --line:#2a2a42;--line2:#353555;
+  --ink:#e8e8f0;--muted:#7878a0;--faint:#4a4a68;
+  --grn:#00ff88;--grn-d:#00aa55;--grn-l:rgba(0,255,136,.12);
+  --cyan:#00d4ff;--cyan-d:#0090b0;--cyan-l:rgba(0,212,255,.12);
+  --amber:#ffb800;--amber-d:#cc9200;--amber-l:rgba(255,184,0,.12);
+  --red:#ff4466;--red-d:#cc2244;--red-l:rgba(255,68,102,.12);
+  --purp:#b06dff;--purp-d:#8040cc;
+  --acc:#00ff88;
+  --s1:0 2px 8px rgba(0,0,0,.4);--s2:0 8px 24px rgba(0,0,0,.6);
+  --r:8px;--rl:12px;
+  --mono:'Cascadia Code','Fira Code','JetBrains Mono','SF Mono',Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+html{font-family:var(--mono);background:var(--bg);color:var(--ink);font-size:14px}
+body{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* scanline overlay */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:9998}
+
+/* ─── TITLEBAR ─── */
+.titlebar{height:44px;background:var(--bg3);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
+.win-btns{display:flex;gap:6px}
+.wb{width:12px;height:12px;border-radius:50%;cursor:pointer;transition:filter .12s}
+.wb-r{background:#ff5f57}.wb-y{background:#febc2e}.wb-g{background:#28c840}
+.wb:hover{filter:brightness(1.2)}
+.tb-title{flex:1;text-align:center;font-size:12px;color:var(--muted);letter-spacing:.04em}
+.tb-conn{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--grn)}
+.tb-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:gp 2s ease-in-out infinite}
+@keyframes gp{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ─── MAIN LAYOUT ─── */
+.main{flex:1;display:flex;overflow:hidden}
+
+/* ─── SIDEBAR (status) ─── */
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sb-section{padding:12px 14px;border-bottom:1px solid var(--line)}
+.sb-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:8px}
+.sb-stat{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+.sb-sk{font-size:12px;color:var(--muted)}
+.sb-sv{font-size:12px;font-weight:600}
+.sb-sv.grn{color:var(--grn)}
+.sb-sv.amber{color:var(--amber)}
+.sb-sv.red{color:var(--red)}
+.sb-sv.cyan{color:var(--cyan)}
+.sb-cmd{display:flex;flex-direction:column;gap:2px}
+.sb-c{padding:5px 8px;border-radius:6px;font-size:11.5px;cursor:pointer;color:var(--muted);background:transparent;border:none;font-family:var(--mono);text-align:left;transition:all .12s;display:flex;align-items:center;gap:6px}
+.sb-c:hover{background:var(--bg4);color:var(--ink)}
+.sb-c.act{background:var(--grn-l);color:var(--grn)}
+.sb-c-ico{font-size:12px;width:16px}
+.sb-scroll{flex:1;overflow-y:auto;padding:12px 14px}
+.sb-scroll::-webkit-scrollbar{width:4px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+.crt-item{padding:5px 8px;border-radius:6px;cursor:pointer;transition:background .12s}
+.crt-item:hover{background:var(--bg4)}
+.crt-name{font-size:12px;color:var(--ink)}
+.crt-meta{font-size:10.5px;color:var(--faint);margin-top:1px}
+
+/* ─── TERMINAL AREA ─── */
+.term{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* OUTPUT */
+.output{flex:1;overflow-y:auto;padding:16px 20px;font-size:13px;line-height:1.6}
+.output::-webkit-scrollbar{width:5px}
+.output::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+
+/* welcome banner */
+.banner{margin-bottom:16px;padding:14px 16px;border:1px solid var(--line2);border-radius:var(--r);background:var(--bg3)}
+.banner-logo{font-size:11px;color:var(--grn);margin-bottom:6px;line-height:1.3}
+.banner-sub{font-size:11.5px;color:var(--muted)}
+.banner-hint{font-size:11px;color:var(--faint);margin-top:6px}
+
+/* command output blocks */
+.cmd-block{margin-bottom:12px}
+.cmd-prompt{color:var(--grn);margin-bottom:4px;font-size:12.5px}
+.cmd-out{padding:8px 12px;background:var(--bg2);border-radius:6px;border-left:2px solid var(--line2)}
+
+/* job rows */
+.job-row{display:flex;align-items:flex-start;gap:10px;padding:6px 8px;border-radius:6px;transition:background .12s;cursor:pointer;position:relative}
+.job-row:hover{background:var(--bg3)}
+.job-row:hover .job-acts{opacity:1}
+.job-status-ico{width:20px;flex-shrink:0;padding-top:1px;text-align:center}
+.job-status-ico.running{color:var(--amber);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.job-status-ico.completed{color:var(--grn)}
+.job-status-ico.failed{color:var(--red)}
+.job-status-ico.queued{color:var(--faint)}
+.job-body{flex:1;min-width:0}
+.job-id{font-size:10.5px;color:var(--faint)}
+.job-title{color:var(--ink);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.job-meta-row{display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;align-items:center}
+.job-plat{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px}
+.jp-x{background:rgba(0,212,255,.15);color:var(--cyan)}
+.jp-tt{background:rgba(176,109,255,.15);color:var(--purp)}
+.job-handle{font-size:11px;color:var(--muted)}
+.job-time{font-size:10.5px;color:var(--faint)}
+.job-prog-wrap{margin-top:4px;height:2px;background:var(--line);border-radius:1px;width:100%;overflow:hidden}
+.job-prog{height:100%;background:var(--amber);border-radius:1px;transition:width .4s ease}
+.job-acts{opacity:0;display:flex;gap:4px;flex-shrink:0;transition:opacity .12s}
+.ja{padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;border:1px solid var(--line2);background:transparent;cursor:pointer;font-family:var(--mono);transition:all .12s}
+.ja-dl{color:var(--grn);border-color:var(--grn-d)}.ja-dl:hover{background:var(--grn-l)}
+.ja-rt{color:var(--cyan);border-color:var(--cyan-d)}.ja-rt:hover{background:var(--cyan-l)}
+.ja-rm{color:var(--red);border-color:var(--red-d)}.ja-rm:hover{background:var(--red-l)}
+
+/* status badge */
+.sbadge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:1px}
+.sb-run{background:var(--amber-l);color:var(--amber)}
+.sb-cmp{background:var(--grn-l);color:var(--grn)}
+.sb-fail{background:var(--red-l);color:var(--red)}
+.sb-q{background:rgba(74,74,104,.3);color:var(--faint)}
+
+/* creator output */
+.who-row{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:6px;cursor:pointer;transition:background .12s}
+.who-row:hover{background:var(--bg3)}
+.who-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.who-name{font-size:13px;font-weight:600;color:var(--ink)}
+.who-handle{font-size:11px;color:var(--muted)}
+.who-stats{margin-left:auto;display:flex;gap:12px}
+.who-st{text-align:right;font-size:11px}
+.who-sv{color:var(--ink);font-weight:600}
+.who-sl{color:var(--faint)}
+
+/* activity output */
+.ac-row{display:flex;gap:9px;padding:4px 6px;border-radius:5px;font-size:12px}
+.ac-ts{color:var(--faint);min-width:56px;flex-shrink:0}
+.ac-lvl{width:40px;flex-shrink:0;font-weight:700}
+.ac-lvl.info{color:var(--cyan)}
+.ac-lvl.warn{color:var(--amber)}
+.ac-lvl.error{color:var(--red)}
+.ac-lvl.debug{color:var(--faint)}
+.ac-msg{color:var(--muted);flex:1}
+.ac-tag{color:var(--faint);font-size:11px}
+
+/* separator */
+.sep-line{border:none;border-top:1px solid var(--line);margin:10px 0}
+
+/* system message */
+.sys-msg{color:var(--faint);font-size:12px;padding:3px 0;font-style:italic}
+.err-msg{color:var(--red);font-size:12px}
+.ok-msg{color:var(--grn);font-size:12px}
+
+/* ─── INPUT AREA ─── */
+.input-area{padding:10px 16px;border-top:1px solid var(--line);background:var(--bg2);position:relative}
+.autocomplete{position:absolute;bottom:100%;left:16px;right:16px;background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r);max-height:200px;overflow-y:auto;z-index:100;display:none}
+.autocomplete.show{display:block}
+.ac-item{padding:7px 12px;cursor:pointer;font-size:12.5px;display:flex;gap:10px;align-items:center;transition:background .1s}
+.ac-item:hover,.ac-item.sel{background:var(--bg4)}
+.ac-cmd{color:var(--grn);min-width:80px}
+.ac-desc{color:var(--muted);font-size:11.5px}
+.input-row{display:flex;align-items:center;gap:8px}
+.input-prompt{color:var(--grn);white-space:nowrap;font-size:13px;user-select:none}
+.cmd-input{flex:1;background:transparent;border:none;outline:none;color:var(--ink);font-family:var(--mono);font-size:13px;caret-color:var(--grn)}
+.cmd-input::placeholder{color:var(--faint)}
+.hint-bar{margin-top:4px;font-size:10.5px;color:var(--faint);display:flex;gap:16px}
+.hint-key{color:var(--grn-d);margin-right:3px}
+
+/* ─── PROFILE MODAL ─── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .16s}
+.ov.on{opacity:1;pointer-events:all}
+.mod{background:var(--bg3);border:1px solid var(--line2);border-radius:var(--rl);width:100%;max-width:680px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--s2);transform:scale(.93);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.ov.on .mod{transform:scale(1)}
+.mhd{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.mav{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px}
+.mn{font-size:17px;font-weight:700;color:var(--ink)}
+.mhn{font-size:12px;color:var(--muted)}
+.mcl{margin-left:auto;width:28px;height:28px;border-radius:6px;background:var(--bg4);border:1px solid var(--line2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:16px;transition:all .12s;line-height:1}
+.mcl:hover{background:var(--red-l);color:var(--red);border-color:var(--red-d)}
+.mbd{padding:16px 18px;overflow-y:auto}
+.mbd::-webkit-scrollbar{width:4px}
+.mbd::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+.psr{display:flex;gap:10px;margin-bottom:16px}
+.psrc{flex:1;background:var(--bg4);border-radius:8px;padding:12px;text-align:center;border:1px solid var(--line)}
+.psrv{font-size:20px;font-weight:700;color:var(--grn)}
+.psrl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
+@media(max-width:980px){
+  .sidebar{display:none}
+  .output{padding:10px 12px}
+  .input-area{padding:8px 12px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- TITLEBAR -->
+<div class="titlebar">
+  <div class="win-btns">
+    <div class="wb wb-r"></div>
+    <div class="wb wb-y"></div>
+    <div class="wb wb-g"></div>
+  </div>
+  <div class="tb-title">media-vault — terminal v2.0.0</div>
+  <div class="tb-conn"><div class="tb-dot"></div>connected</div>
+</div>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-section">
+      <div class="sb-label">Queue Status</div>
+      <div class="sb-stat"><span class="sb-sk">running</span><span class="sb-sv amber" id="sb-run">2</span></div>
+      <div class="sb-stat"><span class="sb-sk">queued</span><span class="sb-sv cyan" id="sb-q">1</span></div>
+      <div class="sb-stat"><span class="sb-sk">completed</span><span class="sb-sv grn" id="sb-c">4</span></div>
+      <div class="sb-stat"><span class="sb-sk">failed</span><span class="sb-sv red" id="sb-f">1</span></div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">Quick Commands</div>
+      <div class="sb-cmd">
+        <button class="sb-c act" onclick="runCmd('list')"><span class="sb-c-ico">&#9776;</span>list</button>
+        <button class="sb-c" onclick="runCmd('who')"><span class="sb-c-ico">&#9787;</span>who</button>
+        <button class="sb-c" onclick="runCmd('log')"><span class="sb-c-ico">&#9472;</span>log</button>
+        <button class="sb-c" onclick="runCmd('platforms')"><span class="sb-c-ico">&#9881;</span>platforms</button>
+        <button class="sb-c" onclick="runCmd('help')"><span class="sb-c-ico">?</span>help</button>
+      </div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">Creators</div>
+    </div>
+    <div class="sb-scroll" id="sb-creators"></div>
+  </div>
+
+  <!-- TERMINAL -->
+  <div class="term">
+    <div class="output" id="out"></div>
+    <div class="input-area">
+      <div class="autocomplete" id="ac"></div>
+      <div class="input-row">
+        <span class="input-prompt">media-vault&nbsp;~&nbsp;$&nbsp;</span>
+        <input class="cmd-input" id="ci" placeholder="Type a command or paste a URL..." autocomplete="off" spellcheck="false">
+      </div>
+      <div class="hint-bar">
+        <span><span class="hint-key">Tab</span> autocomplete</span>
+        <span><span class="hint-key">↑↓</span> history</span>
+        <span><span class="hint-key">@user</span> filter by creator</span>
+        <span><span class="hint-key">help</span> all commands</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="ov" id="ov" onclick="if(event.target===this)closeO()">
+  <div class="mod">
+    <div class="mhd" id="mhd"></div>
+    <div class="mbd" id="mbd"></div>
+  </div>
+</div>
+
+<script>
+const J=[
+  {id:'j1',t:'@elonmusk tweet about Mars colonization',c:'elonmusk',p:'x',s:'running',pct:67,ti:'2m ago',e:'🚀'},
+  {id:'j2',t:'@natgeo deep ocean documentary',c:'natgeo',p:'x',s:'running',pct:34,ti:'4m ago',e:'🌊'},
+  {id:'j3',t:"@charlidamelio viral dance routine",c:'charlidamelio',p:'tiktok',s:'completed',pct:100,ti:'12m ago',e:'💃'},
+  {id:'j4',t:'@mkbhd latest phone review',c:'mkbhd',p:'x',s:'completed',pct:100,ti:'28m ago',e:'📱'},
+  {id:'j5',t:'@nasa ISS orbital time-lapse',c:'nasa',p:'x',s:'failed',pct:0,ti:'1h ago',e:'🛸'},
+  {id:'j6',t:'@gordonramsay pasta recipe',c:'gordonramsay',p:'tiktok',s:'queued',pct:0,ti:'just now',e:'👨‍🍳'},
+  {id:'j7',t:'@nytimes breaking news segment',c:'nytimes',p:'x',s:'completed',pct:100,ti:'2h ago',e:'📰'},
+  {id:'j8',t:'@billnye science explainer',c:'billnye',p:'tiktok',s:'completed',pct:100,ti:'3h ago',e:'🔬'},
+];
+const CR=[
+  {sl:'elonmusk',n:'Elon Musk',h:'@elonmusk',j:12,d:10,p:'x',col:'#1a73e8',e:'🚀'},
+  {sl:'natgeo',n:'National Geographic',h:'@natgeo',j:8,d:8,p:'x',col:'#e8a51a',e:'🌍'},
+  {sl:'charlidamelio',n:"Charli D'Amelio",h:'@charlidamelio',j:24,d:22,p:'tiktok',col:'#e81a8e',e:'💃'},
+  {sl:'mkbhd',n:'MKBHD',h:'@mkbhd',j:16,d:15,p:'x',col:'#555',e:'📱'},
+  {sl:'nasa',n:'NASA',h:'@nasa',j:6,d:4,p:'x',col:'#1a4de8',e:'🛸'},
+  {sl:'gordonramsay',n:'Gordon Ramsay',h:'@gordonramsay',j:19,d:19,p:'tiktok',col:'#e8361a',e:'👨‍🍳'},
+  {sl:'nytimes',n:'NY Times',h:'@nytimes',j:11,d:9,p:'x',col:'#aaa',e:'📰'},
+  {sl:'billnye',n:'Bill Nye',h:'@billnye',j:7,d:6,p:'tiktok',col:'#1ae8b4',e:'🔬'},
+];
+const ACTIVITY=[
+  {t:'14:32:01',l:'info',m:'Job j1 transitioned to running status',j:'j1'},
+  {t:'14:31:58',l:'info',m:'Playwright extracted 3 media candidates',j:'j1'},
+  {t:'14:31:55',l:'info',m:'Job j2 claimed by worker (atomic FIFO)',j:'j2'},
+  {t:'14:31:50',l:'warn',m:'TikTok rate limit detected, backing off 2s',j:'j6'},
+  {t:'14:31:44',l:'info',m:'Job j3 completed — downloads/charlidamelio/j3.mp4',j:'j3'},
+  {t:'14:31:40',l:'error',m:'Extraction timeout for job j5 after 180s',j:'j5'},
+  {t:'14:31:35',l:'debug',m:'ffmpeg HLS stream started, 47 segments detected',j:'j2'},
+  {t:'14:31:30',l:'info',m:'Worker heartbeat OK — queue depth: 2',j:null},
+  {t:'14:31:25',l:'info',m:'New job j6 queued via POST /api/jobs',j:'j6'},
+  {t:'14:31:10',l:'debug',m:'Playwright browser context reused (singleton)',j:'j1'},
+  {t:'14:30:55',l:'info',m:'Job j4 completed successfully in 34.2s',j:'j4'},
+  {t:'14:30:40',l:'warn',m:'MongoDB slow query detected (>100ms)',j:null},
+];
+
+const CMDS=[
+  {cmd:'list',desc:'List all download jobs'},
+  {cmd:'list running',desc:'Filter by status'},
+  {cmd:'list completed',desc:'Show completed jobs'},
+  {cmd:'list failed',desc:'Show failed jobs'},
+  {cmd:'download',desc:'Queue a URL for download'},
+  {cmd:'who',desc:'List all tracked creators'},
+  {cmd:'log',desc:'Show activity log'},
+  {cmd:'log info',desc:'Filter log by level'},
+  {cmd:'platforms',desc:'Show platform status'},
+  {cmd:'retry',desc:'Retry a failed job by ID'},
+  {cmd:'rm',desc:'Remove a job by ID'},
+  {cmd:'help',desc:'Show all commands'},
+  {cmd:'clear',desc:'Clear terminal output'},
+];
+
+let history=[];let hIdx=-1;let currentCmd='';
+const out=document.getElementById('out');
+const ci=document.getElementById('ci');
+const acEl=document.getElementById('ac');
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function append(html){out.innerHTML+=html;out.scrollTop=out.scrollHeight;}
+
+function statusClass(s){return {running:'sb-run',completed:'sb-cmp',failed:'sb-fail',queued:'sb-q'}[s]||'sb-q';}
+function statusIco(s){return {running:'⟳',completed:'✓',failed:'✗',queued:'○'}[s]||'○';}
+function statusIcoClass(s){return s;}
+
+function renderJobRow(j){
+  return `<div class="job-row" id="jr-${j.id}" onclick="jClick('${j.id}')">
+    <div class="job-status-ico ${j.s}">${statusIco(j.s)}</div>
+    <div class="job-body">
+      <div class="job-id">${j.id}</div>
+      <div class="job-title">${esc(j.t)}</div>
+      <div class="job-meta-row">
+        <span class="job-plat jp-${j.p}">${j.p==='x'?'X':'TikTok'}</span>
+        <span class="job-handle">@${j.c}</span>
+        <span class="job-time">${j.ti}</span>
+      </div>
+      ${j.s==='running'?`<div class="job-prog-wrap"><div class="job-prog" style="width:${j.pct}%"></div></div>`:''}
+    </div>
+    <span class="sbadge ${statusClass(j.s)}">${j.s==='running'?j.pct+'%':j.s}</span>
+    <div class="job-acts">
+      ${j.s==='completed'?'<button class="ja ja-dl" onclick="event.stopPropagation()">⬇ dl</button>':''}
+      ${j.s==='failed'?`<button class="ja ja-rt" onclick="event.stopPropagation();runCmd('retry ${j.id}')">↺ retry</button>`:''}
+      <button class="ja ja-rm" onclick="event.stopPropagation();runCmd('rm ${j.id}')">✗ rm</button>
+    </div>
+  </div>`;
+}
+
+function cmdList(filter){
+  let jobs=filter?J.filter(j=>j.s===filter):J;
+  if(!jobs.length){return `<div class="cmd-out"><div class="sys-msg">No jobs found${filter?' with status '+filter:''}.</div></div>`;}
+  return `<div class="cmd-out">${jobs.map(renderJobRow).join('')}</div>`;
+}
+
+function cmdWho(filter){
+  let list=filter?CR.filter(c=>c.sl===filter||c.h===filter||c.h==='@'+filter):CR;
+  if(!list.length){return `<div class="cmd-out"><div class="sys-msg">No creators found.</div></div>`;}
+  return `<div class="cmd-out">${list.map(c=>`
+    <div class="who-row" onclick="openPr('${c.sl}')">
+      <div class="who-av" style="background:${c.col}">${c.e}</div>
+      <div>
+        <div class="who-name">${c.n}</div>
+        <div class="who-handle">${c.h} &middot; <span style="color:${c.p==='x'?'var(--cyan)':'var(--purp)'}">${c.p==='x'?'X':'TikTok'}</span></div>
+      </div>
+      <div class="who-stats">
+        <div class="who-st"><div class="who-sv">${c.j}</div><div class="who-sl">total</div></div>
+        <div class="who-st"><div class="who-sv" style="color:var(--grn)">${c.d}</div><div class="who-sl">done</div></div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function cmdLog(filter){
+  let list=filter?ACTIVITY.filter(e=>e.l===filter):ACTIVITY;
+  return `<div class="cmd-out">${list.map(e=>`
+    <div class="ac-row">
+      <span class="ac-ts">${e.t}</span>
+      <span class="ac-lvl ${e.l}">${e.l.padEnd(5)}</span>
+      <span class="ac-msg">${esc(e.m)} ${e.j?`<span class="ac-tag">[${e.j}]</span>`:''}</span>
+    </div>`).join('')}</div>`;
+}
+
+function cmdHelp(){
+  return `<div class="cmd-out">
+    <div style="color:var(--grn);margin-bottom:8px;font-size:13px">Available Commands</div>
+    ${[
+      ['list [status]','List download jobs. Filter: running|completed|failed|queued'],
+      ['download &lt;url&gt;','Queue a URL for download (X or TikTok)'],
+      ['who [@user]','List all tracked creators, or details for one'],
+      ['log [level]','Activity log. Filter: info|warn|error|debug'],
+      ['platforms','Show platform enable/disable status'],
+      ['retry &lt;id&gt;','Retry a failed job'],
+      ['rm &lt;id&gt;','Remove a job (and its files)'],
+      ['clear','Clear terminal output'],
+      ['help','Show this help'],
+    ].map(([c,d])=>`<div style="display:flex;gap:16px;padding:3px 0">
+      <span style="color:var(--grn);min-width:160px;font-size:12px">${c}</span>
+      <span style="color:var(--muted);font-size:12px">${d}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+function cmdPlatforms(){
+  return `<div class="cmd-out">
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;gap:12px;align-items:center">
+        <span style="color:var(--cyan);min-width:80px">X (Twitter)</span>
+        <span style="color:var(--grn)">● enabled</span>
+        <button onclick="this.textContent=this.textContent.includes('enabled')?'● disabled':'● enabled';this.style.color=this.textContent.includes('enabled')?'var(--grn)':'var(--red)'" style="background:transparent;border:none;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--grn);padding:0"></button>
+        <button style="padding:2px 8px;border-radius:4px;border:1px solid var(--line2);background:transparent;color:var(--faint);font-family:var(--mono);font-size:11px;cursor:pointer" onclick="this.closest('.cmd-out').querySelector('.x-tog').classList.toggle('off')">toggle</button>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <span style="color:var(--purp);min-width:80px">TikTok</span>
+        <span style="color:var(--grn)">● enabled</span>
+        <button style="padding:2px 8px;border-radius:4px;border:1px solid var(--line2);background:transparent;color:var(--faint);font-family:var(--mono);font-size:11px;cursor:pointer" onclick="alert('Toggle TikTok — would call PATCH /api/capabilities')">toggle</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function processCmd(raw){
+  const cmd=raw.trim();
+  if(!cmd)return;
+
+  history.unshift(cmd);hIdx=-1;
+  append(`<div class="cmd-block"><div class="cmd-prompt">media-vault&nbsp;~&nbsp;$&nbsp;<span style="color:var(--ink)">${esc(cmd)}</span></div>`);
+
+  const parts=cmd.toLowerCase().split(/\s+/);
+  const verb=parts[0];
+  const arg=parts.slice(1).join(' ');
+
+  if(verb==='clear'){out.innerHTML='';append('<div class="sys-msg">Terminal cleared.</div>');return;}
+
+  if(verb==='help'){append(cmdHelp());}
+  else if(verb==='list'){append(cmdList(arg||null));}
+  else if(verb==='who'){append(cmdWho(arg.replace('@','').trim()||null));}
+  else if(verb==='log'){append(cmdLog(arg||null));}
+  else if(verb==='platforms'){append(cmdPlatforms());}
+  else if(verb==='download'||verb==='dl'||(cmd.includes('x.com')||cmd.includes('twitter.com')||cmd.includes('tiktok.com'))){
+    let url=arg||cmd;
+    if(!url.startsWith('http')&&!url.startsWith('//')){url='https://'+url;}
+    const isX=url.includes('x.com')||url.includes('twitter.com');
+    const isTT=url.includes('tiktok.com');
+    if(!isX&&!isTT){append(`<div class="err-msg">Error: unrecognized URL. Supported: x.com, tiktok.com</div>`);}
+    else{
+      const id='j'+Date.now();
+      J.unshift({id,t:'New download from '+(isX?'X':'TikTok'),c:'unknown',p:isX?'x':'tiktok',s:'queued',pct:0,ti:'just now',e:'📥'});
+      append(`<div class="ok-msg">✓ Queued job ${id} — status: <span style="color:var(--amber)">queued</span></div>`);
+      updSb();
+    }
+  }
+  else if(verb==='retry'){
+    const j=J.find(x=>x.id===arg);
+    if(!j){append(`<div class="err-msg">Error: job '${esc(arg)}' not found</div>`);}
+    else if(j.s!=='failed'){append(`<div class="err-msg">Error: job ${j.id} is ${j.s}, can only retry failed jobs</div>`);}
+    else{j.s='queued';j.pct=0;append(`<div class="ok-msg">✓ Job ${j.id} re-queued</div>`);updSb();}
+  }
+  else if(verb==='rm'||verb==='delete'){
+    const i=J.findIndex(x=>x.id===arg);
+    if(i<0){append(`<div class="err-msg">Error: job '${esc(arg)}' not found</div>`);}
+    else{J.splice(i,1);append(`<div class="ok-msg">✓ Job ${esc(arg)} removed</div>`);updSb();}
+  }
+  else if(cmd.startsWith('@')){
+    const slug=cmd.slice(1).trim();
+    const c=CR.find(x=>x.sl===slug||x.h==='@'+slug);
+    if(c)openPr(c.sl);
+    else append(`<div class="err-msg">Error: creator '@${esc(slug)}' not found. Try 'who' for a list.</div>`);
+  }
+  else{append(`<div class="err-msg">Unknown command: '${esc(verb)}'. Type 'help' for available commands.</div>`);}
+
+  append('</div>');
+  out.scrollTop=out.scrollHeight;
+}
+
+function runCmd(c){
+  ci.value=c;processCmd(c);ci.value='';hideAc();}
+
+function jClick(id){
+  const j=J.find(x=>x.id===id);if(!j)return;
+  append(`<div class="cmd-block"><div class="cmd-prompt" style="color:var(--faint)">// clicked job ${id}</div>${renderJobRow(j)}</div>`);
+  out.scrollTop=out.scrollHeight;
+}
+
+// Autocomplete
+function showAc(val){
+  if(!val){hideAc();return;}
+  const lower=val.toLowerCase();
+  let matches=[];
+  if(val.startsWith('@')){
+    const q=val.slice(1).toLowerCase();
+    matches=CR.filter(c=>c.sl.includes(q)||c.h.slice(1).includes(q)).map(c=>({cmd:'@'+c.sl,desc:c.n+' · '+c.p}));
+  } else if(val.startsWith('http')||val.includes('.com/')){
+    const isX=val.includes('x.com')||val.includes('twitter.com');
+    const isTT=val.includes('tiktok.com');
+    if(isX||isTT)matches=[{cmd:'download '+val,desc:'Queue this '+(isX?'X':'TikTok')+' URL for download'}];
+  } else {
+    matches=CMDS.filter(c=>c.cmd.startsWith(lower)).slice(0,7);
+  }
+  if(!matches.length){hideAc();return;}
+  acEl.innerHTML=matches.map((m,i)=>`<div class="ac-item${i===acIdx?' sel':''}" onclick="selAc('${esc(m.cmd)}')"><span class="ac-cmd">${esc(m.cmd)}</span><span class="ac-desc">${esc(m.desc)}</span></div>`).join('');
+  acEl.classList.add('show');
+}
+function hideAc(){acEl.classList.remove('show');acEl.innerHTML='';acIdx=0;}
+let acIdx=0;
+function selAc(cmd){ci.value=cmd;hideAc();ci.focus();}
+
+ci.addEventListener('input',()=>{acIdx=0;showAc(ci.value);});
+ci.addEventListener('keydown',(e)=>{
+  if(e.key==='Enter'){
+    const cmd=ci.value.trim();
+    ci.value='';hideAc();
+    if(cmd)processCmd(cmd);
+  } else if(e.key==='Tab'){
+    e.preventDefault();
+    const items=acEl.querySelectorAll('.ac-item');
+    if(items.length){const t=items[0].querySelector('.ac-cmd').textContent;ci.value=t;hideAc();}
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    if(hIdx<history.length-1){hIdx++;ci.value=history[hIdx]||'';}
+  } else if(e.key==='ArrowDown'){
+    e.preventDefault();
+    if(hIdx>0){hIdx--;ci.value=history[hIdx]||'';}else{hIdx=-1;ci.value='';}
+  } else if(e.key==='ArrowDown'&&acEl.classList.contains('show')){
+    e.preventDefault();acIdx=Math.min(acIdx+1,acEl.querySelectorAll('.ac-item').length-1);showAc(ci.value);
+  } else if(e.key==='Escape'){hideAc();}
+});
+document.addEventListener('click',(e)=>{if(!e.target.closest('.input-area'))hideAc();});
+
+function updSb(){
+  document.getElementById('sb-run').textContent=J.filter(x=>x.s==='running').length;
+  document.getElementById('sb-q').textContent=J.filter(x=>x.s==='queued').length;
+  document.getElementById('sb-c').textContent=J.filter(x=>x.s==='completed').length;
+  document.getElementById('sb-f').textContent=J.filter(x=>x.s==='failed').length;
+}
+
+function rdSbCr(){
+  document.getElementById('sb-creators').innerHTML=CR.map(c=>`
+    <div class="crt-item" onclick="openPr('${c.sl}')">
+      <div class="crt-name">${c.e} ${c.n}</div>
+      <div class="crt-meta">${c.h} · ${c.j} jobs</div>
+    </div>`).join('');
+}
+
+function openPr(sl){
+  const c=CR.find(x=>x.sl===sl);if(!c)return;
+  const jobs=J.filter(x=>x.c===sl);
+  document.getElementById('mhd').innerHTML=`
+    <div class="mav" style="background:${c.col}">${c.e}</div>
+    <div><div class="mn">${c.n}</div><div class="mhn">${c.h} · <span style="color:${c.p==='x'?'var(--cyan)':'var(--purp)'}">${c.p==='x'?'X (Twitter)':'TikTok'}</span></div></div>
+    <button class="mcl" onclick="closeO()">&times;</button>`;
+  document.getElementById('mbd').innerHTML=`
+    <div class="psr">
+      <div class="psrc"><div class="psrv">${c.j}</div><div class="psrl">Total</div></div>
+      <div class="psrc"><div class="psrv">${c.d}</div><div class="psrl">Done</div></div>
+      <div class="psrc"><div class="psrv">${c.j-c.d}</div><div class="psrl">Active</div></div>
+    </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:10px">Download History</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+    ${jobs.length?jobs.map(j=>`
+      <div class="job-row" style="cursor:default">
+        <div class="job-status-ico ${j.s}">${statusIco(j.s)}</div>
+        <div class="job-body">
+          <div class="job-title">${esc(j.t)}</div>
+          <div class="job-meta-row"><span class="job-time">${j.ti}</span></div>
+        </div>
+        <span class="sbadge ${statusClass(j.s)}">${j.s}</span>
+      </div>`).join(''):'<div style="color:var(--faint);font-size:12px;padding:8px 0">No downloads yet for this creator.</div>'}
+    </div>`;
+  document.getElementById('ov').classList.add('on');
+}
+function closeO(){document.getElementById('ov').classList.remove('on');}
+
+// INIT
+const BANNER=`<pre style="color:var(--grn);font-size:11px;line-height:1.2;margin-bottom:8px">
+ __  __          _ _        __   __           _ _
+|  \\/  | ___  __| (_) __ _  \\ \\ / /_ _ _   _| | |_
+| |\\/| |/ _ \\/ _\` | |/ _\` |  \\ V / _\` | | | | | __|
+| |  | |  __/ (_| | | (_| |   | | (_| | |_| | | |_
+|_|  |_|\\___|\\__,_|_|\\__,_|   |_|\\__,_|\\__,_|_|\\__|
+</pre>`;
+append(`<div class="banner">
+  ${BANNER}
+  <div class="banner-sub">Social media video downloader · X (Twitter) + TikTok</div>
+  <div class="banner-hint">Type <span style="color:var(--grn)">help</span> for commands · Paste a URL to download · <span style="color:var(--grn)">@user</span> to view a creator profile</div>
+</div>`);
+processCmd('list');
+
+rdSbCr();updSb();
+ci.focus();
+
+// Simulate progress
+setInterval(()=>{
+  J.filter(x=>x.s==='running').forEach(x=>{x.pct=Math.min(100,x.pct+Math.random()*7);if(x.pct>=100){x.s='completed';x.pct=100;}});
+  updSb();
+  document.querySelectorAll('[id^=jr-]').forEach(el=>{
+    const id=el.id.slice(3);const j=J.find(x=>x.id===id);if(!j)return;
+    const b=el.querySelector('.sbadge');if(b)b.textContent=j.s==='running'?j.pct+'%':j.s;
+    const pw=el.querySelector('.job-prog');if(pw)pw.style.width=j.pct+'%';
+  });
+},1500);
+</script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 1 | Confidence Halo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="density-standard">
+  <div class="halo"></div>
+  <header class="topbar glass reveal">
+    <div class="brand-wrap">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <p class="overline">Prototype 1</p>
+        <h1>Signal Deck</h1>
+      </div>
+    </div>
+
+    <nav class="tabs" aria-label="Primary">
+      <button class="tab is-active" data-target="home">Home</button>
+      <button class="tab" data-target="jobs">Jobs</button>
+      <button class="tab" data-target="contacts">Contacts</button>
+      <button class="tab" data-target="activity">Activity</button>
+    </nav>
+
+    <div class="clarity-control" aria-label="Clarity Dial">
+      <span>Clarity Dial</span>
+      <input id="clarity" type="range" min="0" max="2" step="1" value="1" />
+      <p id="clarity-label">Balanced</p>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section id="home" class="page is-active">
+      <article class="hero card reveal">
+        <p class="eyebrow">First 50ms feeling: confidence</p>
+        <h2>Everything important. Nothing extra.</h2>
+        <p class="lead">
+          A decisive first impression for your media dashboard: one bold action, one clean status line, and immediate trust cues.
+        </p>
+        <div class="cta-row">
+          <button class="cta">Create New Job</button>
+          <button class="ghost">View Live Queue</button>
+        </div>
+        <div class="signal-strip" data-secondary>
+          <div>
+            <strong>99.4%</strong>
+            <span>Success Rate</span>
+          </div>
+          <div>
+            <strong>42s</strong>
+            <span>Average Completion</span>
+          </div>
+          <div>
+            <strong>3</strong>
+            <span>Active Operators</span>
+          </div>
+        </div>
+      </article>
+
+      <section class="row reveal">
+        <article class="card">
+          <h3>Primary Goal</h3>
+          <p>Submit one source URL and lock quality in under 10 seconds.</p>
+          <form class="intake-form">
+            <label for="url">Source URL</label>
+            <input id="url" type="url" placeholder="https://x.com/..." />
+            <label for="quality" data-secondary>Output Quality</label>
+            <select id="quality" data-secondary>
+              <option>Best available</option>
+              <option>1080p</option>
+              <option>720p</option>
+            </select>
+            <button type="button" class="cta">Submit Job</button>
+          </form>
+        </article>
+
+        <article class="card" data-secondary>
+          <h3>Operational Confidence</h3>
+          <ul class="checks">
+            <li><span class="dot ok"></span> API heartbeat stable</li>
+            <li><span class="dot ok"></span> Worker queue healthy</li>
+            <li><span class="dot warn"></span> 2 manual retries pending</li>
+          </ul>
+        </article>
+      </section>
+    </section>
+
+    <section id="jobs" class="page">
+      <article class="card reveal">
+        <div class="split-head">
+          <div>
+            <p class="eyebrow">Queue</p>
+            <h2>Jobs At A Glance</h2>
+          </div>
+          <button class="ghost">Bulk Actions</button>
+        </div>
+
+        <div class="job-grid">
+          <article class="job-item">
+            <h4>Daily Market Clip</h4>
+            <p>Running</p>
+            <div class="meter"><span style="--w:72%"></span></div>
+          </article>
+          <article class="job-item">
+            <h4>Creator Highlight #44</h4>
+            <p>Ready</p>
+            <div class="meter"><span style="--w:100%"></span></div>
+          </article>
+          <article class="job-item" data-secondary>
+            <h4>Promo Batch</h4>
+            <p>Retry required</p>
+            <div class="meter"><span style="--w:36%"></span></div>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section id="contacts" class="page">
+      <article class="card reveal">
+        <p class="eyebrow">Profiles</p>
+        <h2>Top Creator Contacts</h2>
+        <div class="contact-list">
+          <button class="contact-chip">
+            <span class="avatar">AL</span>
+            <span>Ana Lee</span>
+            <small data-secondary>12 completed jobs</small>
+          </button>
+          <button class="contact-chip">
+            <span class="avatar">MR</span>
+            <span>Mark Rivera</span>
+            <small data-secondary>9 completed jobs</small>
+          </button>
+          <button class="contact-chip">
+            <span class="avatar">SK</span>
+            <span>Sam Kline</span>
+            <small data-secondary>6 completed jobs</small>
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <section id="activity" class="page">
+      <article class="card reveal">
+        <p class="eyebrow">Telemetry</p>
+        <h2>Live Activity Feed</h2>
+        <ul class="timeline">
+          <li><span>10:43:18</span> Job accepted for @ana-lee</li>
+          <li><span>10:43:30</span> Extraction started (x.com)</li>
+          <li><span>10:43:45</span> Download complete (1080p)</li>
+          <li data-secondary><span>10:44:02</span> Thumbnail packaged + metadata saved</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

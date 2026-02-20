@@ -1,0 +1,1641 @@
+<!--
+  Media Vault Prototype
+  Round: epsilon-2
+  Concept: Creator Inbox — each job is a "message" from a creator, read/unread/starred state, thread view
+  Special Feature: Ambient Sound Design — opt-in Web Audio API feedback: soft chime on job completion, subtle tick on queue add, low tone on failure; no external files, pure oscillator synthesis
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Ambient Sound Design — Web Audio API oscillator tones synthesized in-browser (no external audio files): a warm sine chime on job completion, a sharp click on queue add, a falling tone on failure; all opt-in with a prominent mute toggle so accessibility is preserved -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Epsilon 2</title>
+<style>
+  :root {
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+    --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --spring-exit: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --spring-snap: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --status-complete: hsl(145, 45%, 52%);
+    --status-failed: hsl(0, 48%, 52%);
+    --status-running: hsl(210, 50%, 58%);
+    --status-queued: hsl(30, 15%, 52%);
+    --status-canceled: hsl(220, 20%, 45%);
+
+    --accent: hsl(215, 62%, 55%);
+    --accent-rgb: 72, 140, 200;
+
+    --bg-deep: #070b12;
+    --bg-panel: #0d1320;
+    --text-primary: #dce8f8;
+    --text-secondary: #8898b8;
+    --text-caption: #a8b8cc;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 15% 85%, rgba(20,40,80,0.5) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 85% 15%, rgba(15,35,70,0.4) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     TOPBAR
+  ============================================================ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 52px;
+    position: relative;
+    z-index: 100;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    opacity: 0;
+    animation: slideDown 0.4s var(--spring-exit) 80ms forwards;
+  }
+
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    height: 100%;
+    flex-shrink: 0;
+    width: 240px;
+  }
+
+  .brand-mark {
+    width: 28px; height: 28px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, hsl(215,62%,38%), hsl(235,50%,28%));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    box-shadow: var(--shadow-sm);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+  }
+
+  .brand-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #e4f0ff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .topbar-center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+  }
+
+  .folder-tabs {
+    display: flex;
+    gap: 2px;
+  }
+
+  .folder-tab {
+    padding: 5px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: background 0.15s ease, color 0.15s ease;
+    border: 1px solid transparent;
+    position: relative;
+  }
+
+  .folder-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+
+  .folder-tab.active {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.06);
+    border-top: 1px solid rgba(255,255,255,0.09);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.07);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .folder-tab .tab-count {
+    margin-left: 5px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    background: rgba(72,140,200,0.2);
+    color: var(--status-running);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    height: 100%;
+  }
+
+  .sound-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .sound-toggle:hover { color: var(--text-primary); }
+  .sound-toggle.enabled {
+    color: var(--status-running);
+    border-color: rgba(72,140,200,0.2);
+    background: rgba(72,140,200,0.08);
+  }
+
+  /* ============================================================
+     LAYOUT GRID
+  ============================================================ */
+  .workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 240px 1fr 340px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     LEFT SIDEBAR — contacts as "senders"
+  ============================================================ */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(20px) saturate(120%);
+    overflow: hidden;
+    opacity: 0;
+    animation: slideRight 0.5s var(--spring-exit) 320ms forwards;
+  }
+
+  .sidebar-section {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .sidebar-heading {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  /* Hero stat */
+  .hero-stat {
+    text-align: center;
+    padding: 20px 0 14px;
+  }
+
+  .hero-number {
+    font-size: 4rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: #e4f0ff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .hero-label {
+    font-size: 0.6875rem;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    margin-top: 3px;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 0;
+    margin-top: 10px;
+  }
+
+  .mini-stat {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    border-radius: var(--radius-sm);
+    cursor: default;
+  }
+
+  .mini-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .mini-stat-label {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+  }
+
+  /* Sender list */
+  .sender-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    scrollbar-width: none;
+  }
+
+  .sender-list::-webkit-scrollbar { display: none; }
+
+  .sender-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    position: relative;
+  }
+
+  .sender-item:hover { background: rgba(255,255,255,0.04); }
+  .sender-item.active {
+    background: rgba(72,140,200,0.1);
+    border-top: 1px solid rgba(72,140,200,0.12);
+    border-left: 1px solid rgba(72,140,200,0.08);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .sender-avatar {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    border-left: 1px solid rgba(255,255,255,0.07);
+    border-right: 1px solid rgba(0,0,0,0.09);
+    border-bottom: 1px solid rgba(0,0,0,0.13);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    color: #e4f0ff;
+  }
+
+  .unread-badge {
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--status-running);
+    border: 2px solid var(--bg-deep);
+  }
+
+  .sender-info { flex: 1; min-width: 0; }
+
+  .sender-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c8daf0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sender-sub {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .sender-count {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Settings section */
+  .settings-section {
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    margin-bottom: 4px;
+  }
+
+  .setting-row:hover { background: rgba(255,255,255,0.03); }
+
+  .setting-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-caption);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .platform-icon { font-size: 12px; }
+
+  .toggle {
+    width: 32px; height: 18px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.07);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-left: 1px solid rgba(255,255,255,0.05);
+    border-right: 1px solid rgba(0,0,0,0.07);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s var(--spring-snap);
+  }
+
+  .toggle.on { background: hsl(215,55%,35%); border-color: rgba(72,140,200,0.25); }
+  .toggle-thumb {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px; left: 2px;
+    transition: transform 0.2s var(--spring-snap);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle.on .toggle-thumb { transform: translateX(14px); }
+
+  /* ============================================================
+     MESSAGE LIST (center)
+  ============================================================ */
+  .msg-list-pane {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeIn 0.5s var(--spring-exit) 180ms forwards;
+  }
+
+  .msg-list-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .msg-list-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #e4f0ff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .msg-list-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .btn:active { transform: scale(0.97) translateY(0px); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.09);
+  }
+
+  .btn-accent {
+    background: linear-gradient(135deg, hsl(215,60%,42%), hsl(235,52%,35%));
+    color: #fff;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.09);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .msg-list-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.06) transparent;
+  }
+
+  /* Intake inline (as a "compose" style strip) */
+  .compose-strip {
+    margin: 8px 0 4px;
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(4px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    border-left: 1px solid rgba(255,255,255,0.07);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    box-shadow: var(--shadow-md), 0 0 20px rgba(72,140,200,0.04);
+    animation: intake-breathe 3.5s ease-in-out infinite;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .compose-strip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.07) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .compose-strip:focus-within {
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 40px rgba(72,140,200,0.14),
+      0 0 80px rgba(72,140,200,0.07),
+      var(--shadow-xl);
+    animation: none;
+  }
+
+  @keyframes intake-breathe {
+    0%, 100% { box-shadow: var(--shadow-md), 0 0 20px rgba(72,140,200,0.04); }
+    50% { box-shadow: var(--shadow-md), 0 0 32px rgba(72,140,200,0.1); }
+  }
+
+  .compose-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .compose-prefix {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .compose-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: #e4f0ff;
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+
+  .compose-input::placeholder { color: #3a4a62; }
+
+  .platform-detect {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    transform: scale(0.7);
+    opacity: 0;
+    transition: transform 0.25s var(--spring-enter), opacity 0.2s ease;
+  }
+
+  .platform-detect.show {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .platform-detect.x-type {
+    background: rgba(255,255,255,0.07);
+    color: #c8d8f0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .platform-detect.tiktok-type {
+    background: rgba(255,50,80,0.1);
+    color: #ffaabe;
+    border-top: 1px solid rgba(255,80,100,0.14);
+    border-left: 1px solid rgba(255,80,100,0.09);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .compose-submit {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, hsl(215,60%,42%), hsl(235,52%,35%));
+    color: #fff;
+    border: none;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-left: 1px solid rgba(255,255,255,0.09);
+    border-right: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.14);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .compose-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .compose-submit:active { transform: scale(0.97) translateY(0); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .compose-submit.success { background: linear-gradient(135deg, hsl(145,40%,35%), hsl(160,35%,28%)); }
+
+  /* Message thread items */
+  .msg-group {
+    margin-bottom: 6px;
+  }
+
+  .msg-group-header {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 6px 4px 4px;
+  }
+
+  .msg-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    position: relative;
+    border: 1px solid transparent;
+  }
+
+  .msg-item:hover {
+    background: rgba(255,255,255,0.03);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.07);
+  }
+
+  .msg-item.selected {
+    background: rgba(72,140,200,0.09);
+    border-top: 1px solid rgba(72,140,200,0.15);
+    border-left: 1px solid rgba(72,140,200,0.1);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .msg-item.unread .msg-sender-name { color: #e4f0ff; font-weight: 700; }
+  .msg-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 3px; height: 24px;
+    border-radius: 0 2px 2px 0;
+    background: var(--status-running);
+  }
+
+  .msg-avatar {
+    width: 36px; height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    color: #e4f0ff;
+    position: relative;
+  }
+
+  .msg-body { flex: 1; min-width: 0; }
+
+  .msg-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 3px;
+  }
+
+  .msg-sender-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #b8cce4;
+    line-height: 1.2;
+  }
+
+  .msg-time {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .msg-subject {
+    font-size: 0.8125rem;
+    color: #9aaac0;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.5;
+  }
+
+  .msg-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    flex-shrink: 0;
+  }
+
+  .status-pill.running {
+    background: rgba(72,140,200,0.15);
+    color: var(--status-running);
+    border-top: 1px solid rgba(72,140,200,0.18);
+    border-left: 1px solid rgba(72,140,200,0.11);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .status-pill.completed {
+    background: rgba(80,160,100,0.14);
+    color: var(--status-complete);
+    border-top: 1px solid rgba(80,160,100,0.18);
+    border-left: 1px solid rgba(80,160,100,0.11);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .status-pill.queued {
+    background: rgba(130,108,78,0.14);
+    color: var(--status-queued);
+    border-top: 1px solid rgba(130,108,78,0.18);
+    border-left: 1px solid rgba(130,108,78,0.11);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .status-pill.failed {
+    background: rgba(170,78,78,0.14);
+    color: var(--status-failed);
+    border-top: 1px solid rgba(170,78,78,0.18);
+    border-left: 1px solid rgba(170,78,78,0.11);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .msg-size {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .progress-mini {
+    flex: 1;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .progress-mini-fill {
+    height: 100%;
+    border-radius: 1px;
+    background: linear-gradient(90deg, hsl(210,50%,50%), hsl(230,55%,60%));
+    transition: width 0.6s ease;
+  }
+
+  /* ============================================================
+     READING PANE (right)
+  ============================================================ */
+  .reading-pane {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.015);
+    backdrop-filter: blur(12px) saturate(140%);
+    overflow: hidden;
+    opacity: 0;
+    animation: slideLeft 0.5s var(--spring-exit) 320ms forwards;
+  }
+
+  .reading-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+  }
+
+  .reading-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #4a5a72;
+  }
+
+  .reading-empty-icon { font-size: 32px; opacity: 0.4; }
+
+  .reading-empty-text {
+    font-size: 0.875rem;
+    color: #4a5a72;
+    letter-spacing: 0em;
+    line-height: 1.5;
+  }
+
+  .reading-content { flex: 1; overflow-y: auto; padding: 18px 20px; scrollbar-width: none; }
+
+  .reading-platform {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .reading-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: #e4f0ff;
+    margin-bottom: 14px;
+    word-break: break-all;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .reading-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .meta-card {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.03);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-left: 1px solid rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(0,0,0,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.09);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .meta-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.04) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .meta-card-label {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+    margin-bottom: 3px;
+  }
+
+  .meta-card-value {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #c8daf0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .reading-progress-section { margin-bottom: 16px; }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, hsl(210,50%,48%), hsl(230,55%,60%));
+    transition: width 0.7s ease;
+  }
+
+  .reading-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .reading-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    margin: 14px 0;
+  }
+
+  .reading-activity {
+    flex: 1;
+  }
+
+  .activity-heading {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--status-running);
+    animation: pulsate 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulsate {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  .activity-log {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .log-entry {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    opacity: 0;
+    animation: logSlide 0.3s var(--spring-exit) forwards;
+  }
+
+  @keyframes logSlide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .log-level {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    flex-shrink: 0;
+    letter-spacing: 0.01em;
+    margin-top: 1px;
+  }
+
+  .log-info { background: rgba(72,140,200,0.14); color: hsl(210,55%,70%); }
+  .log-warn { background: rgba(190,145,55,0.14); color: hsl(38,50%,68%); }
+  .log-error { background: rgba(170,78,78,0.14); color: hsl(0,50%,68%); }
+
+  .log-msg {
+    flex: 1;
+    color: #8898b8;
+    letter-spacing: 0em;
+  }
+
+  .log-time {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    margin-top: 1px;
+  }
+
+  /* ============================================================
+     ANIMATIONS
+  ============================================================ */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideRight { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes slideLeft { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes msgEnter { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-mark">⬡</div>
+    <span class="brand-name">Media Vault</span>
+  </div>
+  <div class="topbar-center">
+    <div class="folder-tabs">
+      <div class="folder-tab active" data-filter="all">All <span class="tab-count" id="tab-all">7</span></div>
+      <div class="folder-tab" data-filter="running">Active <span class="tab-count" id="tab-running">1</span></div>
+      <div class="folder-tab" data-filter="completed">Done <span class="tab-count" id="tab-done">3</span></div>
+      <div class="folder-tab" data-filter="failed">Failed <span class="tab-count" id="tab-failed">1</span></div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="sound-toggle" id="sound-toggle" title="Toggle ambient sound feedback">
+      <span id="sound-icon">🔇</span>
+      <span id="sound-label">Sound off</span>
+    </div>
+  </div>
+</header>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="hero-stat">
+        <div class="hero-number" id="hero-num">7</div>
+        <div class="hero-label">total downloads</div>
+        <div class="stat-row">
+          <div class="mini-stat">
+            <div class="mini-stat-value" style="color:var(--status-complete)" id="done-count">3</div>
+            <div class="mini-stat-label">done</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-value" style="color:var(--status-running)" id="run-count">1</div>
+            <div class="mini-stat-label">active</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-value" style="color:var(--status-queued)" id="que-count">2</div>
+            <div class="mini-stat-label">queued</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+      <div class="sidebar-heading">Creators</div>
+      <div class="sender-list" id="sender-list"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="sidebar-heading">Platforms</div>
+      <div class="setting-row" id="s-x">
+        <span class="setting-label"><span class="platform-icon">✕</span> X (Twitter)</span>
+        <div class="toggle on" id="toggle-x"><div class="toggle-thumb"></div></div>
+      </div>
+      <div class="setting-row" id="s-tt">
+        <span class="setting-label"><span class="platform-icon">♪</span> TikTok</span>
+        <div class="toggle on" id="toggle-tiktok"><div class="toggle-thumb"></div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MESSAGE LIST -->
+  <div class="msg-list-pane">
+    <div class="msg-list-header">
+      <span class="msg-list-title">Downloads</span>
+      <div class="msg-list-actions">
+        <button class="btn btn-ghost" onclick="markAllRead()">Mark all read</button>
+      </div>
+    </div>
+    <div class="msg-list-scroll" id="msg-list-scroll">
+      <!-- Compose strip (intake form) -->
+      <div class="compose-strip" id="compose-strip">
+        <div class="compose-inner">
+          <span class="compose-prefix">New:</span>
+          <input class="compose-input" id="compose-input" type="text"
+                 placeholder="Paste X or TikTok URL to download…" autocomplete="off">
+          <span class="platform-detect" id="platform-detect"></span>
+          <button class="compose-submit" id="compose-submit">Add</button>
+        </div>
+      </div>
+      <div id="msg-list-items"></div>
+    </div>
+  </div>
+
+  <!-- READING PANE -->
+  <div class="reading-pane">
+    <div id="reading-pane-content">
+      <div class="reading-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+        <div class="reading-empty-icon">📬</div>
+        <div class="reading-empty-text">Select a download to view details</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SOUND ENGINE (Web Audio API — Special Feature)
+// ============================================================
+let audioCtx = null;
+let soundEnabled = false;
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function playTone(type) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'complete') {
+      // Warm major chord arpeggio — success chime
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);        // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);  // E5
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);  // G5
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.65);
+    } else if (type === 'add') {
+      // Sharp click — queue confirmation
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } else if (type === 'fail') {
+      // Falling minor second — error
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(280, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    }
+  } catch(e) { /* AudioContext not supported */ }
+}
+
+const soundToggle = document.getElementById('sound-toggle');
+const soundIcon = document.getElementById('sound-icon');
+const soundLabel = document.getElementById('sound-label');
+
+soundToggle.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  soundIcon.textContent = soundEnabled ? '🔊' : '🔇';
+  soundLabel.textContent = soundEnabled ? 'Sound on' : 'Sound off';
+  soundToggle.classList.toggle('enabled', soundEnabled);
+  if (soundEnabled) {
+    getAudioCtx(); // Warm up context
+    playTone('add');
+  }
+});
+
+// ============================================================
+// DATA
+// ============================================================
+let jobs = [
+  { id: 'j1', platform: 'x',       creator: '@elonmusk',     slug: 'elonmusk',     url: 'x.com/elonmusk/status/1234567890',     status: 'completed', size: '48.2 MB', duration: '2:14', progress: 100, age: '3m ago',   unread: false },
+  { id: 'j2', platform: 'tiktok',  creator: '@charlidamelio', slug: 'charlidamelio', url: 'tiktok.com/@charlidamelio/video/12345', status: 'running',   size: '—',       duration: '0:58', progress: 62,  age: '1m ago',   unread: true  },
+  { id: 'j3', platform: 'x',       creator: '@mkbhd',        slug: 'mkbhd',        url: 'x.com/MKBHD/status/9876543210',        status: 'completed', size: '112 MB',  duration: '4:31', progress: 100, age: '8m ago',   unread: false },
+  { id: 'j4', platform: 'tiktok',  creator: '@khaby.lame',   slug: 'khaby-lame',   url: 'tiktok.com/@khaby.lame/video/99999',   status: 'queued',    size: '—',       duration: '—',    progress: 0,   age: '30s ago',  unread: true  },
+  { id: 'j5', platform: 'x',       creator: '@naval',        slug: 'naval',        url: 'x.com/naval/status/1122334455',        status: 'failed',    size: '—',       duration: '—',    progress: 0,   age: '15m ago',  unread: true  },
+  { id: 'j6', platform: 'tiktok',  creator: '@charlidamelio', slug: 'charlidamelio', url: 'tiktok.com/@charlidamelio/video/54321', status: 'completed', size: '22.8 MB', duration: '0:44', progress: 100, age: '22m ago',  unread: false },
+  { id: 'j7', platform: 'x',       creator: '@mkbhd',        slug: 'mkbhd',        url: 'x.com/MKBHD/status/5544332211',        status: 'queued',    size: '—',       duration: '—',    progress: 0,   age: '10s ago',  unread: true  },
+];
+
+const CONTACTS = [
+  { slug: 'mkbhd',        name: '@mkbhd',         platform: 'x',      color: '#0d2540', initials: 'MK' },
+  { slug: 'charlidamelio', name: '@charlidamelio', platform: 'tiktok', color: '#2a0d20', initials: 'CD' },
+  { slug: 'elonmusk',     name: '@elonmusk',      platform: 'x',      color: '#0d1f36', initials: 'EM' },
+  { slug: 'khaby-lame',   name: '@khaby.lame',    platform: 'tiktok', color: '#1a0d30', initials: 'KL' },
+  { slug: 'naval',        name: '@naval',         platform: 'x',      color: '#0d1c30', initials: 'NV' },
+];
+
+const ACTIVITY_MSGS = [
+  { level:'info', msg:'Job j2 — HLS manifest intercepted, 14 segments' },
+  { level:'info', msg:'ffmpeg encoding segment 9 of 14' },
+  { level:'warn', msg:'x.com rate limit — 2s backoff applied' },
+  { level:'info', msg:'Job j4 — worker claimed job, status → running' },
+  { level:'info', msg:'Playwright context alive — 1 page open' },
+  { level:'error', msg:'Job j5 — 403 Forbidden on media endpoint' },
+  { level:'info', msg:'MongoDB write — job j3 status → completed' },
+  { level:'info', msg:'Download complete: 112 MB in 8.4s' },
+  { level:'info', msg:'Queue poll — 2 jobs pending' },
+  { level:'warn', msg:'TikTok CDN slow — timeout extended 30s' },
+  { level:'info', msg:'Job j2 — progress 78%' },
+  { level:'info', msg:'Thumbnail extracted for job j2' },
+];
+
+let activityLog = [];
+let activityIdx = 0;
+let selectedJobId = null;
+let currentFilter = 'all';
+
+// ============================================================
+// HELPERS
+// ============================================================
+function getStatusLabel(s) { return { completed:'Completed', running:'Running', queued:'Queued', failed:'Failed', canceled:'Canceled' }[s] || s; }
+function getStatusColor(s) { return { completed:'var(--status-complete)', running:'var(--status-running)', queued:'var(--status-queued)', failed:'var(--status-failed)', canceled:'var(--status-canceled)' }[s] || '#888'; }
+function getAvatarBg(slug) { return CONTACTS.find(c => c.slug === slug)?.color || '#0d1a2c'; }
+function getInitials(slug) { return CONTACTS.find(c => c.slug === slug)?.initials || slug.slice(0,2).toUpperCase(); }
+function formatTime() {
+  const n = new Date();
+  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0') + ':' + n.getSeconds().toString().padStart(2,'0');
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function updateStats() {
+  const done = jobs.filter(j => j.status === 'completed').length;
+  const run = jobs.filter(j => j.status === 'running').length;
+  const que = jobs.filter(j => j.status === 'queued').length;
+  const fail = jobs.filter(j => j.status === 'failed').length;
+
+  document.getElementById('hero-num').textContent = jobs.length;
+  document.getElementById('done-count').textContent = done;
+  document.getElementById('run-count').textContent = run;
+  document.getElementById('que-count').textContent = que;
+  document.getElementById('tab-all').textContent = jobs.length;
+  document.getElementById('tab-running').textContent = run;
+  document.getElementById('tab-done').textContent = done;
+  document.getElementById('tab-failed').textContent = fail;
+}
+
+function renderSenders() {
+  const list = document.getElementById('sender-list');
+  list.innerHTML = '';
+  const contactJobs = {};
+  jobs.forEach(j => { if (!contactJobs[j.slug]) contactJobs[j.slug] = 0; contactJobs[j.slug]++; });
+
+  CONTACTS.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'sender-item' + (c.slug === (jobs.find(j => j.id === selectedJobId)?.slug) ? ' active' : '');
+    const hasUnread = jobs.some(j => j.slug === c.slug && j.unread);
+    const cnt = contactJobs[c.slug] || 0;
+    div.innerHTML = `
+      <div class="sender-avatar" style="background:${c.color}">
+        ${c.initials}
+        ${hasUnread ? '<span class="unread-badge"></span>' : ''}
+      </div>
+      <div class="sender-info">
+        <div class="sender-name">${c.name}</div>
+        <div class="sender-sub">${c.platform === 'x' ? 'X' : 'TikTok'}</div>
+      </div>
+      <span class="sender-count">${cnt}</span>
+    `;
+    div.addEventListener('click', () => {
+      const firstJob = jobs.find(j => j.slug === c.slug);
+      if (firstJob) selectJob(firstJob.id);
+    });
+    list.appendChild(div);
+  });
+}
+
+function renderMsgList() {
+  const container = document.getElementById('msg-list-items');
+  container.innerHTML = '';
+
+  let filtered = jobs;
+  if (currentFilter !== 'all') filtered = jobs.filter(j => j.status === currentFilter);
+
+  filtered.forEach((job, i) => {
+    const div = document.createElement('div');
+    div.className = 'msg-item' + (job.unread ? ' unread' : '') + (job.id === selectedJobId ? ' selected' : '');
+    div.dataset.jobId = job.id;
+    div.style.animationDelay = Math.max(0, 120 - i * 20) + 'ms';
+    div.style.animation = `msgEnter 0.3s var(--spring-exit) ${Math.max(0, 120 - i * 20)}ms both`;
+
+    const initials = getInitials(job.slug);
+    const avatarBg = getAvatarBg(job.slug);
+
+    div.innerHTML = `
+      <div class="msg-avatar" style="background:${avatarBg}">${initials}</div>
+      <div class="msg-body">
+        <div class="msg-top">
+          <span class="msg-sender-name">${job.creator}</span>
+          <span class="msg-time">${job.age}</span>
+        </div>
+        <div class="msg-subject">${job.platform === 'x' ? '✕ X' : '♪ TikTok'} · ${job.url}</div>
+        <div class="msg-preview">
+          <span class="status-pill ${job.status}">${getStatusLabel(job.status)}</span>
+          ${job.status === 'running' ? `<div class="progress-mini"><div class="progress-mini-fill" id="mini-prog-${job.id}" style="width:${job.progress}%"></div></div>` : ''}
+          ${job.size !== '—' ? `<span class="msg-size">${job.size}</span>` : ''}
+        </div>
+      </div>
+    `;
+
+    div.addEventListener('click', () => selectJob(job.id));
+    container.appendChild(div);
+  });
+}
+
+function selectJob(jobId) {
+  selectedJobId = jobId;
+  const job = jobs.find(j => j.id === jobId);
+  if (job) job.unread = false;
+
+  document.querySelectorAll('.msg-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.jobId === jobId);
+    if (el.dataset.jobId === jobId) el.classList.remove('unread');
+  });
+
+  renderReadingPane(job);
+  renderSenders();
+}
+
+function renderReadingPane(job) {
+  const pane = document.getElementById('reading-pane-content');
+  if (!job) {
+    pane.innerHTML = `
+      <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+        <div style="font-size:32px;opacity:0.4">📬</div>
+        <div style="font-size:0.875rem;color:#4a5a72;line-height:1.5">Select a download to view details</div>
+      </div>`;
+    return;
+  }
+
+  const progressSection = job.status === 'running' ? `
+    <div class="reading-progress-section">
+      <div class="progress-label">
+        <span>Download progress</span>
+        <span style="font-variant-numeric:tabular-nums;font-feature-settings:'tnum'">${Math.round(job.progress)}%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="reading-prog" style="width:${job.progress}%"></div>
+      </div>
+    </div>
+  ` : '';
+
+  const logHtml = activityLog.slice(-6).map(e => `
+    <div class="log-entry">
+      <span class="log-level log-${e.level}">${e.level.toUpperCase()}</span>
+      <span class="log-msg">${e.msg}</span>
+      <span class="log-time">${e.time}</span>
+    </div>
+  `).join('');
+
+  pane.style.height = '100%';
+  pane.style.display = 'flex';
+  pane.style.flexDirection = 'column';
+  pane.style.overflow = 'hidden';
+
+  pane.innerHTML = `
+    <div class="reading-header">
+      <div class="reading-platform">${job.platform === 'x' ? '✕ X (Twitter)' : '♪ TikTok'}</div>
+      <div class="reading-title">${job.url}</div>
+      <span class="status-pill ${job.status}">${getStatusLabel(job.status)}</span>
+    </div>
+    <div class="reading-content" style="flex:1;overflow-y:auto;padding:18px 20px">
+      ${progressSection}
+      <div class="reading-meta-grid">
+        <div class="meta-card">
+          <div class="meta-card-label">Creator</div>
+          <div class="meta-card-value">${job.creator}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label">Status</div>
+          <div class="meta-card-value">${getStatusLabel(job.status)}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label">Size</div>
+          <div class="meta-card-value">${job.size}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label">Duration</div>
+          <div class="meta-card-value">${job.duration}</div>
+        </div>
+      </div>
+      <div class="reading-actions">
+        ${job.status === 'completed' ? `<button class="btn btn-accent">⬇ Download file</button>` : ''}
+        ${job.status === 'failed' ? `<button class="btn btn-ghost">↩ Retry</button>` : ''}
+        ${job.status === 'queued' ? `<button class="btn btn-ghost">✕ Cancel</button>` : ''}
+        <button class="btn btn-ghost" style="margin-left:auto;color:hsl(0,45%,60%)">🗑 Delete</button>
+      </div>
+      <div class="reading-divider"></div>
+      <div class="reading-activity">
+        <div class="activity-heading">
+          <span class="live-dot"></span>
+          Activity Stream
+        </div>
+        <div class="activity-log" id="reading-activity-log">${logHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
+function pushActivity() {
+  const entry = ACTIVITY_MSGS[activityIdx % ACTIVITY_MSGS.length];
+  activityLog.push({ ...entry, time: formatTime() });
+  activityIdx++;
+  if (activityLog.length > 40) activityLog.shift();
+
+  // Update reading pane log if open
+  if (selectedJobId) {
+    const logContainer = document.getElementById('reading-activity-log');
+    if (logContainer) {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      div.innerHTML = `
+        <span class="log-level log-${entry.level}">${entry.level.toUpperCase()}</span>
+        <span class="log-msg">${entry.msg}</span>
+        <span class="log-time">${formatTime()}</span>
+      `;
+      logContainer.appendChild(div);
+      // Keep scrolled to bottom
+      logContainer.scrollTop = logContainer.scrollHeight;
+      // Trim
+      while (logContainer.children.length > 8) logContainer.removeChild(logContainer.firstChild);
+    }
+  }
+}
+
+// ============================================================
+// SIMULATION
+// ============================================================
+function simulate() {
+  const running = jobs.find(j => j.status === 'running');
+  if (running) {
+    running.progress = Math.min(100, running.progress + Math.random() * 7 + 4);
+
+    // Update mini progress bar
+    const mini = document.getElementById(`mini-prog-${running.id}`);
+    if (mini) mini.style.width = running.progress + '%';
+
+    // Update reading pane progress
+    const rprog = document.getElementById('reading-prog');
+    if (rprog && selectedJobId === running.id) rprog.style.width = running.progress + '%';
+
+    // Update reading pane %
+    const rprogLabel = document.querySelector('.progress-label span:last-child');
+    if (rprogLabel && selectedJobId === running.id) rprogLabel.textContent = Math.round(running.progress) + '%';
+
+    if (running.progress >= 100) {
+      running.status = 'completed';
+      running.size = (Math.random()*80+20).toFixed(1) + ' MB';
+      running.age = 'just now';
+      running.unread = false;
+      playTone('complete');
+      updateStats();
+      renderMsgList();
+      renderSenders();
+      if (selectedJobId === running.id) renderReadingPane(running);
+
+      // Advance queued
+      setTimeout(() => {
+        const next = jobs.find(j => j.status === 'queued');
+        if (next) {
+          next.status = 'running';
+          next.progress = 0;
+          next.unread = true;
+          updateStats();
+          renderMsgList();
+          renderSenders();
+        }
+      }, 1500);
+    }
+  }
+}
+
+// ============================================================
+// INTAKE
+// ============================================================
+const composeInput = document.getElementById('compose-input');
+const platformDetect = document.getElementById('platform-detect');
+const composeSubmit = document.getElementById('compose-submit');
+
+composeInput.addEventListener('input', () => {
+  const val = composeInput.value.toLowerCase();
+  if (val.includes('x.com') || val.includes('twitter.com')) {
+    platformDetect.textContent = '✕ X';
+    platformDetect.className = 'platform-detect x-type show';
+  } else if (val.includes('tiktok.com')) {
+    platformDetect.textContent = '♪ TikTok';
+    platformDetect.className = 'platform-detect tiktok-type show';
+  } else {
+    platformDetect.className = 'platform-detect';
+  }
+});
+
+// Magnetic hover
+const composeStrip = document.getElementById('compose-strip');
+composeStrip.parentElement.addEventListener('mousemove', e => {
+  const rect = composeStrip.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const dx = e.clientX - cx;
+  const dy = e.clientY - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxDist = 180;
+  if (dist < maxDist) {
+    const f = (1 - dist/maxDist) * 2.5;
+    composeStrip.style.transform = `translate(${(dx/dist)*f}px, ${(dy/dist)*f}px)`;
+  } else {
+    composeStrip.style.transform = '';
+  }
+});
+
+composeSubmit.addEventListener('click', () => {
+  const val = composeInput.value.trim();
+  if (!val) return;
+
+  const platform = val.includes('tiktok.com') ? 'tiktok' : 'x';
+  const slug = 'new-creator';
+  const newJob = {
+    id: 'j' + (jobs.length + 1),
+    platform, creator: '@new_creator', slug,
+    url: val, status: 'queued',
+    size:'—', duration:'—', progress:0, age:'just now', unread:true
+  };
+  jobs.unshift(newJob);
+
+  composeSubmit.textContent = '✓ Added!';
+  composeSubmit.classList.add('success');
+  playTone('add');
+
+  setTimeout(() => {
+    composeSubmit.textContent = 'Add';
+    composeSubmit.classList.remove('success');
+    composeInput.value = '';
+    platformDetect.className = 'platform-detect';
+    updateStats();
+    renderMsgList();
+    renderSenders();
+  }, 800);
+});
+
+// ============================================================
+// FILTERS
+// ============================================================
+document.querySelectorAll('.folder-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.folder-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentFilter = tab.dataset.filter;
+    renderMsgList();
+  });
+});
+
+// ============================================================
+// TOGGLES
+// ============================================================
+document.getElementById('toggle-x').addEventListener('click', function() { this.classList.toggle('on'); });
+document.getElementById('toggle-tiktok').addEventListener('click', function() { this.classList.toggle('on'); });
+
+// Mark all read
+function markAllRead() {
+  jobs.forEach(j => j.unread = false);
+  renderMsgList();
+  renderSenders();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  updateStats();
+  renderSenders();
+  renderMsgList();
+
+  for (let i = 0; i < 4; i++) pushActivity();
+
+  setInterval(simulate, 1100);
+  setInterval(pushActivity, 3000);
+});
+</script>
+</body>
+</html>

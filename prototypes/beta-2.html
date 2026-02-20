@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Orbital</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --space: #08091a;
+  --space2: #0d1030;
+  --text: #e8edf5;
+  --muted: #6b7db5;
+  --accent: #4d8fff;
+  --accent2: #7b5ea7;
+  --glow: rgba(77,143,255,0.35);
+  --glow2: rgba(123,94,167,0.35);
+  --running: #ffb347;
+  --completed: #4dda8e;
+  --failed: #ff6b6b;
+  --queued: #7b9cff;
+  --border: rgba(255,255,255,0.08);
+}
+html, body {
+  width:100%; height:100%;
+  font-family:'Segoe UI',system-ui,sans-serif;
+  background:var(--space);
+  color:var(--text);
+  overflow:hidden;
+}
+
+/* Stars background */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(77,143,255,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(123,94,167,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(77,221,142,0.04) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+}
+
+/* CANVAS for orbital rings */
+#orbital-canvas { position:fixed; inset:0; pointer-events:none; z-index:1; }
+
+/* TOP NAV */
+.topnav {
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; align-items:center; gap:12px;
+  padding:0 20px; height:52px;
+  background:rgba(8,9,26,0.85);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.logo {
+  display:flex; align-items:center; gap:8px;
+  font-weight:900; font-size:16px;
+  color:var(--accent); letter-spacing:-.3px;
+  text-decoration:none;
+}
+.logo-hex {
+  width:28px; height:28px; border-radius:7px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:12px; font-weight:900;
+}
+.nav-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.nbtn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:6px 13px; border-radius:8px;
+  font-size:12px; font-weight:700; cursor:pointer; border:none;
+  transition:all .2s; white-space:nowrap;
+}
+.nbtn:hover { transform:translateY(-1px); }
+.nbtn-ghost {
+  background:rgba(255,255,255,0.06);
+  color:var(--muted); border:1px solid var(--border);
+}
+.nbtn-ghost:hover { background:rgba(255,255,255,0.1); color:var(--text); }
+.nbtn-accent {
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff; box-shadow:0 2px 12px rgba(77,143,255,0.4);
+}
+.nbtn-accent:hover { box-shadow:0 4px 20px rgba(77,143,255,0.6); }
+.ntgl-wrap { display:flex; align-items:center; gap:5px; }
+.ntgl-lbl { font-size:11px; font-weight:700; color:var(--muted); }
+.ntgl { position:relative; display:inline-block; width:32px; height:17px; }
+.ntgl input { opacity:0; width:0; height:0; }
+.ntgl-tr { position:absolute; cursor:pointer; inset:0; background:rgba(255,255,255,0.15); border-radius:8px; transition:.2s; }
+.ntgl-tr::before { position:absolute; content:""; height:11px; width:11px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+input:checked+.ntgl-tr { background:var(--accent); }
+input:checked+.ntgl-tr::before { transform:translateX(15px); }
+
+/* CENTER STAGE */
+.stage {
+  position:fixed; inset:52px 0 0 0;
+  display:flex; align-items:center; justify-content:center;
+  z-index:2;
+  overflow:hidden;
+}
+
+/* CORE INPUT */
+.core {
+  position:absolute;
+  width:220px;
+  z-index:20;
+  transform:translateY(-10px);
+}
+.core-ring {
+  position:absolute; top:50%; left:50%;
+  width:140px; height:140px;
+  border-radius:50%;
+  border:2px solid rgba(77,143,255,0.3);
+  transform:translate(-50%,-50%);
+  animation:coreRing 4s linear infinite;
+  pointer-events:none;
+}
+@keyframes coreRing {
+  0%,100%{box-shadow:0 0 0 0 rgba(77,143,255,.15),0 0 30px rgba(77,143,255,.1)}
+  50%{box-shadow:0 0 0 8px rgba(77,143,255,.08),0 0 50px rgba(77,143,255,.2)}
+}
+.core-title {
+  text-align:center; font-size:10px; font-weight:800;
+  text-transform:uppercase; letter-spacing:.15em;
+  color:var(--muted); margin-bottom:10px;
+}
+.core-inp-wrap {
+  position:relative;
+  background:rgba(13,16,48,0.9);
+  border:1px solid rgba(77,143,255,0.3);
+  border-radius:14px;
+  padding:2px;
+  transition:all .3s;
+  box-shadow:0 0 20px rgba(77,143,255,0.1);
+}
+.core-inp-wrap:focus-within {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(77,143,255,0.15),0 0 30px rgba(77,143,255,0.2);
+}
+.core-inp {
+  width:100%; padding:11px 42px 11px 14px;
+  background:transparent; border:none; outline:none;
+  color:var(--text); font-size:12px;
+  font-weight:500;
+}
+.core-inp::placeholder { color:var(--muted); font-size:11px; }
+.core-sub {
+  position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  width:30px; height:30px; border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:17px; line-height:1;
+  transition:all .2s;
+  box-shadow:0 2px 8px rgba(77,143,255,0.4);
+}
+.core-sub:hover { transform:translateY(-50%) scale(1.1); box-shadow:0 4px 14px rgba(77,143,255,0.6); }
+.core-stats {
+  display:flex; justify-content:center; gap:14px;
+  margin-top:10px;
+}
+.cstat {
+  text-align:center; cursor:pointer;
+  transition:transform .2s;
+}
+.cstat:hover { transform:scale(1.1); }
+.cstat-v { font-size:18px; font-weight:900; line-height:1; }
+.cstat-l { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-top:1px; }
+.cstat.queued .cstat-v { color:var(--queued); }
+.cstat.running .cstat-v { color:var(--running); animation:glow-run 1.5s ease-in-out infinite; }
+.cstat.completed .cstat-v { color:var(--completed); }
+.cstat.failed .cstat-v { color:var(--failed); }
+@keyframes glow-run { 0%,100%{text-shadow:0 0 8px var(--running)} 50%{text-shadow:0 0 20px var(--running),0 0 40px rgba(255,179,71,.3)} }
+
+/* ORBITAL NODES */
+.node {
+  position:absolute;
+  width:52px; height:52px;
+  border-radius:50%;
+  cursor:pointer;
+  transform:translate(-50%,-50%);
+  transition:transform .2s, box-shadow .2s;
+  z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+  border:2px solid transparent;
+  user-select:none;
+}
+.node:hover {
+  transform:translate(-50%,-50%) scale(1.25);
+  z-index:15;
+}
+.node.running {
+  background:rgba(255,179,71,0.15);
+  border-color:var(--running);
+  box-shadow:0 0 16px rgba(255,179,71,0.4);
+  animation:orbit-pulse 2s ease-in-out infinite;
+}
+@keyframes orbit-pulse {
+  0%,100%{box-shadow:0 0 16px rgba(255,179,71,.4)}
+  50%{box-shadow:0 0 28px rgba(255,179,71,.7),0 0 50px rgba(255,179,71,.2)}
+}
+.node.queued {
+  background:rgba(123,156,255,0.1);
+  border-color:var(--queued);
+  box-shadow:0 0 10px rgba(123,156,255,.3);
+}
+.node.completed {
+  background:rgba(77,218,142,0.1);
+  border-color:var(--completed);
+  box-shadow:0 0 10px rgba(77,218,142,.3);
+}
+.node.failed {
+  background:rgba(255,107,107,0.1);
+  border-color:var(--failed);
+  box-shadow:0 0 10px rgba(255,107,107,.3);
+}
+
+/* CONTACT NODES (outer ring) */
+.contact-node {
+  position:absolute;
+  cursor:pointer;
+  transform:translate(-50%,-50%);
+  transition:transform .2s;
+  z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column;
+  gap:4px;
+  user-select:none;
+}
+.contact-node:hover { transform:translate(-50%,-50%) scale(1.15); }
+.contact-av {
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; color:#fff;
+  border:2px solid rgba(255,255,255,0.2);
+  box-shadow:0 0 14px rgba(0,0,0,.5);
+  transition:box-shadow .2s;
+}
+.contact-node:hover .contact-av {
+  box-shadow:0 0 24px currentColor;
+}
+.contact-lbl {
+  font-size:9px; font-weight:700;
+  color:var(--muted); text-align:center;
+  white-space:nowrap;
+  text-shadow:0 1px 4px rgba(0,0,0,.8);
+}
+
+/* NODE TOOLTIP */
+.node-tip {
+  position:fixed;
+  background:rgba(13,16,48,0.95);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:12px;
+  pointer-events:none;
+  z-index:50;
+  min-width:200px;
+  max-width:260px;
+  backdrop-filter:blur(16px);
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  display:none;
+  transition:opacity .15s;
+}
+.node-tip.visible { display:block; }
+.ntip-creator { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin-bottom:3px; }
+.ntip-title { font-size:13px; font-weight:700; margin-bottom:4px; line-height:1.3; }
+.ntip-url { font-size:10px; color:var(--muted); margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ntip-status { display:flex; align-items:center; gap:6px; }
+.ntip-dot { width:7px; height:7px; border-radius:50%; }
+.ntip-actions { display:flex; gap:5px; margin-top:8px; }
+.ntip-btn { padding:4px 9px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:rgba(255,255,255,.06); color:var(--text); transition:all .15s; }
+.ntip-btn:hover { background:rgba(255,255,255,.12); }
+.ntip-btn.danger:hover { background:rgba(255,107,107,.2); color:var(--failed); border-color:rgba(255,107,107,.4); }
+.ntip-prog { height:3px; background:rgba(255,179,71,0.2); border-radius:999px; margin-top:6px; overflow:hidden; }
+.ntip-prog-fill { height:100%; background:linear-gradient(90deg,var(--running),#ffe08d); border-radius:999px; transition:width .5s; }
+
+/* PARTICLE CANVAS */
+#particles { position:fixed; inset:0; pointer-events:none; z-index:5; }
+
+/* SIDE PANEL — detail card pushes to right */
+.detail-panel {
+  position:fixed; top:52px; right:-360px;
+  width:340px; bottom:0;
+  background:rgba(10,11,30,0.95);
+  border-left:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  z-index:80;
+  transition:right .4s cubic-bezier(.34,1.2,.64,1);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.detail-panel.open { right:0; }
+.dp-hd {
+  display:flex; align-items:center; gap:10px;
+  padding:16px 18px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.dp-av { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; color:#fff; flex-shrink:0; }
+.dp-name { font-size:15px; font-weight:700; }
+.dp-sub { font-size:11px; color:var(--muted); }
+.dp-close { margin-left:auto; background:rgba(255,255,255,.06); border:none; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:14px; color:var(--muted); display:flex; align-items:center; justify-content:center; transition:all .15s; }
+.dp-close:hover { background:rgba(255,255,255,.12); color:var(--text); }
+.dp-stats { display:flex; gap:0; border-bottom:1px solid var(--border); flex-shrink:0; }
+.dp-stat { flex:1; text-align:center; padding:10px; border-right:1px solid var(--border); }
+.dp-stat:last-child { border-right:none; }
+.dp-sv { font-size:16px; font-weight:800; }
+.dp-sl { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+.dp-body { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px; }
+.dp-row {
+  padding:9px 10px; border-radius:9px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.03);
+  display:flex; align-items:center; gap:8px;
+  transition:background .15s;
+  cursor:pointer;
+}
+.dp-row:hover { background:rgba(255,255,255,.06); }
+.dp-em { font-size:18px; flex-shrink:0; }
+.dp-inf { flex:1; min-width:0; }
+.dp-t { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dp-d { font-size:9px; color:var(--muted); }
+.dp-pill { padding:2px 6px; border-radius:999px; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+.dp-pill.queued { background:rgba(123,156,255,.2); color:var(--queued); }
+.dp-pill.running { background:rgba(255,179,71,.2); color:var(--running); }
+.dp-pill.completed { background:rgba(77,218,142,.2); color:var(--completed); }
+.dp-pill.failed { background:rgba(255,107,107,.2); color:var(--failed); }
+
+/* ACTIVITY STRIP */
+.activity-strip {
+  position:fixed; bottom:0; left:0; right:0;
+  height:44px;
+  background:rgba(8,9,26,.9);
+  border-top:1px solid var(--border);
+  backdrop-filter:blur(16px);
+  z-index:100;
+  display:flex; align-items:center;
+  overflow:hidden;
+  gap:0;
+}
+.asticker {
+  padding:0 14px; white-space:nowrap;
+  display:flex; align-items:center; gap:6px;
+  animation:scroll-strip 40s linear infinite;
+  font-size:11px; color:var(--muted);
+}
+@keyframes scroll-strip { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.astrip-live { position:absolute; left:0; top:0; bottom:0; width:80px; background:linear-gradient(90deg,rgba(8,9,26,1),transparent); z-index:2; display:flex; align-items:center; padding:0 12px; gap:6px; }
+.ldot { width:7px; height:7px; border-radius:50%; background:var(--completed); animation:ldot-anim 1.5s ease-in-out infinite; }
+@keyframes ldot-anim { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
+.live-txt { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--completed); }
+
+/* BULK FLOAT */
+.bulk-float {
+  position:fixed; top:62px; left:50%; transform:translateX(-50%);
+  background:rgba(13,16,48,.95);
+  border:1px solid var(--border);
+  border-radius:12px; padding:9px 16px;
+  display:flex; align-items:center; gap:10px;
+  backdrop-filter:blur(16px);
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+  z-index:200;
+  transition:opacity .3s, transform .3s;
+  opacity:0; pointer-events:none;
+  transform:translateX(-50%) translateY(-8px);
+}
+.bulk-float.on { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+.bfcnt { font-size:11px; font-weight:700; background:rgba(255,255,255,.1); padding:2px 8px; border-radius:999px; }
+.bfbtn { padding:5px 10px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; border:none; transition:all .15s; }
+.bfbtn-cancel { background:rgba(255,255,255,.08); color:rgba(255,255,255,.6); }
+.bfbtn-cancel:hover { background:rgba(255,255,255,.15); }
+.bfbtn-del { background:#c92a2a; color:#fff; }
+.bfbtn-del:hover { background:#a61e1e; }
+
+/* OVERLAY (profile modal) */
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(6px); z-index:300; display:none; align-items:center; justify-content:center; padding:20px; }
+.overlay.open { display:flex; }
+.modal { background:rgba(13,16,48,.98); border:1px solid var(--border); border-radius:18px; width:100%; max-width:580px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(0,0,0,.7); animation:mdin .3s cubic-bezier(.34,1.4,.64,1); }
+@keyframes mdin { from{opacity:0;transform:scale(.9) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.m-hd { display:flex; align-items:center; gap:12px; padding:18px 20px; border-bottom:1px solid var(--border); }
+.m-av { width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700; color:#fff; }
+.m-name { font-size:16px; font-weight:700; }
+.m-sub { font-size:11px; color:var(--muted); }
+.m-stats { display:flex; gap:16px; margin-left:auto; }
+.msv { font-size:18px; font-weight:800; text-align:center; }
+.msl { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; text-align:center; }
+.m-close { margin-left:10px; background:rgba(255,255,255,.06); border:none; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:14px; color:var(--muted); display:flex; align-items:center; justify-content:center; transition:all .15s; }
+.m-close:hover { background:rgba(255,255,255,.12); color:var(--text); }
+.m-body { flex:1; overflow-y:auto; padding:12px 18px; }
+.mrow { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; border:1px solid var(--border); background:rgba(255,255,255,.02); margin-bottom:6px; transition:background .15s; cursor:pointer; }
+.mrow:hover { background:rgba(255,255,255,.05); }
+.mem { font-size:18px; flex-shrink:0; }
+.minf { flex:1; min-width:0; }
+.mttl { font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mdt { font-size:10px; color:var(--muted); }
+
+/* TOAST */
+.toast-box { position:fixed; top:62px; right:18px; z-index:500; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
+.toast { padding:9px 15px; border-radius:9px; font-size:12px; font-weight:700; box-shadow:0 4px 20px rgba(0,0,0,.5); pointer-events:auto; animation:tsin .3s cubic-bezier(.34,1.4,.64,1); display:flex; align-items:center; gap:7px; background:rgba(13,16,48,.95); border:1px solid var(--border); backdrop-filter:blur(12px); }
+@keyframes tsin { from{opacity:0;transform:translateX(36px)} to{opacity:1;transform:translateX(0)} }
+.toast.success { border-left:3px solid var(--completed); }
+.toast.error { border-left:3px solid var(--failed); }
+.toast.info { border-left:3px solid var(--accent); }
+
+@media(max-width:980px) {
+  .detail-panel { width:100%; right:-100%; }
+  .node { width:42px; height:42px; font-size:15px; }
+  .contact-av { font-size:11px !important; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<canvas id="orbital-canvas"></canvas>
+<canvas id="particles"></canvas>
+
+<nav class="topnav">
+  <div class="logo">
+    <div class="logo-hex">MV</div>
+    Media Vault
+  </div>
+  <span style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.12em;text-transform:uppercase">ORBITAL</span>
+  <div class="nav-right">
+    <div class="ntgl-wrap">
+      <span class="ntgl-lbl">𝕏</span>
+      <label class="ntgl"><input type="checkbox" checked onchange="showToast('X '+(this.checked?'enabled':'disabled'),this.checked?'success':'info')"><span class="ntgl-tr"></span></label>
+    </div>
+    <div class="ntgl-wrap">
+      <span class="ntgl-lbl">TT</span>
+      <label class="ntgl"><input type="checkbox" checked onchange="showToast('TikTok '+(this.checked?'enabled':'disabled'),this.checked?'success':'info')"><span class="ntgl-tr"></span></label>
+    </div>
+    <button class="nbtn nbtn-ghost" onclick="openAllContacts()">👤 Contacts</button>
+    <button class="nbtn nbtn-accent" onclick="focusCore()">+ New Job</button>
+  </div>
+</nav>
+
+<div class="stage" id="stage">
+  <!-- Core input -->
+  <div class="core" id="core">
+    <div class="core-title">Media Vault Core</div>
+    <div class="core-inp-wrap">
+      <input class="core-inp" id="core-inp" type="text" placeholder="Paste X or TikTok URL to download…" onkeydown="if(event.key==='Enter')addJob()">
+      <button class="core-sub" onclick="addJob()">+</button>
+    </div>
+    <div class="core-stats">
+      <div class="cstat queued" onclick="filterOrbit('queued')"><div class="cstat-v" id="stat-queued">3</div><div class="cstat-l">Queued</div></div>
+      <div class="cstat running" onclick="filterOrbit('running')"><div class="cstat-v" id="stat-running">2</div><div class="cstat-l">Running</div></div>
+      <div class="cstat completed" onclick="filterOrbit('completed')"><div class="cstat-v" id="stat-completed">5</div><div class="cstat-l">Done</div></div>
+      <div class="cstat failed" onclick="filterOrbit('failed')"><div class="cstat-v" id="stat-failed">2</div><div class="cstat-l">Failed</div></div>
+    </div>
+  </div>
+
+  <!-- Job nodes (positioned by JS) -->
+  <div id="nodes-layer"></div>
+
+  <!-- Contact nodes (positioned by JS) -->
+  <div id="contacts-layer"></div>
+</div>
+
+<!-- NODE TOOLTIP -->
+<div class="node-tip" id="node-tip"></div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detail-panel">
+  <div class="dp-hd">
+    <div class="dp-av" id="dp-av"></div>
+    <div><div class="dp-name" id="dp-name"></div><div class="dp-sub" id="dp-sub"></div></div>
+    <button class="dp-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="dp-stats" id="dp-stats"></div>
+  <div class="dp-body" id="dp-body"></div>
+</div>
+
+<!-- ACTIVITY STRIP -->
+<div class="activity-strip">
+  <div class="astrip-live">
+    <div class="ldot"></div>
+    <span class="live-txt">Live</span>
+  </div>
+  <div class="asticker" id="asticker1"></div>
+  <div class="asticker" id="asticker2"></div>
+</div>
+
+<!-- BULK FLOAT -->
+<div class="bulk-float" id="bulk-float">
+  <span class="bfcnt" id="bfcnt">0 selected</span>
+  <div style="display:flex;gap:5px">
+    <button class="bfbtn bfbtn-del" onclick="bulkDel()">🗑 Delete</button>
+    <button class="bfbtn bfbtn-cancel" onclick="clearSel()">✕</button>
+  </div>
+</div>
+
+<!-- ALL CONTACTS MODAL -->
+<div class="overlay" id="overlay-contacts">
+  <div class="modal">
+    <div class="m-hd">
+      <span style="font-size:22px">👤</span>
+      <div><div class="m-name">Creator Contacts</div><div class="m-sub">Orbital gravity wells</div></div>
+      <button class="m-close" style="margin-left:auto" onclick="closeOverlay('contacts')">✕</button>
+    </div>
+    <div class="m-body" id="contacts-body"></div>
+  </div>
+</div>
+
+<div class="toast-box" id="toast-box"></div>
+
+<script>
+// ══════════════════════════════════
+// DATA
+// ══════════════════════════════════
+const JOBS = [
+  {id:'j1',status:'queued',creator:'TechZilla',ck:'techzilla',plt:'x',em:'🖥️',title:'RTX 5090 Deep Dive Review',url:'x.com/techzilla/111',date:'2m ago',prog:null},
+  {id:'j2',status:'queued',creator:'CodeCraft',ck:'codecraft',plt:'tiktok',em:'💻',title:'Clean Code in 60s',url:'tiktok.com/@codecraft/222',date:'5m ago',prog:null},
+  {id:'j3',status:'queued',creator:'VoxPop',ck:'voxpop',plt:'x',em:'🎙️',title:'AI Interview: Linus S.',url:'x.com/voxpop/333',date:'8m ago',prog:null},
+  {id:'j4',status:'running',creator:'NightOwl',ck:'nightowl',plt:'tiktok',em:'🎬',title:'Studio Behind The Scenes',url:'tiktok.com/@nightowl/444',date:'1m ago',prog:62},
+  {id:'j5',status:'running',creator:'DataDiver',ck:'datadiver',plt:'x',em:'📊',title:'ML Pipeline 2025',url:'x.com/datadiver/555',date:'3m ago',prog:28},
+  {id:'j6',status:'completed',creator:'TechZilla',ck:'techzilla',plt:'x',em:'🖥️',title:'M4 Mac Mini Hands-on',url:'x.com/techzilla/666',date:'1h ago',prog:null},
+  {id:'j7',status:'completed',creator:'CodeCraft',ck:'codecraft',plt:'tiktok',em:'💻',title:'React 19 New Features',url:'tiktok.com/@codecraft/777',date:'2h ago',prog:null},
+  {id:'j8',status:'completed',creator:'NightOwl',ck:'nightowl',plt:'tiktok',em:'🎬',title:'Cinematic RAW Footage',url:'tiktok.com/@nightowl/888',date:'3h ago',prog:null},
+  {id:'j9',status:'completed',creator:'VoxPop',ck:'voxpop',plt:'x',em:'🎙️',title:'Podcast: The AI Era',url:'x.com/voxpop/999',date:'4h ago',prog:null},
+  {id:'j10',status:'completed',creator:'DataDiver',ck:'datadiver',plt:'x',em:'📊',title:'Pandas vs Polars Bench',url:'x.com/datadiver/1000',date:'5h ago',prog:null},
+  {id:'j11',status:'failed',creator:'TechZilla',ck:'techzilla',plt:'x',em:'🖥️',title:'Leaked Pixel 10 Specs',url:'x.com/techzilla/aaa',date:'30m ago',prog:null},
+  {id:'j12',status:'failed',creator:'NightOwl',ck:'nightowl',plt:'tiktok',em:'🎬',title:'LIVE: Premiere Night',url:'tiktok.com/@nightowl/bbb',date:'45m ago',prog:null},
+];
+
+const CONTACTS = [
+  {k:'techzilla',name:'TechZilla',handle:'@techzilla_hd',plt:'X',clr:'#4d8fff',ini:'TZ',mass:12},
+  {k:'nightowl',name:'NightOwl',handle:'@nightowl.films',plt:'TikTok',clr:'#ff6b9d',ini:'NO',mass:8},
+  {k:'codecraft',name:'CodeCraft',handle:'@codecraft_dev',plt:'TikTok',clr:'#4dda8e',ini:'CC',mass:6},
+  {k:'voxpop',name:'VoxPop',handle:'@voxpop_media',plt:'X',clr:'#ffb347',ini:'VP',mass:4},
+  {k:'datadiver',name:'DataDiver',handle:'@datadiver_ai',plt:'X',clr:'#b47bff',ini:'DD',mass:3},
+];
+
+const ACTIVITY = [
+  {ic:'✅',tx:'Job completed: Cinematic RAW Footage (142 MB)'},
+  {ic:'🔄',tx:'Running: ML Pipeline 2025 — 28% (HLS segment 14/50)'},
+  {ic:'🔄',tx:'Running: Studio BTS — 62% (segment 31/50)'},
+  {ic:'❌',tx:'Failed: LIVE Premiere — TikTok 403 rate limit'},
+  {ic:'⚠️',tx:'Failed: Leaked Pixel 10 — X post unavailable'},
+  {ic:'📥',tx:'Queued: AI Interview Linus Sebastian — X detected'},
+  {ic:'✅',tx:'Job completed: Podcast AI Era (88 MB)'},
+  {ic:'🌐',tx:'Playwright browser context initialized successfully'},
+  {ic:'📥',tx:'Queued: Clean Code in 60s — TikTok detected'},
+  {ic:'✅',tx:'Job completed: M4 Mac Mini Hands-on (96 MB)'},
+];
+
+let jobs = [...JOBS];
+let sel = new Set();
+let jid = 200;
+let nodePositions = {};
+let contactPositions = {};
+let orbitFilter = 'all';
+let particles = [];
+let animFrame;
+let hoveredJobId = null;
+let tipTimeout = null;
+
+// ══════════════════════════════════
+// ORBITAL CANVAS
+// ══════════════════════════════════
+const oc = document.getElementById('orbital-canvas');
+const octx = oc.getContext('2d');
+const pc = document.getElementById('particles');
+const pctx = pc.getContext('2d');
+
+function resizeCanvases() {
+  oc.width = window.innerWidth;
+  oc.height = window.innerHeight;
+  pc.width = window.innerWidth;
+  pc.height = window.innerHeight;
+}
+
+function drawOrbits(cx, cy) {
+  octx.clearRect(0, 0, oc.width, oc.height);
+  const rings = [
+    {r: 130, color: 'rgba(255,179,71,0.12)', dash:[6,4]},  // running
+    {r: 220, color: 'rgba(123,156,255,0.10)', dash:[4,6]},   // queued/completed
+    {r: 320, color: 'rgba(77,218,142,0.08)', dash:[3,8]},    // contacts
+  ];
+  rings.forEach(ring => {
+    octx.beginPath();
+    octx.setLineDash(ring.dash);
+    octx.arc(cx, cy, ring.r, 0, Math.PI * 2);
+    octx.strokeStyle = ring.color;
+    octx.lineWidth = 1;
+    octx.stroke();
+  });
+  octx.setLineDash([]);
+}
+
+// ══════════════════════════════════
+// NODE PLACEMENT
+// ══════════════════════════════════
+function getStageCenter() {
+  const stage = document.getElementById('stage');
+  const rect = stage.getBoundingClientRect();
+  return { cx: rect.width / 2, cy: rect.height / 2 };
+}
+
+function placeNodes() {
+  const { cx, cy } = getStageCenter();
+  const stage = document.getElementById('stage');
+  drawOrbits(cx + stage.getBoundingClientRect().left, cy + stage.getBoundingClientRect().top);
+
+  const nodesLayer = document.getElementById('nodes-layer');
+  const contactsLayer = document.getElementById('contacts-layer');
+  nodesLayer.innerHTML = '';
+  contactsLayer.innerHTML = '';
+  nodePositions = {};
+  contactPositions = {};
+
+  const filtered = orbitFilter === 'all' ? jobs : jobs.filter(j => j.status === orbitFilter);
+
+  // Running jobs: inner orbit (r=130)
+  const runJobs = filtered.filter(j => j.status === 'running');
+  runJobs.forEach((j, i) => {
+    const angle = (i / Math.max(runJobs.length, 1)) * Math.PI * 2 - Math.PI / 2;
+    const r = 130;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    nodePositions[j.id] = {x, y};
+    createNode(j, x, y, nodesLayer);
+  });
+
+  // Queued + completed: middle orbit (r=220)
+  const midJobs = filtered.filter(j => j.status === 'queued' || j.status === 'completed');
+  midJobs.forEach((j, i) => {
+    const angle = (i / Math.max(midJobs.length, 1)) * Math.PI * 2;
+    const r = 210 + Math.sin(i * 1.3) * 18; // slight variation
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    nodePositions[j.id] = {x, y};
+    createNode(j, x, y, nodesLayer);
+  });
+
+  // Failed: outer orbit (r=270, slightly different angle)
+  const failJobs = filtered.filter(j => j.status === 'failed');
+  failJobs.forEach((j, i) => {
+    const angle = (i / Math.max(failJobs.length, 1)) * Math.PI * 2 + Math.PI;
+    const r = 260;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    nodePositions[j.id] = {x, y};
+    createNode(j, x, y, nodesLayer);
+  });
+
+  // Contacts: outermost orbit (r=330) — gravity wells (bigger = more mass)
+  CONTACTS.forEach((c, i) => {
+    const angle = (i / CONTACTS.length) * Math.PI * 2 - Math.PI / 4;
+    const r = 320 + (c.mass / 12) * 20; // gravity well — mass affects orbit
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    contactPositions[c.k] = {x, y, clr: c.clr};
+    createContactNode(c, x, y, contactsLayer);
+  });
+}
+
+function createNode(j, x, y, layer) {
+  const n = document.createElement('div');
+  n.className = `node ${j.status}`;
+  n.id = 'nd-' + j.id;
+  n.style.left = x + 'px';
+  n.style.top = y + 'px';
+  n.textContent = j.em;
+  if (sel.has(j.id)) n.style.outline = '2px solid white';
+
+  n.addEventListener('click', (e) => { e.stopPropagation(); showNodeDetail(j); });
+  n.addEventListener('mouseenter', (e) => showTip(j, e));
+  n.addEventListener('mouseleave', hideTip);
+  layer.appendChild(n);
+}
+
+function createContactNode(c, x, y, layer) {
+  const size = 28 + (c.mass / 12) * 20; // gravity well sizing
+  const n = document.createElement('div');
+  n.className = 'contact-node';
+  n.style.left = x + 'px';
+  n.style.top = y + 'px';
+  n.innerHTML = `
+    <div class="contact-av" style="width:${size}px;height:${size}px;background:${c.clr};font-size:${Math.round(size*0.38)}px;box-shadow:0 0 ${size}px ${c.clr}55">${c.ini}</div>
+    <div class="contact-lbl">${c.name}</div>
+  `;
+  n.style.setProperty('color', c.clr);
+  n.addEventListener('click', () => showContactDetail(c));
+  layer.appendChild(n);
+}
+
+// ══════════════════════════════════
+// TOOLTIPS
+// ══════════════════════════════════
+function showTip(j, e) {
+  const tip = document.getElementById('node-tip');
+  const statusColors = {queued:'#7b9cff',running:'#ffb347',completed:'#4dda8e',failed:'#ff6b6b'};
+  const prog = j.prog !== null ? `<div class="ntip-prog"><div class="ntip-prog-fill" style="width:${j.prog}%"></div></div>` : '';
+  let acts = '';
+  if (j.status === 'failed') acts = `<div class="ntip-actions"><button class="ntip-btn" onclick="retryJob('${j.id}')">↻ Retry</button><button class="ntip-btn danger" onclick="delJob('${j.id}')">Delete</button></div>`;
+  else if (j.status === 'completed') acts = `<div class="ntip-actions"><button class="ntip-btn" onclick="showToast('Downloading…','info')">⬇ Save</button><button class="ntip-btn danger" onclick="delJob('${j.id}')">Delete</button></div>`;
+  else acts = `<div class="ntip-actions"><button class="ntip-btn danger" onclick="delJob('${j.id}')">Delete</button></div>`;
+
+  tip.innerHTML = `
+    <div class="ntip-creator">${j.creator}</div>
+    <div class="ntip-title">${j.title}</div>
+    <div class="ntip-url">${j.url}</div>
+    <div class="ntip-status"><div class="ntip-dot" style="background:${statusColors[j.status]}"></div><span style="font-size:10px;font-weight:700;color:${statusColors[j.status]}">${j.status.toUpperCase()}</span><span style="font-size:9px;color:var(--muted);margin-left:auto">${j.date}</span></div>
+    ${prog}${acts}
+  `;
+
+  const r = e.target.getBoundingClientRect();
+  let tipX = r.right + 8;
+  let tipY = r.top;
+  if (tipX + 270 > window.innerWidth) tipX = r.left - 270;
+  if (tipY + 180 > window.innerHeight - 50) tipY = window.innerHeight - 230;
+  tip.style.left = tipX + 'px';
+  tip.style.top = tipY + 'px';
+  tip.classList.add('visible');
+}
+
+function hideTip() {
+  tipTimeout = setTimeout(() => {
+    document.getElementById('node-tip').classList.remove('visible');
+  }, 150);
+}
+
+document.getElementById('node-tip').addEventListener('mouseenter', () => clearTimeout(tipTimeout));
+document.getElementById('node-tip').addEventListener('mouseleave', hideTip);
+
+// ══════════════════════════════════
+// DETAIL PANEL
+// ══════════════════════════════════
+function showNodeDetail(j) {
+  const panel = document.getElementById('detail-panel');
+  const c = CONTACTS.find(x => x.k === j.ck) || {clr:'#4d8fff',ini:'?',name:j.creator,handle:j.url,plt:j.plt};
+  document.getElementById('dp-av').style.background = c.clr;
+  document.getElementById('dp-av').textContent = c.ini;
+  document.getElementById('dp-name').textContent = j.title;
+  document.getElementById('dp-sub').textContent = j.creator + ' · ' + j.url;
+
+  const statusColors = {queued:['rgba(123,156,255,.2)','var(--queued)'],running:['rgba(255,179,71,.2)','var(--running)'],completed:['rgba(77,218,142,.2)','var(--completed)'],failed:['rgba(255,107,107,.2)','var(--failed)']};
+  const [bg, clr] = statusColors[j.status] || ['rgba(255,255,255,.1)','#fff'];
+  document.getElementById('dp-stats').innerHTML = `
+    <div class="dp-stat"><div class="dp-sv" style="color:${clr}">${j.status.toUpperCase()}</div><div class="dp-sl">Status</div></div>
+    <div class="dp-stat"><div class="dp-sv" style="color:${c.clr}">${j.prog !== null ? j.prog + '%' : '—'}</div><div class="dp-sl">Progress</div></div>
+    <div class="dp-stat"><div class="dp-sv" style="color:var(--muted)">${j.date}</div><div class="dp-sl">Time</div></div>
+  `;
+
+  const cjobs = jobs.filter(x => x.ck === j.ck);
+  const body = document.getElementById('dp-body');
+  body.innerHTML = `<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px">${c.name}'s Jobs (${cjobs.length})</div>`;
+  cjobs.forEach(cj => {
+    const row = document.createElement('div');
+    row.className = 'dp-row';
+    row.innerHTML = `<div class="dp-em">${cj.em}</div><div class="dp-inf"><div class="dp-t">${cj.title}</div><div class="dp-d">${cj.url} · ${cj.date}</div></div><span class="dp-pill ${cj.status}">${cj.status}</span>`;
+    body.appendChild(row);
+  });
+
+  panel.classList.add('open');
+}
+
+function showContactDetail(c) {
+  const cjobs = jobs.filter(j => j.ck === c.k);
+  const panel = document.getElementById('detail-panel');
+  document.getElementById('dp-av').style.background = c.clr;
+  document.getElementById('dp-av').textContent = c.ini;
+  document.getElementById('dp-name').textContent = c.name;
+  document.getElementById('dp-sub').textContent = c.handle + ' · ' + c.plt;
+
+  const dl = cjobs.filter(j => j.status === 'completed').length;
+  const running = cjobs.filter(j => j.status === 'running').length;
+  const failed = cjobs.filter(j => j.status === 'failed').length;
+
+  document.getElementById('dp-stats').innerHTML = `
+    <div class="dp-stat"><div class="dp-sv" style="color:var(--completed)">${dl}</div><div class="dp-sl">Done</div></div>
+    <div class="dp-stat"><div class="dp-sv" style="color:var(--running)">${running}</div><div class="dp-sl">Running</div></div>
+    <div class="dp-stat"><div class="dp-sv" style="color:var(--failed)">${failed}</div><div class="dp-sl">Failed</div></div>
+  `;
+
+  const body = document.getElementById('dp-body');
+  body.innerHTML = `<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px">All Downloads (${cjobs.length})</div>`;
+  cjobs.forEach(cj => {
+    const row = document.createElement('div');
+    row.className = 'dp-row';
+    row.innerHTML = `<div class="dp-em">${cj.em}</div><div class="dp-inf"><div class="dp-t">${cj.title}</div><div class="dp-d">${cj.url} · ${cj.date}</div></div><span class="dp-pill ${cj.status}">${cj.status}</span>`;
+    body.appendChild(row);
+  });
+
+  panel.classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+document.getElementById('stage').addEventListener('click', closeDetail);
+
+// ══════════════════════════════════
+// PARTICLES
+// ══════════════════════════════════
+function spawnParticles(x, y, color, count = 8) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 3,
+      vy: (Math.random() - 0.5) * 3 - 1,
+      r: Math.random() * 3 + 1,
+      life: 1,
+      decay: Math.random() * 0.03 + 0.02,
+      color,
+    });
+  }
+}
+
+function animParticles() {
+  pctx.clearRect(0, 0, pc.width, pc.height);
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.05; // gravity
+    p.life -= p.decay;
+    pctx.beginPath();
+    pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    pctx.fillStyle = p.color + Math.round(p.life * 255).toString(16).padStart(2,'0');
+    pctx.fill();
+  });
+  requestAnimationFrame(animParticles);
+}
+
+// ══════════════════════════════════
+// ACTIONS
+// ══════════════════════════════════
+function addJob() {
+  const inp = document.getElementById('core-inp');
+  const url = inp.value.trim();
+  if (!url) { inp.focus(); return; }
+  const isX = url.includes('x.com') || url.includes('twitter.com');
+  const isTT = url.includes('tiktok.com');
+  if (!isX && !isTT) { showToast('Only X and TikTok URLs supported', 'error'); return; }
+  const nj = {id:'j'+(++jid),status:'queued',creator:isX?'X Creator':'TikTok Creator',ck:isX?'voxpop':'codecraft',plt:isX?'x':'tiktok',em:isX?'𝕏':'♪',title:'New Download',url:url.substring(0,40),date:'just now',prog:null};
+  jobs.unshift(nj);
+  inp.value = '';
+  placeNodes();
+  updateStats();
+  showToast('Job queued!', 'success');
+  const {cx,cy} = getStageCenter();
+  spawnParticles(cx, cy + 52, '#4d8fff', 12);
+}
+
+function delJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (j) {
+    const pos = nodePositions[j.id];
+    if (pos) spawnParticles(pos.x, pos.y + 52, '#ff6b6b', 8);
+  }
+  jobs = jobs.filter(x => x.id !== id);
+  sel.delete(id);
+  placeNodes();
+  updateStats();
+  updBulk();
+  document.getElementById('node-tip').classList.remove('visible');
+  showToast('Job deleted', 'info');
+}
+
+function retryJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (!j) return;
+  j.status = 'queued'; j.prog = null;
+  placeNodes(); updateStats();
+  showToast(`Retrying "${j.title}"`, 'info');
+  document.getElementById('node-tip').classList.remove('visible');
+}
+
+function filterOrbit(status) {
+  orbitFilter = orbitFilter === status ? 'all' : status;
+  placeNodes();
+  showToast(orbitFilter === 'all' ? 'Showing all jobs' : `Filtered: ${orbitFilter}`, 'info');
+}
+
+function focusCore() {
+  document.getElementById('core-inp').focus();
+  const {cx,cy} = getStageCenter();
+  spawnParticles(cx, cy + 52, '#7b5ea7', 6);
+}
+
+// ══════════════════════════════════
+// SELECTION
+// ══════════════════════════════════
+function togSel(id) {
+  sel.has(id) ? sel.delete(id) : sel.add(id);
+  placeNodes();
+  updBulk();
+}
+function updBulk() {
+  const f = document.getElementById('bulk-float');
+  document.getElementById('bfcnt').textContent = sel.size + ' selected';
+  f.classList.toggle('on', sel.size > 0);
+}
+function clearSel() { sel.clear(); placeNodes(); updBulk(); }
+function bulkDel() {
+  const n = sel.size;
+  jobs = jobs.filter(j => !sel.has(j.id));
+  sel.clear(); placeNodes(); updateStats(); updBulk();
+  showToast(`Deleted ${n} jobs`, 'info');
+}
+
+// ══════════════════════════════════
+// STATS
+// ══════════════════════════════════
+function updateStats() {
+  ['queued','running','completed','failed'].forEach(s => {
+    const el = document.getElementById('stat-' + s);
+    if (el) el.textContent = jobs.filter(j => j.status === s).length;
+  });
+}
+
+// ══════════════════════════════════
+// CONTACTS MODAL
+// ══════════════════════════════════
+function openAllContacts() { document.getElementById('overlay-contacts').classList.add('open'); }
+function closeOverlay(id) { document.getElementById('overlay-' + id).classList.remove('open'); }
+document.addEventListener('click', e => {
+  document.querySelectorAll('.overlay.open').forEach(o => {
+    if (e.target === o) o.classList.remove('open');
+  });
+});
+
+function renderContacts() {
+  const b = document.getElementById('contacts-body');
+  b.innerHTML = '';
+  CONTACTS.forEach(c => {
+    const cjobs = jobs.filter(j => j.ck === c.k);
+    const d = document.createElement('div');
+    d.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeOverlay('contacts');showContactDetail(CONTACTS.find(x=>x.k==='${c.k}'))">
+      <div style="width:38px;height:38px;border-radius:50%;background:${c.clr};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0;box-shadow:0 0 14px ${c.clr}55">${c.ini}</div>
+      <div style="flex:1"><div style="font-weight:700;font-size:13px">${c.name}</div><div style="font-size:10px;color:var(--muted)">${c.handle} · ${c.plt} · mass: ${c.mass}</div></div>
+      <div style="text-align:right"><div style="font-size:15px;font-weight:800;color:${c.clr}">${c.mass}</div><div style="font-size:9px;color:var(--muted)">gravity</div></div>
+      <span style="color:var(--muted);font-size:14px">›</span>
+    </div>`;
+    b.appendChild(d);
+  });
+}
+
+// ══════════════════════════════════
+// ACTIVITY STRIP
+// ══════════════════════════════════
+function initActivityStrip() {
+  const txt = ACTIVITY.map(e => `<span style="color:rgba(255,255,255,.5)">${e.ic}</span> <span>${e.tx}</span> <span style="color:rgba(255,255,255,.2);padding:0 20px">·</span>`).join('');
+  document.getElementById('asticker1').innerHTML = txt;
+  document.getElementById('asticker2').innerHTML = txt;
+}
+
+// ══════════════════════════════════
+// SIMULATION
+// ══════════════════════════════════
+function simulate() {
+  let changed = false;
+  jobs.forEach(j => {
+    if (j.status === 'running' && j.prog !== null) {
+      j.prog = Math.min(j.prog + Math.random() * 6, 100);
+      if (j.prog >= 100) {
+        j.status = 'completed'; j.prog = null;
+        showToast(`"${j.title}" completed!`, 'success');
+        const pos = nodePositions[j.id];
+        if (pos) spawnParticles(pos.x, pos.y + 52, '#4dda8e', 14);
+        changed = true;
+      }
+    }
+  });
+  const qd = jobs.filter(j => j.status === 'queued');
+  const rn = jobs.filter(j => j.status === 'running');
+  if (rn.length < 2 && qd.length > 0 && Math.random() > 0.65) {
+    const nx = qd[0]; nx.status = 'running'; nx.prog = 0;
+    changed = true;
+  }
+  if (changed) { placeNodes(); updateStats(); }
+}
+
+// ══════════════════════════════════
+// TOAST
+// ══════════════════════════════════
+function showToast(msg, type = 'info') {
+  const b = document.getElementById('toast-box');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ'}[type]||'•'}</span> ${msg}`;
+  b.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0'; t.style.transform = 'translateX(36px)'; t.style.transition = 'all .3s';
+    setTimeout(() => t.remove(), 300);
+  }, 3000);
+}
+
+// ══════════════════════════════════
+// ORBIT ANIMATION (slow rotation)
+// ══════════════════════════════════
+let orbitAngle = 0;
+function animateOrbitRotation() {
+  // Slowly rotate running nodes around center
+  const { cx, cy } = getStageCenter();
+  const runNodes = jobs.filter(j => j.status === 'running');
+  orbitAngle += 0.003;
+  runNodes.forEach((j, i) => {
+    const baseAngle = (i / Math.max(runNodes.length, 1)) * Math.PI * 2 - Math.PI / 2 + orbitAngle;
+    const r = 130;
+    const x = cx + Math.cos(baseAngle) * r;
+    const y = cy + Math.sin(baseAngle) * r;
+    nodePositions[j.id] = {x, y};
+    const nd = document.getElementById('nd-' + j.id);
+    if (nd) { nd.style.left = x + 'px'; nd.style.top = y + 'px'; }
+    // Update progress fill on tooltip if visible
+    const tip = document.getElementById('node-tip');
+    if (tip.classList.contains('visible')) {
+      const fill = tip.querySelector('.ntip-prog-fill');
+      if (fill && j.prog !== null) fill.style.width = j.prog + '%';
+    }
+  });
+
+  // Slowly rotate contact nodes (opposite direction, slower)
+  CONTACTS.forEach((c, i) => {
+    const baseAngle = (i / CONTACTS.length) * Math.PI * 2 - Math.PI / 4 - orbitAngle * 0.3;
+    const r = 320 + (c.mass / 12) * 20;
+    const x = cx + Math.cos(baseAngle) * r;
+    const y = cy + Math.sin(baseAngle) * r;
+    contactPositions[c.k] = {x, y};
+    const nd = document.querySelector(`#contacts-layer .contact-node:nth-child(${i+1})`);
+    if (nd) { nd.style.left = x + 'px'; nd.style.top = y + 'px'; }
+  });
+
+  requestAnimationFrame(animateOrbitRotation);
+}
+
+// ══════════════════════════════════
+// INIT
+// ══════════════════════════════════
+window.addEventListener('resize', () => {
+  resizeCanvases();
+  placeNodes();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  resizeCanvases();
+  placeNodes();
+  updateStats();
+  renderContacts();
+  initActivityStrip();
+  animParticles();
+  animateOrbitRotation();
+  setInterval(simulate, 2500);
+});
+</script>
+</body>
+</html>

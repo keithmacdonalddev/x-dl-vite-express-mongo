@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Gallery</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fa;--white:#ffffff;--ink:#1a1a2e;--muted:#6b7280;--line:#e5e7eb;
+  --accent:#2563eb;--a2:#3b82f6;--ag:rgba(37,99,235,.14);
+  --ok:#059669;--okg:rgba(5,150,105,.12);
+  --warn:#d97706;--warng:rgba(217,119,6,.12);
+  --err:#dc2626;--errg:rgba(220,38,38,.12);
+  --run:#7c3aed;--rung:rgba(124,58,237,.12);
+  --shadow:0 2px 12px rgba(0,0,0,.08);
+  --shadow-md:0 8px 24px rgba(0,0,0,.12);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.18);
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes previewIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@keyframes fab-open{from{opacity:0;transform:scale(.7) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes notif-drop{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+
+/* TOP NAV */
+.nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:0 20px;height:52px;display:flex;align-items:center;gap:16px}
+.nav-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+.nav-logo-ico{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--run));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;color:white}
+.nav-spacer{flex:1}
+.nav-search{position:relative}
+.nav-search input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 12px 6px 32px;font-size:13px;outline:none;width:200px;transition:all .2s;color:var(--ink)}
+.nav-search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--ag);width:260px}
+.nav-search::before{content:'⌕';position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none}
+.nav-contacts-label{font-size:12px;font-weight:600;color:var(--muted)}
+.nav-actions{display:flex;gap:8px;align-items:center}
+.nbtn{background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .15s;font-weight:600}
+.nbtn:hover{background:var(--white);border-color:var(--accent);color:var(--accent)}
+.nbtn.active{background:var(--accent);border-color:var(--accent);color:white}
+
+/* NOTIFICATION BELL */
+.nbell{position:relative;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background .15s;font-size:16px}
+.nbell:hover{background:var(--bg)}
+.nbadge{position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--err);border-radius:50%;border:2px solid white}
+.ndrop{position:absolute;top:calc(100%+8px);right:0;width:320px;background:white;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);z-index:200;overflow:hidden;display:none;animation:notif-drop .2s ease}
+.ndrop.open{display:block}
+.ndrop-hd{padding:12px 14px 10px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.ndrop-item{display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s}
+.ndrop-item:hover{background:var(--bg)}
+.ndrop-item:last-child{border-bottom:none}
+.ndot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.ndrop-text{font-size:12px;color:var(--ink);line-height:1.4;flex:1}
+.ndrop-time{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* CONTACT CHIPS */
+.contact-strip{padding:12px 20px 10px;display:flex;gap:8px;overflow-x:auto;border-bottom:1px solid var(--line);background:white;position:sticky;top:52px;z-index:90}
+.contact-strip::-webkit-scrollbar{height:2px}
+.contact-strip::-webkit-scrollbar-thumb{background:var(--line);border-radius:1px}
+.cchip{display:flex;align-items:center;gap:6px;padding:5px 10px 5px 5px;border-radius:999px;border:1.5px solid var(--line);background:white;cursor:pointer;transition:all .15s;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.cchip:hover{border-color:var(--accent);color:var(--accent)}
+.cchip.active{border-color:var(--accent);background:var(--accent);color:white}
+.cchip-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:white;flex-shrink:0}
+.cchip-n{font-size:11px}
+.cchip-count{font-size:10px;opacity:.75}
+.filter-chip{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;border:1.5px solid var(--line);background:white;cursor:pointer;transition:all .15s;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.filter-chip:hover{border-color:var(--muted)}
+.filter-chip.active{border-color:var(--accent);background:var(--ag);color:var(--accent)}
+.separator{width:1px;background:var(--line);height:24px;flex-shrink:0;align-self:center}
+
+/* TOOLBAR */
+.toolbar{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.toolbar-left{display:flex;gap:8px;align-items:center}
+.toolbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.tbtn{background:white;border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .15s;font-weight:600;display:flex;align-items:center;gap:4px}
+.tbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--ag)}
+.tbtn.danger{border-color:var(--err);color:var(--err);background:var(--errg)}
+.tbtn.danger:hover{background:var(--err);color:white}
+.sel-count{font-size:12px;font-weight:700;color:var(--accent)}
+.sort-select{background:white;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--ink);cursor:pointer;outline:none}
+
+/* GALLERY GRID */
+.gallery{padding:16px 20px 100px;columns:5;column-gap:12px}
+@media(max-width:1400px){.gallery{columns:4}}
+@media(max-width:1100px){.gallery{columns:3}}
+@media(max-width:980px){.gallery{columns:2}}
+@media(max-width:600px){.gallery{columns:1}}
+.gallery-item{break-inside:avoid;margin-bottom:12px;border-radius:12px;overflow:hidden;background:white;border:1px solid var(--line);box-shadow:var(--shadow);position:relative;cursor:pointer;transition:all .25s;animation:slideUp .35s ease both}
+.gallery-item:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--accent)}
+.gallery-item.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),var(--shadow-md)}
+.gi-thumb{position:relative;width:100%;overflow:hidden}
+.gi-img{width:100%;height:auto;display:block;background:linear-gradient(135deg,#e5e7eb,#d1d5db);min-height:80px}
+.gi-thumb-placeholder{width:100%;background:linear-gradient(135deg,#f3f4f6,#e5e7eb);display:flex;align-items:center;justify-content:center;font-size:32px;color:#9ca3af}
+.gi-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5) 100%);opacity:0;transition:opacity .2s}
+.gallery-item:hover .gi-overlay{opacity:1}
+/* HOVER PREVIEW SPECIAL FEATURE */
+.gi-preview{position:absolute;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:0;pointer-events:none;transition:opacity .2s;border-radius:11px}
+.gallery-item:hover .gi-preview{opacity:1;pointer-events:auto}
+.gi-preview-play{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:20px;color:white;backdrop-filter:blur(4px);transition:all .15s;cursor:pointer}
+.gi-preview-play:hover{background:rgba(255,255,255,.3);transform:scale(1.1)}
+.gi-preview-label{font-size:10px;color:rgba(255,255,255,.7);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.gi-mini-bar{width:80%;height:3px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden;margin-top:4px}
+.gi-mini-bar-fill{height:100%;background:rgba(255,255,255,.8);border-radius:2px;width:0;transition:width 2s linear}
+.gallery-item:hover .gi-mini-bar-fill{width:60%}
+
+.gi-select{position:absolute;top:8px;left:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.25);backdrop-filter:blur(4px);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,background .15s;z-index:2}
+.gallery-item:hover .gi-select,.gallery-item.selected .gi-select{opacity:1}
+.gallery-item.selected .gi-select{background:var(--accent);border-color:var(--accent)}
+.gi-select-check{color:white;font-size:10px;font-weight:700}
+.gi-platform{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;backdrop-filter:blur(4px)}
+.gi-status-badge{position:absolute;bottom:8px;left:8px}
+.gi-status{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:999px;backdrop-filter:blur(6px)}
+.gs-completed{background:rgba(5,150,105,.85);color:white}
+.gs-running{background:rgba(124,58,237,.85);color:white}
+.gs-queued{background:rgba(217,119,6,.85);color:white}
+.gs-failed{background:rgba(220,38,38,.85);color:white}
+.gi-meta{padding:10px 12px 12px}
+.gi-title{font-size:12px;font-weight:700;color:var(--ink);line-height:1.35;margin-bottom:5px}
+.gi-sub{display:flex;align-items:center;justify-content:space-between}
+.gi-contact{display:flex;align-items:center;gap:5px}
+.gi-av-sm{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:white}
+.gi-contact-name{font-size:11px;color:var(--muted);font-weight:500}
+.gi-time{font-size:10px;color:var(--muted)}
+.gi-size{font-size:10px;font-weight:600;color:var(--accent);margin-top:4px}
+.gi-pbar{height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+.gi-pbar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--run));border-radius:2px;transition:width .5s ease}
+.gi-actions{display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.gi-btn{flex:1;padding:5px;border-radius:6px;border:1px solid var(--line);background:transparent;font-size:10px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.gi-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--ag)}
+.gi-btn.danger:hover{border-color:var(--err);color:var(--err);background:var(--errg)}
+
+/* QUEUED / RUNNING PLACEHOLDER */
+.gi-thumb-animated{width:100%;aspect-ratio:16/9;background:linear-gradient(90deg,#f3f4f6 25%,#e9ecef 50%,#f3f4f6 75%);background-size:400px 100%;animation:shimmer 1.4s infinite linear;display:flex;align-items:center;justify-content:center;font-size:28px}
+
+/* EMPTY STATE */
+.gallery-empty{padding:80px 20px;text-align:center;animation:fadeIn .4s ease}
+.empty-ico{font-size:64px;margin-bottom:16px;opacity:.3}
+.empty-title{font-size:18px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.empty-sub{font-size:13px;color:var(--muted);opacity:.7}
+
+/* FAB */
+.fab{position:fixed;bottom:28px;right:28px;z-index:150}
+.fab-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--run));border:none;color:white;font-size:24px;cursor:pointer;box-shadow:0 8px 24px rgba(37,99,235,.4);transition:all .2s;display:flex;align-items:center;justify-content:center}
+.fab-btn:hover{transform:scale(1.08);box-shadow:0 12px 32px rgba(37,99,235,.5)}
+.fab-btn:active{transform:scale(.96)}
+.fab-expand{position:absolute;bottom:68px;right:0;width:320px;background:white;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden;display:none;animation:fab-open .22s ease}
+.fab-expand.open{display:block}
+.fe-hd{padding:14px 16px 11px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.fe-title{font-size:14px;font-weight:700}
+.fe-close{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.fe-body{padding:14px 16px 16px}
+.fe-pchips{display:flex;gap:6px;margin-bottom:12px}
+.fe-pchip{flex:1;padding:7px;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;transition:all .15s;color:var(--muted)}
+.fe-pchip.ax{border-color:#1d9bf0;color:#1d9bf0;background:rgba(29,155,240,.08)}
+.fe-pchip.at{border-color:#ff0050;color:#ff0050;background:rgba(255,0,80,.08)}
+.fe-input{width:100%;border:1.5px solid var(--line);border-radius:9px;padding:11px 12px;font-size:13px;outline:none;transition:all .2s;color:var(--ink);margin-bottom:10px}
+.fe-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--ag)}
+.fe-input::placeholder{color:var(--muted)}
+.fe-submit{width:100%;padding:11px;background:linear-gradient(135deg,var(--accent),var(--run));border:none;border-radius:9px;color:white;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.fe-submit:hover{transform:translateY(-1px);box-shadow:0 5px 18px rgba(37,99,235,.4)}
+.fe-submit:active{transform:translateY(0)}
+
+/* LIGHTBOX */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(6px)}
+.lightbox.open{opacity:1;pointer-events:auto}
+.lb-panel{background:white;border-radius:16px;width:min(700px,95vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:scale(.94);transition:transform .22s;box-shadow:0 32px 80px rgba(0,0,0,.4)}
+.lightbox.open .lb-panel{transform:scale(1)}
+.lb-media{position:relative;background:black;width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;font-size:56px;flex-shrink:0}
+.lb-play{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:28px;color:white;cursor:pointer;backdrop-filter:blur(4px);transition:all .15s}
+.lb-play:hover{background:rgba(255,255,255,.3);transform:scale(1.08)}
+.lb-platform{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.6);color:white;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px}
+.lb-status{position:absolute;top:12px;right:12px}
+.lb-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:background .15s}
+.lb-close:hover{background:rgba(0,0,0,.75)}
+.lb-info{padding:20px;flex:1;overflow-y:auto}
+.lb-title{font-size:18px;font-weight:800;margin-bottom:8px;line-height:1.3}
+.lb-contact-row{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.lb-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:white}
+.lb-cname{font-size:13px;font-weight:700}
+.lb-chandle{font-size:11px;color:var(--muted)}
+.lb-meta-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.lb-meta-item{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 12px;text-align:center}
+.lb-meta-val{font-size:14px;font-weight:800}
+.lb-meta-lab{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
+.lb-actions{display:flex;gap:8px}
+.lb-btn{flex:1;padding:10px;border-radius:9px;border:1.5px solid var(--line);background:white;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink);transition:all .15s}
+.lb-btn:hover{border-color:var(--accent);background:var(--ag);color:var(--accent)}
+.lb-btn.primary{background:var(--accent);border-color:var(--accent);color:white}
+.lb-btn.primary:hover{background:#1d4ed8}
+.lb-btn.danger:hover{border-color:var(--err);color:var(--err);background:var(--errg)}
+
+/* STATUS indicator */
+.spin{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+
+/* TOAST */
+.toast{position:fixed;bottom:100px;right:28px;background:var(--ink);color:white;padding:10px 16px;border-radius:10px;font-size:12px;font-weight:600;z-index:600;transition:all .25s cubic-bezier(.34,1.56,.64,1);transform:translateX(120px) scale(.9);opacity:0;box-shadow:var(--shadow-md)}
+.toast.show{transform:translateX(0) scale(1);opacity:1}
+.toast.ok{background:var(--ok)}.toast.err{background:var(--err)}
+
+@media(max-width:980px){
+  .nav-search input{width:140px}.nav-search input:focus{width:160px}
+  .gallery{columns:2;padding:10px 12px 100px}
+  .toolbar{padding:10px 12px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="nav">
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-ico">⬇</div>
+    Media Vault
+  </a>
+  <div class="nav-spacer"></div>
+  <div class="nav-search">
+    <input type="text" placeholder="Search downloads..." id="search-inp" oninput="applySearch(this.value)">
+  </div>
+  <div class="nav-actions">
+    <div class="nbell" onclick="toggleNotif()" id="nbell">
+      🔔
+      <div class="nbadge" id="nbadge"></div>
+      <div class="ndrop" id="ndrop">
+        <div class="ndrop-hd">
+          Activity
+          <button onclick="clearNotifs(event)" style="background:transparent;border:none;font-size:11px;color:var(--muted);cursor:pointer">Clear all</button>
+        </div>
+        <div id="ndrop-items"></div>
+      </div>
+    </div>
+    <button class="nbtn" onclick="showAllContact()" id="btn-all-contact">All Contacts</button>
+    <button class="nbtn active" id="view-toggle" onclick="toggleView()">⊞ Grid</button>
+  </div>
+</nav>
+
+<!-- CONTACT CHIPS -->
+<div class="contact-strip" id="contact-strip">
+  <!-- populated by JS -->
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar" id="toolbar">
+  <div class="toolbar-left">
+    <button class="tbtn" id="btn-sort-new" onclick="sortBy('new')">↓ Newest</button>
+    <select class="sort-select" onchange="sortBy(this.value)">
+      <option value="new">Newest first</option>
+      <option value="old">Oldest first</option>
+      <option value="size">Largest file</option>
+      <option value="name">Name A-Z</option>
+    </select>
+  </div>
+  <div id="bulk-toolbar" style="display:none;align-items:center;gap:8px">
+    <span class="sel-count" id="sel-count">0 selected</span>
+    <button class="tbtn danger" onclick="bulkDelete()">Delete selected</button>
+    <button class="tbtn" onclick="clearSel()">Cancel</button>
+  </div>
+  <div class="toolbar-right">
+    <span style="font-size:12px;color:var(--muted)" id="job-count">Loading...</span>
+  </div>
+</div>
+
+<!-- GALLERY -->
+<div class="gallery" id="gallery">
+  <!-- populated by JS -->
+</div>
+
+<!-- FAB -->
+<div class="fab">
+  <div class="fab-expand" id="fab-expand">
+    <div class="fe-hd">
+      <div class="fe-title">+ Download Media</div>
+      <button class="fe-close" onclick="closeFab()">✕</button>
+    </div>
+    <div class="fe-body">
+      <div class="fe-pchips">
+        <div class="fe-pchip ax" id="fe-chip-x" onclick="toggleFabChip('x')">𝕏 X / Twitter</div>
+        <div class="fe-pchip at" id="fe-chip-t" onclick="toggleFabChip('t')">♪ TikTok</div>
+      </div>
+      <input class="fe-input" type="url" id="fab-url" placeholder="Paste URL here..." onkeydown="if(event.key==='Enter')fabSubmit()">
+      <button class="fe-submit" onclick="fabSubmit()">
+        <span id="fab-btn-text">Download Now</span>
+      </button>
+    </div>
+  </div>
+  <button class="fab-btn" onclick="toggleFab()" id="fab-main" title="Add download">
+    <span id="fab-ico">+</span>
+  </button>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <div class="lb-panel">
+    <div class="lb-media" id="lb-media">
+      <button class="lb-close" onclick="closeLightbox()">✕</button>
+      <div class="lb-platform" id="lb-platform">𝕏</div>
+      <div class="lb-play" onclick="showToast('Opening media player...','ok')">▶</div>
+    </div>
+    <div class="lb-info">
+      <div class="lb-title" id="lb-title">Title</div>
+      <div class="lb-contact-row">
+        <div class="lb-av" id="lb-av"></div>
+        <div>
+          <div class="lb-cname" id="lb-cname"></div>
+          <div class="lb-chandle" id="lb-chandle"></div>
+        </div>
+        <div id="lb-status-badge" style="margin-left:auto"></div>
+      </div>
+      <div class="lb-meta-row">
+        <div class="lb-meta-item"><div class="lb-meta-val" id="lb-size">—</div><div class="lb-meta-lab">FILE SIZE</div></div>
+        <div class="lb-meta-item"><div class="lb-meta-val" id="lb-plat-meta">𝕏</div><div class="lb-meta-lab">PLATFORM</div></div>
+        <div class="lb-meta-item"><div class="lb-meta-val" id="lb-time">—</div><div class="lb-meta-lab">ADDED</div></div>
+      </div>
+      <div class="lb-actions">
+        <button class="lb-btn primary" onclick="showToast('Downloading file...','ok')">⬇ Download</button>
+        <button class="lb-btn" onclick="showToast('Link copied!','ok')">⎘ Copy URL</button>
+        <button class="lb-btn" onclick="showToast('Opening contact...','ok')">👤 Profile</button>
+        <button class="lb-btn danger" onclick="deleteFromLightbox()">✕ Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTACT PROFILE PANEL -->
+<div class="lightbox" id="cprofile" onclick="if(event.target===this)closeCProfile()">
+  <div class="lb-panel">
+    <div class="lb-media" id="cp-header" style="aspect-ratio:4/1;min-height:100px">
+      <button class="lb-close" onclick="closeCProfile()">✕</button>
+      <div style="text-align:center;color:white">
+        <div id="cp-av" style="font-size:40px;margin-bottom:8px"></div>
+        <div id="cp-name" style="font-size:22px;font-weight:800"></div>
+        <div id="cp-handle" style="font-size:13px;opacity:.7;margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="lb-info">
+      <div class="lb-meta-row" id="cp-stats"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Downloads</div>
+      <div id="cp-jobs"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+const CONTACTS=[
+  {id:1,name:'NASA',handle:'@nasa',e:'🚀',bg:'linear-gradient(135deg,#1a56db,#3b82f6)',plat:'X',jobs:4},
+  {id:2,name:'SpaceX',handle:'@spacex',e:'🛸',bg:'linear-gradient(135deg,#374151,#6b7280)',plat:'X',jobs:2},
+  {id:3,name:'OceanVibes',handle:'@oceanvibes',e:'🌊',bg:'linear-gradient(135deg,#0891b2,#06b6d4)',plat:'TikTok',jobs:3},
+  {id:4,name:'NatGeo',handle:'@natgeo',e:'🌍',bg:'linear-gradient(135deg,#92400e,#f59e0b)',plat:'X',jobs:5},
+  {id:5,name:'NightOwl',handle:'@nightowl',e:'🦉',bg:'linear-gradient(135deg,#4c1d95,#8b5cf6)',plat:'TikTok',jobs:1},
+  {id:6,name:'Chill_Lo',handle:'@chilllofi',e:'🎵',bg:'linear-gradient(135deg,#065f46,#10b981)',plat:'TikTok',jobs:2},
+  {id:7,name:'TechLeak',handle:'@techleak',e:'💡',bg:'linear-gradient(135deg,#7c3aed,#a78bfa)',plat:'X',jobs:3},
+];
+let JOBS=[
+  {id:'j1',cid:1,title:'Artemis III Mission Overview',status:'completed',plat:'X',time:'2m ago',size:'42 MB',aspect:'16/9',h:160},
+  {id:'j2',cid:4,title:'Amazon Rainforest Wildlife 4K',status:'running',plat:'X',time:'1m ago',prog:60,h:220},
+  {id:'j3',cid:3,title:'Deep Sea Bioluminescence',status:'running',plat:'TikTok',time:'45s ago',prog:35,h:300},
+  {id:'j4',cid:2,title:'Falcon 9 Booster Landing',status:'queued',plat:'X',time:'now',h:180},
+  {id:'j5',cid:7,title:'M4 MacBook Pro Full Teardown & Benchmark',status:'queued',plat:'X',time:'now',h:200},
+  {id:'j6',cid:6,title:'Midnight Lo-Fi Mix Vol 7',status:'completed',plat:'TikTok',time:'5m ago',size:'18 MB',h:280},
+  {id:'j7',cid:1,title:'Hubble Deep Field 2025',status:'completed',plat:'X',time:'12m ago',size:'88 MB',h:170},
+  {id:'j8',cid:5,title:'Night Timelapse Tokyo',status:'completed',plat:'TikTok',time:'18m ago',size:'31 MB',h:250},
+  {id:'j9',cid:4,title:'Antarctic Ice Shelf Collapse',status:'completed',plat:'X',time:'25m ago',size:'120 MB',h:190},
+  {id:'j10',cid:1,title:'ISS Live Feed Clip',status:'completed',plat:'X',time:'1h ago',size:'55 MB',h:165},
+  {id:'j11',cid:2,title:'Starship IFT-6 Launch Highlights',status:'completed',plat:'X',time:'2h ago',size:'200 MB',h:185},
+  {id:'j12',cid:3,title:'Coral Reef 4K Drone Footage',status:'completed',plat:'TikTok',time:'3h ago',size:'76 MB',h:310},
+  {id:'j13',cid:7,title:'Apple Vision Pro Deep Dive Review',status:'completed',plat:'X',time:'4h ago',size:'145 MB',h:195},
+  {id:'j14',cid:5,title:'Cherry Blossom Night Walk',status:'completed',plat:'TikTok',time:'5h ago',size:'28 MB',h:290},
+  {id:'j15',cid:4,title:'Amazon River Expedition Part 1',status:'completed',plat:'X',time:'6h ago',size:'95 MB',h:175},
+];
+let NOTIFS=[
+  {lv:'ok',txt:'Download complete: Artemis III Mission Overview (42 MB)',t:'2m ago'},
+  {lv:'run',txt:'Processing: Amazon Rainforest Wildlife 4K — 60% complete',t:'1m ago'},
+  {lv:'info',txt:'Job queued: Falcon 9 Booster Landing',t:'45s ago'},
+  {lv:'warn',txt:'Playwright: Cloudflare detected on last extraction',t:'5m ago'},
+  {lv:'ok',txt:'Download complete: Midnight Lo-Fi Mix Vol 7 (18 MB)',t:'5m ago'},
+];
+
+let selected=new Set(),activeContact='all',activeFilter='all',fabOpen=false,activeJob=null,searchQuery='',submitting=false;
+
+function gc(cid){return CONTACTS.find(c=>c.id===cid)||{name:'?',e:'?',bg:'#888',handle:'@?',plat:'X'}}
+
+// ── RENDER CONTACT STRIP ──────────────────────────────
+function renderStrip(){
+  const strip=document.getElementById('contact-strip');
+  let html=`<div class="cchip${activeContact==='all'?' active':''}" onclick="filterContact('all')">All</div>`;
+  html+=`<div class="separator"></div>`;
+  // Filter chips
+  [{v:'all',l:'All media'},{v:'completed',l:'✓ Done'},{v:'running',l:'▶ Running'},{v:'queued',l:'⏳ Queued'},{v:'failed',l:'✕ Failed'}]
+    .forEach(f=>html+=`<div class="filter-chip${activeFilter===f.v?' active':''}" onclick="filterStatus('${f.v}')">${f.l}</div>`);
+  html+=`<div class="separator"></div>`;
+  CONTACTS.forEach(c=>{
+    const cnt=JOBS.filter(j=>j.cid===c.id).length;
+    html+=`<div class="cchip${activeContact===c.id?' active':''}" onclick="filterContact(${c.id})">
+      <div class="cchip-av" style="background:${c.bg}">${c.e}</div>
+      <span class="cchip-n">${c.name}</span>
+      <span class="cchip-count">(${cnt})</span>
+    </div>`;
+  });
+  strip.innerHTML=html;
+}
+
+// ── RENDER GALLERY ────────────────────────────────────
+const THUMB_COLORS=[
+  '#1e3a5f','#0f4c35','#4a1942','#2d4a22','#3d2b0e','#1a3a5c','#3b1f5e','#1f3b4d'
+];
+function getTColor(cid){return THUMB_COLORS[(cid-1)%THUMB_COLORS.length]}
+
+function renderGallery(){
+  let jobs=[...JOBS];
+  if(activeContact!=='all')jobs=jobs.filter(j=>j.cid===activeContact);
+  if(activeFilter!=='all')jobs=jobs.filter(j=>j.status===activeFilter);
+  if(searchQuery)jobs=jobs.filter(j=>j.title.toLowerCase().includes(searchQuery.toLowerCase())||gc(j.cid).name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  document.getElementById('job-count').textContent=`${jobs.length} item${jobs.length!==1?'s':''}`;
+
+  const gallery=document.getElementById('gallery');
+  if(jobs.length===0){
+    gallery.innerHTML=`<div class="gallery-empty"><div class="empty-ico">🖼</div><div class="empty-title">Nothing here yet</div><div class="empty-sub">Use the + button to add a download</div></div>`;
+    return;
+  }
+  gallery.innerHTML=jobs.map((j,i)=>{
+    const c=gc(j.cid);
+    const isActive=j.status==='running'||j.status==='queued';
+    const thumbBg=getTColor(j.cid);
+    return `<div class="gallery-item${selected.has(j.id)?' selected':''}" style="animation-delay:${i*.04}s" id="gi-${j.id}">
+      <div class="gi-thumb">
+        ${isActive
+          ? `<div class="gi-thumb-animated" style="height:${j.h}px">${j.status==='running'?'▶':'⏳'}</div>`
+          : `<div class="gi-thumb-placeholder" style="height:${j.h}px;background:linear-gradient(135deg,${thumbBg},${thumbBg}cc)">${c.e}</div>`
+        }
+        ${j.status==='completed'?`<div class="gi-preview" onclick="openLightbox('${j.id}')">
+          <div class="gi-preview-play">▶</div>
+          <div class="gi-preview-label">Quick Preview</div>
+          <div class="gi-mini-bar"><div class="gi-mini-bar-fill"></div></div>
+        </div>`:''}
+        <div class="gi-select" onclick="event.stopPropagation();toggleSel('${j.id}')">
+          <span class="gi-select-check">${selected.has(j.id)?'✓':''}</span>
+        </div>
+        <div class="gi-platform">${j.plat==='X'?'𝕏':'♪'}</div>
+        <div class="gi-status-badge">
+          <div class="gi-status gs-${j.status}">
+            ${j.status==='running'?'<span class="spin"></span> ':''} ${j.status}
+          </div>
+        </div>
+      </div>
+      <div class="gi-meta">
+        <div class="gi-title">${j.title}</div>
+        <div class="gi-sub">
+          <div class="gi-contact" onclick="openCProfile(${j.cid})">
+            <div class="gi-av-sm" style="background:${c.bg}">${c.e}</div>
+            <span class="gi-contact-name">${c.name}</span>
+          </div>
+          <span class="gi-time">${j.time}</span>
+        </div>
+        ${j.size?`<div class="gi-size">${j.size}</div>`:''}
+        ${j.status==='running'?`<div class="gi-pbar"><div class="gi-pbar-fill" style="width:${j.prog||0}%"></div></div>`:''}
+        <div class="gi-actions">
+          ${j.status==='completed'?`<button class="gi-btn" onclick="event.stopPropagation();openLightbox('${j.id}')">View</button>`:''}
+          ${j.status==='completed'?`<button class="gi-btn" onclick="event.stopPropagation();showToast('Downloading...','ok')">⬇</button>`:''}
+          ${j.status==='failed'?`<button class="gi-btn" onclick="event.stopPropagation();retryJob('${j.id}')">Retry</button>`:''}
+          <button class="gi-btn danger" onclick="event.stopPropagation();deleteJob('${j.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER NOTIFS ─────────────────────────────────────
+function renderNotifs(){
+  const lvColor={ok:'var(--ok)',run:'var(--run)',info:'var(--accent)',warn:'var(--warn)',err:'var(--err)'};
+  document.getElementById('ndrop-items').innerHTML=NOTIFS.map(n=>`
+    <div class="ndrop-item">
+      <div class="ndot" style="background:${lvColor[n.lv]||'var(--accent)'}"></div>
+      <div><div class="ndrop-text">${n.txt}</div><div class="ndrop-time">${n.t}</div></div>
+    </div>`).join('');
+  document.getElementById('nbadge').style.display=NOTIFS.length?'block':'none';
+}
+
+// ── FILTER / SEARCH ───────────────────────────────────
+function filterContact(cid){activeContact=cid;renderStrip();renderGallery();}
+function filterStatus(f){activeFilter=f;renderStrip();renderGallery();}
+function applySearch(v){searchQuery=v;renderGallery();}
+function sortBy(v){
+  if(v==='old')JOBS.sort((a,b)=>a.id>b.id?1:-1);
+  else if(v==='new')JOBS.sort((a,b)=>a.id<b.id?1:-1);
+  else if(v==='size')JOBS.sort((a,b)=>(parseInt(b.size)||0)-(parseInt(a.size)||0));
+  else if(v==='name')JOBS.sort((a,b)=>a.title.localeCompare(b.title));
+  renderGallery();
+}
+function showAllContact(){filterContact('all');}
+
+// ── SELECTION ─────────────────────────────────────────
+function toggleSel(id){
+  selected.has(id)?selected.delete(id):selected.add(id);
+  updateBulkBar();renderGallery();
+}
+function updateBulkBar(){
+  const bt=document.getElementById('bulk-toolbar');
+  document.getElementById('sel-count').textContent=`${selected.size} selected`;
+  bt.style.display=selected.size>0?'flex':'none';
+}
+function clearSel(){selected.clear();updateBulkBar();renderGallery();}
+function bulkDelete(){
+  const n=selected.size;JOBS=JOBS.filter(j=>!selected.has(j.id));
+  selected.clear();updateBulkBar();renderGallery();renderStrip();
+  addNotif({lv:'ok',txt:`Deleted ${n} items`,t:'now'});
+  showToast(`Deleted ${n} items`,'ok');
+}
+
+// ── JOB ACTIONS ───────────────────────────────────────
+function deleteJob(id){
+  JOBS=JOBS.filter(j=>j.id!==id);selected.delete(id);
+  renderGallery();renderStrip();
+  addNotif({lv:'info',txt:`Job deleted`,t:'now'});
+  showToast('Deleted','ok');
+}
+function retryJob(id){
+  const j=JOBS.find(x=>x.id===id);if(!j)return;
+  j.status='queued';delete j.error;
+  renderGallery();
+  addNotif({lv:'info',txt:`Job retried: ${j.title}`,t:'now'});
+  showToast('Retrying...','ok');
+}
+
+// ── FAB ───────────────────────────────────────────────
+function toggleFab(){
+  fabOpen=!fabOpen;
+  document.getElementById('fab-expand').classList.toggle('open',fabOpen);
+  document.getElementById('fab-ico').textContent=fabOpen?'✕':'+';
+  if(fabOpen)setTimeout(()=>document.getElementById('fab-url').focus(),100);
+}
+function closeFab(){fabOpen=false;document.getElementById('fab-expand').classList.remove('open');document.getElementById('fab-ico').textContent='+';}
+function toggleFabChip(p){
+  const id=p==='x'?'fe-chip-x':'fe-chip-t';
+  const cls=p==='x'?'ax':'at';
+  document.getElementById(id).classList.toggle(cls);
+}
+function fabSubmit(){
+  if(submitting)return;
+  const url=document.getElementById('fab-url').value.trim();
+  if(!url){showToast('Paste a URL first','err');return;}
+  if(!url.includes('tiktok')&&!url.includes('x.com')&&!url.includes('twitter')){showToast('Only X or TikTok URLs','err');return;}
+  submitting=true;
+  const btn=document.getElementById('fab-btn-text');
+  btn.innerHTML='<span class="spin"></span> Queuing...';
+  setTimeout(()=>{
+    submitting=false;
+    btn.textContent='Download Now';
+    const plat=url.includes('tiktok')?'TikTok':'X';
+    const nj={id:'j'+Date.now(),cid:plat==='X'?1:3,title:'New download: '+url.split('/').pop().slice(0,32),status:'queued',plat,time:'now',h:180};
+    JOBS.unshift(nj);
+    document.getElementById('fab-url').value='';
+    closeFab();renderGallery();renderStrip();
+    addNotif({lv:'info',txt:`Job queued: ${nj.title}`,t:'now'});
+    showToast('Job queued ✓','ok');
+  },1100);
+}
+
+// ── LIGHTBOX ──────────────────────────────────────────
+function openLightbox(id){
+  const j=JOBS.find(x=>x.id===id);if(!j)return;
+  const c=gc(j.cid);
+  activeJob=j;
+  document.getElementById('lb-platform').textContent=j.plat==='X'?'𝕏':'♪';
+  document.getElementById('lb-media').style.background=`linear-gradient(135deg,${getTColor(j.cid)},${getTColor(j.cid)}99)`;
+  document.getElementById('lb-media').style.fontSize='56px';
+  document.getElementById('lb-media').childNodes[3].textContent=c.e;
+  document.getElementById('lb-title').textContent=j.title;
+  document.getElementById('lb-av').style.background=c.bg;
+  document.getElementById('lb-av').textContent=c.e;
+  document.getElementById('lb-cname').textContent=c.name;
+  document.getElementById('lb-chandle').textContent=c.handle;
+  document.getElementById('lb-size').textContent=j.size||'—';
+  document.getElementById('lb-plat-meta').textContent=j.plat==='X'?'𝕏 Twitter':'♪ TikTok';
+  document.getElementById('lb-time').textContent=j.time;
+  document.getElementById('lb-status-badge').innerHTML=`<div class="gi-status gs-${j.status}">${j.status}</div>`;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
+function deleteFromLightbox(){
+  if(activeJob){deleteJob(activeJob.id);closeLightbox();}
+}
+
+// ── CONTACT PROFILE ───────────────────────────────────
+function openCProfile(cid){
+  const c=CONTACTS.find(x=>x.id===cid);if(!c)return;
+  const jobs=JOBS.filter(j=>j.cid===cid);
+  const done=jobs.filter(j=>j.status==='completed').length;
+  const failed=jobs.filter(j=>j.status==='failed').length;
+  const hdr=document.getElementById('cp-header');
+  hdr.style.background=c.bg;
+  document.getElementById('cp-av').textContent=c.e;
+  document.getElementById('cp-name').textContent=c.name;
+  document.getElementById('cp-handle').textContent=c.handle;
+  document.getElementById('cp-stats').innerHTML=`
+    <div class="lb-meta-item"><div class="lb-meta-val">${jobs.length}</div><div class="lb-meta-lab">TOTAL</div></div>
+    <div class="lb-meta-item"><div class="lb-meta-val" style="color:var(--ok)">${done}</div><div class="lb-meta-lab">DONE</div></div>
+    <div class="lb-meta-item"><div class="lb-meta-val" style="color:var(--err)">${failed}</div><div class="lb-meta-lab">FAILED</div></div>
+  `;
+  document.getElementById('cp-jobs').innerHTML=jobs.map(j=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px;background:var(--bg);border:1px solid var(--line);border-radius:9px;margin-bottom:6px;cursor:pointer;transition:border-color .15s" onclick="closeCProfile();openLightbox('${j.id}')">
+      <div style="width:40px;height:27px;background:${getTColor(j.cid)};border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${c.e}</div>
+      <div style="flex:1;overflow:hidden">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.title}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${j.time}${j.size?' · '+j.size:''}</div>
+      </div>
+      <div class="gi-status gs-${j.status}">${j.status}</div>
+    </div>`).join('')||'<div style="color:var(--muted);text-align:center;padding:20px;font-size:12px">No downloads yet</div>';
+  document.getElementById('cprofile').classList.add('open');
+}
+function closeCProfile(){document.getElementById('cprofile').classList.remove('open');}
+
+// ── NOTIFS ────────────────────────────────────────────
+function addNotif(n){NOTIFS.unshift(n);if(NOTIFS.length>20)NOTIFS.pop();renderNotifs();}
+function toggleNotif(){
+  const d=document.getElementById('ndrop');d.classList.toggle('open');
+  if(d.classList.contains('open'))document.getElementById('nbadge').style.display='none';
+}
+function clearNotifs(e){e.stopPropagation();NOTIFS=[];renderNotifs();showToast('Cleared','ok');}
+document.addEventListener('click',e=>{
+  const bell=document.getElementById('nbell');
+  if(!bell.contains(e.target))document.getElementById('ndrop').classList.remove('open');
+});
+
+// ── TOAST ─────────────────────────────────────────────
+let toastT;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast'+(type?' '+type:'');
+  clearTimeout(toastT);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  toastT=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── VIEW TOGGLE ───────────────────────────────────────
+let isGrid=true;
+function toggleView(){
+  isGrid=!isGrid;
+  const gal=document.getElementById('gallery');
+  const btn=document.getElementById('view-toggle');
+  if(isGrid){gal.style.columns='';gal.style.display='';btn.textContent='⊞ Grid';}
+  else{gal.style.columns='1';gal.style.columnGap='0';btn.textContent='≡ List';}
+}
+
+// ── LIVE SIMULATION ───────────────────────────────────
+setInterval(()=>{
+  const running=JOBS.filter(j=>j.status==='running');
+  running.forEach(j=>{
+    if(j.prog!=null){
+      j.prog=Math.min(100,(j.prog||0)+Math.random()*8);
+      if(j.prog>=100){
+        j.status='completed';j.size=Math.round(20+Math.random()*150)+' MB';j.time='just now';delete j.prog;
+        addNotif({lv:'ok',txt:`Download complete: ${j.title}`,t:'now'});
+      }
+    }
+  });
+  const q=JOBS.filter(j=>j.status==='queued');
+  if(q.length>0&&running.length<3){q[0].status='running';q[0].prog=0;}
+  renderGallery();
+},2200);
+
+// ── INIT ─────────────────────────────────────────────
+renderStrip();renderGallery();renderNotifs();
+
+// Close fab on outside click
+document.addEventListener('click',e=>{
+  if(fabOpen&&!document.querySelector('.fab').contains(e.target))closeFab();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeLightbox();closeCProfile();closeFab();}
+});
+</script>
+</body>
+</html>

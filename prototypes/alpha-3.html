@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Conversation</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5;--white:#ffffff;--ink:#050e1b;--muted:#8492a6;--line:#dde1e7;
+  --me-bg:#0b84fe;--me-text:#ffffff;
+  --them-bg:#e9ebee;--them-text:#050e1b;
+  --sys-bg:transparent;--sys-text:#8492a6;
+  --ok:#34c759;--okg:rgba(52,199,89,.12);
+  --warn:#ff9500;--warng:rgba(255,149,0,.12);
+  --err:#ff3b30;--errg:rgba(255,59,48,.12);
+  --run:#5856d6;--rung:rgba(88,86,214,.12);
+  --accent:#0b84fe;--ag:rgba(11,132,254,.14);
+  --shadow-sm:0 1px 4px rgba(0,0,0,.1);
+  --shadow-md:0 4px 16px rgba(0,0,0,.12);
+}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
+@keyframes pill-in{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes typing-dot{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;overflow:hidden}
+
+/* === APP LAYOUT === */
+.app{display:flex;flex-direction:column;height:100vh;max-width:680px;margin:0 auto;background:var(--white);position:relative;box-shadow:0 0 40px rgba(0,0,0,.08)}
+
+/* === TOP BAR === */
+.topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;flex-shrink:0}
+.topbar-back{width:32px;height:32px;border-radius:50%;background:transparent;border:none;color:var(--accent);font-size:18px;cursor:pointer;display:none;align-items:center;justify-content:center;transition:background .15s}
+.topbar-back:hover{background:var(--ag)}
+.tb-av-wrap{position:relative;cursor:pointer}
+.tb-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:white;border:2px solid var(--line);transition:border-color .15s}
+.tb-av:hover{border-color:var(--accent)}
+.tb-live{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:var(--ok);border:2px solid white;animation:blink 2.5s ease-in-out infinite}
+.tb-info{flex:1}
+.tb-title{font-size:15px;font-weight:700;color:var(--ink)}
+.tb-sub{font-size:11px;color:var(--muted)}
+.tb-actions{display:flex;gap:6px}
+.tb-btn{width:32px;height:32px;border-radius:50%;background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.tb-btn:hover{background:var(--ag);color:var(--accent)}
+
+/* === STORIES (CONTACTS) ROW === */
+.stories{background:var(--white);border-bottom:1px solid var(--line);padding:10px 14px 8px;display:flex;gap:12px;overflow-x:auto;flex-shrink:0}
+.stories::-webkit-scrollbar{height:0}
+.story{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0}
+.story-ring{width:52px;height:52px;border-radius:50%;padding:2px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);transition:transform .15s}
+.story-ring:hover{transform:scale(1.08)}
+.story-ring.seen{background:var(--line)}
+.story-inner{width:100%;height:100%;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:20px;color:white;overflow:hidden}
+.story-name{font-size:10px;font-weight:500;color:var(--ink);text-align:center;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.story-count{font-size:9px;color:var(--muted)}
+.story-add{width:52px;height:52px;border-radius:50%;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted);cursor:pointer;transition:all .15s}
+.story-add:hover{border-color:var(--accent);color:var(--accent);background:var(--ag)}
+
+/* === MESSAGES FEED === */
+.feed{flex:1;overflow-y:auto;padding:14px 14px 4px;display:flex;flex-direction:column;gap:2px;scroll-behavior:smooth}
+.feed::-webkit-scrollbar{width:3px}
+.feed::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+
+/* System messages (gray centered) */
+.msg-sys{display:flex;justify-content:center;padding:8px 0;animation:slideInUp .25s ease both}
+.msg-sys-inner{background:rgba(0,0,0,.05);color:var(--sys-text);font-size:11px;padding:4px 12px;border-radius:999px;text-align:center;max-width:80%}
+
+/* Date dividers */
+.msg-date{display:flex;justify-content:center;padding:14px 0 6px;animation:slideInUp .2s ease both}
+.msg-date-inner{background:var(--bg);color:var(--muted);font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;letter-spacing:.04em}
+
+/* Outgoing (right-aligned) = URL submission */
+.msg-out{display:flex;justify-content:flex-end;padding:2px 0;animation:slideInRight .3s ease both}
+.msg-out .bubble{background:var(--me-bg);color:var(--me-text);border-radius:18px 18px 4px 18px;padding:10px 14px;max-width:78%;word-break:break-word}
+.msg-out .bubble .burl{font-size:11px;opacity:.8;word-break:break-all;margin-bottom:4px}
+.msg-out .bubble .btitle{font-size:13px;font-weight:600;line-height:1.3}
+.msg-out .bubble .bplatform{font-size:10px;opacity:.75;margin-top:3px;display:flex;align-items:center;gap:3px}
+.msg-out .bubble .btail{font-size:10px;opacity:.6;text-align:right;margin-top:4px}
+
+/* Incoming (left-aligned) = completed download */
+.msg-in{display:flex;gap:8px;padding:2px 0;align-items:flex-end;animation:slideInLeft .3s ease both}
+.msg-in .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:white;flex-shrink:0;margin-bottom:1px}
+.msg-in .bubble{background:var(--them-bg);color:var(--them-text);border-radius:18px 18px 18px 4px;padding:0;max-width:78%;overflow:hidden;cursor:pointer;transition:filter .15s}
+.msg-in .bubble:hover{filter:brightness(.97)}
+.bubble-media{width:100%;background:#1a1a2e;display:flex;align-items:center;justify-content:center;min-height:90px;border-radius:18px 18px 0 0;overflow:hidden;position:relative}
+.bubble-media-bg{width:100%;min-height:110px;display:flex;align-items:center;justify-content:center;font-size:36px}
+.bubble-play{position:absolute;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;backdrop-filter:blur(4px)}
+.bubble-info{padding:8px 12px 10px}
+.bubble-title{font-size:13px;font-weight:700;line-height:1.3;margin-bottom:3px}
+.bubble-meta{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted)}
+.bubble-size{font-size:11px;font-weight:600;color:var(--accent)}
+.bubble-actions{display:flex;border-top:1px solid var(--line);overflow:hidden}
+.bubble-act{flex:1;padding:9px 6px;background:transparent;border:none;border-right:1px solid var(--line);cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);transition:background .15s;text-align:center}
+.bubble-act:last-child{border-right:none}
+.bubble-act:hover{background:var(--ag)}
+
+/* Status bubbles (queued/running/failed) */
+.msg-status{display:flex;gap:8px;padding:2px 0;align-items:flex-end;animation:slideInLeft .3s ease both}
+.msg-status .av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:white}
+.status-bubble{background:var(--them-bg);border-radius:18px 18px 18px 4px;padding:10px 14px;max-width:78%}
+.sb-title{font-size:13px;font-weight:600;margin-bottom:5px}
+.sb-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:999px;margin-bottom:6px}
+.sb-queued{background:var(--warng);color:var(--warn)}
+.sb-running{background:var(--rung);color:var(--run)}
+.sb-failed{background:var(--errg);color:var(--err)}
+.sb-pbar{height:4px;background:rgba(0,0,0,.08);border-radius:2px;overflow:hidden;margin-top:4px}
+.sb-pbar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--run));border-radius:2px;transition:width .6s ease}
+.sb-actions{display:flex;gap:6px;margin-top:8px}
+.sb-btn{padding:5px 10px;border-radius:7px;border:none;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s}
+.sb-btn-retry{background:var(--accent);color:white}.sb-btn-retry:hover{background:#0070d8}
+.sb-btn-del{background:rgba(0,0,0,.06);color:var(--muted)}.sb-btn-del:hover{background:var(--err);color:white}
+
+/* Typing indicator */
+.typing-ind{display:flex;gap:8px;padding:4px 0;align-items:flex-end;animation:slideInLeft .2s ease both}
+.typing-ind .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--run));display:flex;align-items:center;justify-content:center;font-size:13px;color:white}
+.typing-bubble{background:var(--them-bg);border-radius:18px;padding:10px 14px;display:flex;gap:4px;align-items:center}
+.tdot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.tdot:nth-child(1){animation:typing-dot .8s ease-in-out infinite}
+.tdot:nth-child(2){animation:typing-dot .8s ease-in-out .15s infinite}
+.tdot:nth-child(3){animation:typing-dot .8s ease-in-out .3s infinite}
+
+/* === SMART REPLIES === */
+.smart-replies{padding:6px 14px 4px;display:flex;gap:6px;overflow-x:auto;flex-shrink:0}
+.smart-replies::-webkit-scrollbar{height:0}
+.sr-pill{display:flex;align-items:center;gap:5px;padding:7px 13px;background:var(--white);border:1.5px solid var(--accent);border-radius:999px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap;transition:all .18s;animation:pill-in .25s ease both;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.sr-pill:hover{background:var(--accent);color:white;transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.sr-pill:active{transform:translateY(0)}
+.sr-pill.danger{border-color:var(--err);color:var(--err)}
+.sr-pill.danger:hover{background:var(--err);color:white}
+.sr-pill.ok{border-color:var(--ok);color:var(--ok)}
+.sr-pill.ok:hover{background:var(--ok);color:white}
+.sr-pill.muted{border-color:var(--line);color:var(--muted)}
+.sr-pill.muted:hover{background:var(--bg);color:var(--ink)}
+
+/* === COMPOSER === */
+.composer-wrap{background:var(--white);border-top:1px solid var(--line);padding:8px 12px 12px;flex-shrink:0}
+.composer{display:flex;gap:8px;align-items:flex-end}
+.composer-input-wrap{flex:1;background:var(--bg);border:1.5px solid var(--line);border-radius:22px;display:flex;align-items:center;padding:8px 12px;transition:border-color .2s,box-shadow .2s}
+.composer-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--ag)}
+.composer-input{flex:1;background:transparent;border:none;outline:none;font-size:14px;color:var(--ink);font-family:inherit;max-height:80px;resize:none}
+.composer-input::placeholder{color:var(--muted)}
+.composer-paste{background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 4px;transition:color .15s}
+.composer-paste:hover{color:var(--accent)}
+.composer-send{width:38px;height:38px;border-radius:50%;background:var(--accent);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;box-shadow:0 3px 10px rgba(11,132,254,.4)}
+.composer-send:hover{transform:scale(1.08);box-shadow:0 5px 14px rgba(11,132,254,.5)}
+.composer-send:active{transform:scale(.95)}
+.composer-send:disabled{background:var(--line);box-shadow:none;cursor:not-allowed}
+.platform-hint{display:flex;gap:6px;align-items:center;padding:4px 0 2px 2px}
+.ph-chip{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);cursor:pointer;transition:all .12s}
+.ph-chip.ax{border-color:#1d9bf0;color:#1d9bf0;background:rgba(29,155,240,.06)}
+.ph-chip.at{border-color:#ff0050;color:#ff0050;background:rgba(255,0,80,.06)}
+.ph-chip:not(.ax):not(.at){background:transparent}
+
+/* === CONTACT PROFILE MODAL === */
+.cprofile-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.cprofile-ov.open{opacity:1;pointer-events:auto}
+.cprofile-panel{background:white;border-radius:18px 18px 0 0;width:100%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,0,.67,0)}
+.cprofile-ov.open .cprofile-panel{transform:translateY(0);transition-timing-function:cubic-bezier(.33,1,.68,1)}
+.cp-hd{padding:14px 16px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.cp-av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:white;flex-shrink:0}
+.cp-name{font-size:17px;font-weight:800}
+.cp-handle{font-size:12px;color:var(--muted);margin-top:1px}
+.cp-close{margin-left:auto;width:30px;height:30px;border-radius:50%;background:var(--bg);border:none;color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cp-close:hover{background:var(--line)}
+.cp-stats{display:flex;gap:0;border-bottom:1px solid var(--line)}
+.cp-stat{flex:1;padding:12px 0;text-align:center;border-right:1px solid var(--line)}
+.cp-stat:last-child{border-right:none}
+.cp-stat-v{font-size:18px;font-weight:800}
+.cp-stat-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.cp-body{flex:1;overflow-y:auto;padding:12px 14px 20px}
+.cp-job-item{display:flex;align-items:center;gap:9px;padding:10px;border-radius:12px;margin-bottom:6px;background:var(--bg);cursor:pointer;transition:background .15s}
+.cp-job-item:hover{background:var(--line)}
+.cp-job-thumb{width:44px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;color:white;flex-shrink:0}
+.cp-job-info{flex:1;overflow:hidden}
+.cp-job-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-job-meta{font-size:10px;color:var(--muted);margin-top:2px}
+.status-pill{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:999px;flex-shrink:0}
+.sp-q{background:var(--warng);color:var(--warn)}.sp-r{background:var(--rung);color:var(--run)}.sp-c{background:var(--okg);color:var(--ok)}.sp-f{background:var(--errg);color:var(--err)}
+
+/* TOAST */
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-16px);background:rgba(0,0,0,.82);color:white;padding:8px 16px;border-radius:999px;font-size:12px;font-weight:600;z-index:600;transition:all .25s cubic-bezier(.34,1.56,.64,1);opacity:0;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.ok{background:var(--ok)}.toast.err{background:var(--err)}
+
+.spin{width:10px;height:10px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+
+@media(max-width:980px){
+  .app{max-width:100%;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="topbar-back" id="back-btn" onclick="goHome()">←</button>
+    <div class="tb-av-wrap" id="tb-av-wrap" onclick="onTopbarClick()">
+      <div class="tb-av" id="tb-av" style="background:linear-gradient(135deg,#0b84fe,#5856d6)">⬇</div>
+      <div class="tb-live"></div>
+    </div>
+    <div class="tb-info">
+      <div class="tb-title" id="tb-title">Media Vault</div>
+      <div class="tb-sub" id="tb-sub">tap contact to view profile · 2 active</div>
+    </div>
+    <div class="tb-actions">
+      <button class="tb-btn" id="tb-filter" onclick="cycleFilter()" title="Filter">⊟</button>
+      <button class="tb-btn" onclick="showToast('Settings — coming soon','')">⚙</button>
+    </div>
+  </div>
+
+  <!-- STORIES (CONTACTS) -->
+  <div class="stories" id="stories">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- MESSAGES FEED -->
+  <div class="feed" id="feed">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- SMART REPLIES -->
+  <div class="smart-replies" id="smart-replies">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- COMPOSER -->
+  <div class="composer-wrap">
+    <div class="platform-hint">
+      <span style="font-size:10px;color:var(--muted)">Platform:</span>
+      <div class="ph-chip ax" id="ph-x" onclick="togglePhChip('x')">𝕏 Twitter</div>
+      <div class="ph-chip at" id="ph-t" onclick="togglePhChip('t')">♪ TikTok</div>
+      <div class="ph-chip" id="ph-toggles" onclick="showPlatformToggles()" style="margin-left:auto">⚙ Settings</div>
+    </div>
+    <div class="composer">
+      <div class="composer-input-wrap">
+        <input class="composer-input" id="url-input" placeholder="Paste a video URL…" type="url"
+          oninput="onInputChange(this.value)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}">
+        <button class="composer-paste" onclick="pasteFromClipboard()" title="Paste URL">⎘</button>
+      </div>
+      <button class="composer-send" id="send-btn" onclick="sendMessage()" title="Send">▶</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- CONTACT PROFILE SHEET -->
+<div class="cprofile-ov" id="cprofile-ov" onclick="if(event.target===this)closeCProfile()">
+  <div class="cprofile-panel">
+    <div class="cp-hd">
+      <div class="cp-av" id="cp-av"></div>
+      <div>
+        <div class="cp-name" id="cp-name"></div>
+        <div class="cp-handle" id="cp-handle"></div>
+      </div>
+      <button class="cp-close" onclick="closeCProfile()">✕</button>
+    </div>
+    <div class="cp-stats" id="cp-stats"></div>
+    <div class="cp-body" id="cp-body"></div>
+  </div>
+</div>
+
+<!-- PLATFORM TOGGLES SHEET -->
+<div class="cprofile-ov" id="ptoggle-ov" onclick="if(event.target===this)closePToggles()">
+  <div class="cprofile-panel" style="max-height:40vh">
+    <div class="cp-hd">
+      <div style="font-size:16px;font-weight:800">Platform Settings</div>
+      <button class="cp-close" onclick="closePToggles()" style="margin-left:auto">✕</button>
+    </div>
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border-radius:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:600"><span style="color:#1d9bf0;font-size:16px">𝕏</span>X / Twitter</div>
+        <div style="width:44px;height:26px;background:var(--ok);border-radius:13px;position:relative;cursor:pointer;transition:background .2s" id="pt-x" onclick="togglePlatformPt('x')">
+          <div style="position:absolute;width:20px;height:20px;background:white;border-radius:50%;top:3px;left:21px;transition:left .2s"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border-radius:12px">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:600"><span style="color:#ff0050;font-size:16px">♪</span>TikTok</div>
+        <div style="width:44px;height:26px;background:var(--ok);border-radius:13px;position:relative;cursor:pointer;transition:background .2s" id="pt-t" onclick="togglePlatformPt('t')">
+          <div style="position:absolute;width:20px;height:20px;background:white;border-radius:50%;top:3px;left:21px;transition:left .2s"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+const CONTACTS=[
+  {id:1,name:'NASA',handle:'@nasa',e:'🚀',bg:'linear-gradient(135deg,#1a56db,#3b82f6)',plat:'X',jobs:4},
+  {id:2,name:'SpaceX',handle:'@spacex',e:'🛸',bg:'linear-gradient(135deg,#374151,#6b7280)',plat:'X',jobs:2},
+  {id:3,name:'OceanVibes',handle:'@oceanvibes',e:'🌊',bg:'linear-gradient(135deg,#0891b2,#06b6d4)',plat:'TikTok',jobs:3},
+  {id:4,name:'NatGeo',handle:'@natgeo',e:'🌍',bg:'linear-gradient(135deg,#92400e,#f59e0b)',plat:'X',jobs:5},
+  {id:5,name:'NightOwl',handle:'@nightowl',e:'🦉',bg:'linear-gradient(135deg,#4c1d95,#8b5cf6)',plat:'TikTok',jobs:1},
+  {id:6,name:'Chill_Lo',handle:'@chilllofi',e:'🎵',bg:'linear-gradient(135deg,#065f46,#10b981)',plat:'TikTok',jobs:2},
+  {id:7,name:'TechLeak',handle:'@techleak',e:'💡',bg:'linear-gradient(135deg,#7c3aed,#a78bfa)',plat:'X',jobs:3},
+];
+let MESSAGES=[
+  {type:'date',text:'Today'},
+  {type:'sys',text:'Media Vault is active — 2 jobs processing'},
+  {type:'out',url:'https://x.com/nasa/status/001',platform:'X',title:'Artemis III Mission Overview',time:'2:30 PM',cid:1},
+  {type:'sys',text:'Processing…'},
+  {type:'in',jid:'j1',title:'Artemis III Mission Overview',cid:1,status:'completed',size:'42 MB',plat:'X',time:'2:31 PM'},
+  {type:'sys',text:'Successfully vaulted · 42 MB'},
+  {type:'out',url:'https://www.tiktok.com/@ocean/video/999',platform:'TikTok',title:'Deep Sea Bioluminescence',time:'2:38 PM',cid:3},
+  {type:'in',jid:'j3',title:'Deep Sea Bioluminescence',cid:3,status:'running',prog:35,plat:'TikTok',time:'2:38 PM'},
+  {type:'out',url:'https://x.com/natgeo/status/002',platform:'X',title:'Amazon Rainforest Wildlife',time:'2:40 PM',cid:4},
+  {type:'in',jid:'j2',title:'Amazon Rainforest Wildlife 4K',cid:4,status:'running',prog:60,plat:'X',time:'2:40 PM'},
+  {type:'out',url:'https://x.com/spacex/status/003',platform:'X',title:'Falcon 9 Booster Landing',time:'2:42 PM',cid:2},
+  {type:'in',jid:'j4',title:'Falcon 9 Booster Landing',cid:2,status:'queued',plat:'X',time:'2:42 PM'},
+  {type:'sys',text:'2 more jobs queued behind Falcon 9'},
+];
+let JOBS=[
+  {id:'j1',cid:1,title:'Artemis III Mission Overview',status:'completed',plat:'X',time:'2:31 PM',size:'42 MB'},
+  {id:'j2',cid:4,title:'Amazon Rainforest Wildlife 4K',status:'running',plat:'X',time:'2:40 PM',prog:60},
+  {id:'j3',cid:3,title:'Deep Sea Bioluminescence',status:'running',plat:'TikTok',time:'2:38 PM',prog:35},
+  {id:'j4',cid:2,title:'Falcon 9 Booster Landing',status:'queued',plat:'X',time:'2:42 PM'},
+  {id:'j5',cid:7,title:'M4 MacBook Pro Benchmark',status:'completed',plat:'X',time:'Yesterday',size:'88 MB'},
+  {id:'j6',cid:6,title:'Midnight Lo-Fi Mix Vol 7',status:'completed',plat:'TikTok',time:'Yesterday',size:'18 MB'},
+  {id:'j7',cid:1,title:'Hubble Deep Field 2025',status:'completed',plat:'X',time:'Yesterday',size:'55 MB'},
+  {id:'j8',cid:4,title:'Antarctic Ice Shelf Collapse',status:'completed',plat:'X',time:'2 days ago',size:'120 MB'},
+  {id:'j9',cid:5,title:'Night Timelapse Tokyo',status:'completed',plat:'TikTok',time:'2 days ago',size:'31 MB'},
+];
+
+let activeFilter='all',currentView='home',cpid=null,submitting=false;
+let seenStories=new Set();
+
+function gc(cid){return CONTACTS.find(c=>c.id===cid)||{name:'?',e:'?',bg:'#888',handle:'@?',plat:'X'}}
+function gj(jid){return JOBS.find(j=>j.id===jid)||null}
+const THUMB_COLORS=['#1e3a5f','#0f4c35','#4a1942','#2d4a22','#3d2b0e','#1a3a5c','#3b1f5e','#1f3b4d'];
+function tc(cid){return THUMB_COLORS[(cid-1)%THUMB_COLORS.length]}
+
+// ── STORIES ───────────────────────────────────────────
+function renderStories(){
+  const el=document.getElementById('stories');
+  let html=CONTACTS.map(c=>
+    `<div class="story" onclick="openCProfile(${c.id})" id="story-${c.id}">
+      <div class="story-ring${seenStories.has(c.id)?' seen':''}" style="${!seenStories.has(c.id)?`background:linear-gradient(135deg,${c.bg.includes('3b82f6')?'#1a56db,#7c3aed':'#0891b2,#6b21a8'})`:''}" >
+        <div class="story-inner" style="background:${c.bg}">${c.e}</div>
+      </div>
+      <div class="story-name">${c.name}</div>
+      <div class="story-count">${JOBS.filter(j=>j.cid===c.id).length}</div>
+    </div>`
+  ).join('');
+  el.innerHTML=html;
+}
+
+// ── FEED ──────────────────────────────────────────────
+const THUMB_BG_COLORS=['#0d1b3e','#0a2e1f','#2d0f3a','#1a2e0a','#3a1505','#0a2035','#1c0e3a','#0a1e2e'];
+
+function renderFeed(){
+  const feed=document.getElementById('feed');
+  let filtered=MESSAGES;
+  if(activeFilter!=='all'&&activeFilter!=='contact'){
+    filtered=MESSAGES.filter(m=>m.type==='date'||m.type==='sys'||(m.type==='in'&&gj(m.jid)&&gj(m.jid).status===activeFilter)||m.type==='out');
+  }
+  feed.innerHTML=filtered.map((m,i)=>renderMsg(m,i)).join('');
+  const feedEl=document.getElementById('feed');
+  feedEl.scrollTop=feedEl.scrollHeight;
+}
+
+function renderMsg(m,i){
+  const delay=`${i*.02}s`;
+  if(m.type==='date')return`<div class="msg-date" style="animation-delay:${delay}"><div class="msg-date-inner">${m.text}</div></div>`;
+  if(m.type==='sys')return`<div class="msg-sys" style="animation-delay:${delay}"><div class="msg-sys-inner">${m.text}</div></div>`;
+
+  if(m.type==='out'){
+    const platIcon=m.platform==='X'?'𝕏':'♪';
+    return`<div class="msg-out" style="animation-delay:${delay}">
+      <div class="bubble">
+        <div class="bplatform">${platIcon} ${m.platform}</div>
+        <div class="burl">${m.url||''}</div>
+        <div class="btitle">${m.title}</div>
+        <div class="btail">${m.time} ✓✓</div>
+      </div>
+    </div>`;
+  }
+
+  if(m.type==='in'){
+    const j=gj(m.jid);if(!j)return'';
+    const c=gc(j.cid);
+    return`<div class="msg-in" style="animation-delay:${delay}">
+      <div class="av" style="background:${c.bg}" onclick="openCProfile(${c.id})">${c.e}</div>
+      <div class="bubble" onclick="openJobDetail('${j.id}')">
+        <div class="bubble-media">
+          <div class="bubble-media-bg" style="background:${tc(j.cid)}">${c.e}</div>
+          ${j.status==='completed'?`<div class="bubble-play">▶</div>`:''}
+        </div>
+        <div class="bubble-info">
+          <div class="bubble-title">${j.title}</div>
+          <div class="bubble-meta">
+            <span>${c.name}</span>
+            <span>·</span>
+            <span>${j.plat==='X'?'𝕏':'♪'} ${j.plat}</span>
+          </div>
+          ${j.size?`<div class="bubble-size">${j.size}</div>`:''}
+          ${j.status==='running'?`<div class="sb-pbar"><div class="sb-pbar-fill" style="width:${j.prog||0}%"></div></div>`:''}
+        </div>
+        <div class="bubble-actions">
+          ${j.status==='completed'?`<button class="bubble-act" onclick="event.stopPropagation();showToast('Downloading...','ok')">⬇ Save</button>
+          <button class="bubble-act" onclick="event.stopPropagation();showToast('Link copied!','ok')">⎘ Copy</button>`:
+          j.status==='running'?`<button class="bubble-act" onclick="event.stopPropagation()">Processing ${j.prog||0}%…</button>`:
+          j.status==='queued'?`<button class="bubble-act" onclick="event.stopPropagation()">Queued — waiting…</button>`:
+          j.status==='failed'?`<button class="bubble-act" onclick="event.stopPropagation();retryJob('${j.id}')">↺ Retry</button>
+          <button class="bubble-act" onclick="event.stopPropagation();deleteJob('${j.id}')" style="color:var(--err)">✕ Delete</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if(m.type==='status'){
+    const j=gj(m.jid);if(!j)return'';
+    const c=gc(j.cid);
+    return`<div class="msg-status" style="animation-delay:${delay}">
+      <div class="av" style="background:${c.bg}">${c.e}</div>
+      <div class="status-bubble">
+        <div class="sb-title">${j.title}</div>
+        <div class="sb-status sb-${j.status}">
+          ${j.status==='running'?'<span style="display:inline-block;width:8px;height:8px;border:2px solid currentColor;border-radius:50%;border-top-color:transparent;animation:spin .6s linear infinite"></span>':''} ${j.status}
+        </div>
+        ${j.status==='running'?`<div class="sb-pbar"><div class="sb-pbar-fill" style="width:${j.prog||0}%"></div></div>`:''}
+        <div class="sb-actions">
+          ${j.status==='failed'?`<button class="sb-btn sb-btn-retry" onclick="retryJob('${j.id}')">↺ Retry</button>`:''}
+          <button class="sb-btn sb-btn-del" onclick="deleteJob('${j.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+// ── SMART REPLIES ─────────────────────────────────────
+function updateSmartReplies(){
+  const sr=document.getElementById('smart-replies');
+  const urlInp=document.getElementById('url-input').value.trim();
+  const hasCompleted=JOBS.some(j=>j.status==='completed');
+  const hasFailed=JOBS.some(j=>j.status==='failed');
+  const hasQueued=JOBS.some(j=>j.status==='queued');
+  const isRunning=JOBS.some(j=>j.status==='running');
+
+  let pills=[];
+  if(hasFailed){
+    pills.push({text:'↺ Retry All Failed',cls:'',action:'retryAllFailed'});
+  }
+  if(hasCompleted){
+    pills.push({text:'⬇ Download All Done',cls:'ok',action:'downloadAll'});
+    pills.push({text:'✕ Clear Completed',cls:'danger',action:'clearCompleted'});
+  }
+  if(hasQueued||isRunning){
+    pills.push({text:'⏸ View Queue',cls:'muted',action:'viewQueue'});
+  }
+  if(urlInp.includes('tiktok')||urlInp.includes('x.com')||urlInp.includes('twitter')){
+    pills.unshift({text:`📥 Paste & Download`,cls:'',action:'quickSubmit'});
+  }
+  if(!pills.length){
+    pills.push({text:'+ Paste URL to download',cls:'muted',action:'focusInput'});
+    pills.push({text:'👤 Browse Contacts',cls:'muted',action:'browseContacts'});
+  }
+
+  sr.innerHTML=pills.map((p,i)=>`
+    <div class="sr-pill${p.cls?' '+p.cls:''}" style="animation-delay:${i*.05}s" onclick="srAction('${p.action}')">
+      ${p.text}
+    </div>`).join('');
+}
+
+function srAction(a){
+  if(a==='retryAllFailed'){
+    JOBS.filter(j=>j.status==='failed').forEach(j=>{j.status='queued';delete j.error;});
+    renderFeed();updateSmartReplies();showToast('All failed jobs re-queued','ok');
+  } else if(a==='downloadAll'){
+    showToast('Preparing download package...','ok');
+  } else if(a==='clearCompleted'){
+    const n=JOBS.filter(j=>j.status==='completed').length;
+    JOBS=JOBS.filter(j=>j.status!=='completed');
+    MESSAGES=MESSAGES.filter(m=>m.type!=='in'||!gj(m.jid)||gj(m.jid).status!=='completed');
+    renderFeed();updateSmartReplies();showToast(`Cleared ${n} completed jobs`,'ok');
+  } else if(a==='viewQueue'){
+    cycleFilterTo('queued');
+  } else if(a==='quickSubmit'){
+    sendMessage();
+  } else if(a==='focusInput'){
+    document.getElementById('url-input').focus();
+  } else if(a==='browseContacts'){
+    openCProfile(CONTACTS[0].id);
+  }
+}
+
+// ── COMPOSE & SEND ────────────────────────────────────
+function onInputChange(v){
+  const btn=document.getElementById('send-btn');
+  btn.disabled=!v.trim();
+  updateSmartReplies();
+}
+
+function sendMessage(){
+  if(submitting)return;
+  const inp=document.getElementById('url-input');
+  const url=inp.value.trim();
+  if(!url){showToast('Paste a URL first','err');return;}
+  if(!url.includes('tiktok')&&!url.includes('x.com')&&!url.includes('twitter')){showToast('Only X or TikTok URLs supported','err');return;}
+  submitting=true;
+  const plat=url.includes('tiktok')?'TikTok':'X';
+  const cid=plat==='X'?1:3;
+  const c=gc(cid);
+  const now=new Date();
+  const timeStr=`${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} ${now.getHours()>=12?'PM':'AM'}`;
+  const title='New: '+url.split('/').pop().slice(0,28)||'Media Download';
+
+  // Add outgoing bubble
+  MESSAGES.push({type:'out',url,platform:plat,title,time:timeStr,cid});
+  renderFeed();
+
+  // Show typing indicator
+  setTimeout(()=>{
+    MESSAGES.push({type:'sys',text:'Processing — extracting media URL…'});
+    renderFeed();
+  },400);
+
+  setTimeout(()=>{
+    submitting=false;
+    const jid='j'+Date.now();
+    const nj={id:jid,cid,title,status:'queued',plat,time:timeStr};
+    JOBS.unshift(nj);
+    MESSAGES.push({type:'in',jid,title,cid,status:'queued',plat,time:timeStr});
+    inp.value='';
+    document.getElementById('send-btn').disabled=true;
+    renderFeed();renderStories();updateSmartReplies();
+    showToast('Job queued ✓','ok');
+  },1100);
+}
+
+function pasteFromClipboard(){
+  // Simulate clipboard paste
+  const fakeUrls=['https://x.com/nasa/status/999','https://www.tiktok.com/@ocean/video/888','https://x.com/spacex/status/777'];
+  const url=fakeUrls[Math.floor(Math.random()*fakeUrls.length)];
+  document.getElementById('url-input').value=url;
+  onInputChange(url);
+  showToast('URL pasted from clipboard','ok');
+}
+
+function togglePhChip(p){
+  const id=p==='x'?'ph-x':'ph-t';
+  const cls=p==='x'?'ax':'at';
+  document.getElementById(id).classList.toggle(cls);
+}
+
+// ── FILTER ────────────────────────────────────────────
+const FILTERS=['all','running','completed','queued','failed'];
+let filterIdx=0;
+const filterIcons=['⊟','▶','✓','⏳','✕'];
+function cycleFilter(){
+  filterIdx=(filterIdx+1)%FILTERS.length;
+  activeFilter=FILTERS[filterIdx];
+  document.getElementById('tb-filter').textContent=filterIcons[filterIdx];
+  renderFeed();
+  showToast(`Filter: ${activeFilter}`,'');
+}
+function cycleFilterTo(f){
+  filterIdx=FILTERS.indexOf(f);
+  if(filterIdx<0)filterIdx=0;
+  activeFilter=FILTERS[filterIdx];
+  document.getElementById('tb-filter').textContent=filterIcons[filterIdx];
+  renderFeed();
+}
+
+// ── JOB ACTIONS ───────────────────────────────────────
+function openJobDetail(jid){
+  const j=gj(jid);if(!j||j.status!=='completed')return;
+  showToast('Opening media player...','ok');
+}
+function retryJob(jid){
+  const j=JOBS.find(x=>x.id===jid);if(!j)return;
+  j.status='queued';delete j.error;delete j.prog;
+  MESSAGES.push({type:'sys',text:`Re-queued: ${j.title}`});
+  renderFeed();updateSmartReplies();showToast('Job re-queued ✓','ok');
+}
+function deleteJob(jid){
+  JOBS=JOBS.filter(j=>j.id!==jid);
+  MESSAGES=MESSAGES.filter(m=>m.jid!==jid);
+  renderFeed();updateSmartReplies();showToast('Deleted','ok');
+}
+
+// ── CONTACT PROFILE ───────────────────────────────────
+function openCProfile(cid){
+  seenStories.add(cid);
+  const c=CONTACTS.find(x=>x.id===cid);if(!c)return;
+  const jobs=JOBS.filter(j=>j.cid===cid);
+  document.getElementById('cp-av').style.background=c.bg;
+  document.getElementById('cp-av').textContent=c.e;
+  document.getElementById('cp-name').textContent=c.name;
+  document.getElementById('cp-handle').textContent=`${c.handle} · ${c.plat}`;
+  const done=jobs.filter(j=>j.status==='completed').length;
+  const failed=jobs.filter(j=>j.status==='failed').length;
+  const running=jobs.filter(j=>j.status==='running'||j.status==='queued').length;
+  document.getElementById('cp-stats').innerHTML=`
+    <div class="cp-stat"><div class="cp-stat-v">${jobs.length}</div><div class="cp-stat-l">Total</div></div>
+    <div class="cp-stat"><div class="cp-stat-v" style="color:var(--ok)">${done}</div><div class="cp-stat-l">Done</div></div>
+    <div class="cp-stat"><div class="cp-stat-v" style="color:var(--run)">${running}</div><div class="cp-stat-l">Active</div></div>
+    <div class="cp-stat"><div class="cp-stat-v" style="color:var(--err)">${failed}</div><div class="cp-stat-l">Failed</div></div>
+  `;
+  const statusClass={completed:'sp-c',running:'sp-r',queued:'sp-q',failed:'sp-f'};
+  document.getElementById('cp-body').innerHTML=jobs.length?jobs.map(j=>`
+    <div class="cp-job-item" onclick="closeCProfile()">
+      <div class="cp-job-thumb" style="background:${tc(j.cid)}">${c.e}</div>
+      <div class="cp-job-info">
+        <div class="cp-job-title">${j.title}</div>
+        <div class="cp-job-meta">${j.time}${j.size?' · '+j.size:''}</div>
+      </div>
+      <div class="status-pill ${statusClass[j.status]||'sp-q'}">${j.status}</div>
+    </div>`).join('')
+  :'<div style="color:var(--muted);text-align:center;padding:24px;font-size:13px">No downloads yet</div>';
+  document.getElementById('cprofile-ov').classList.add('open');
+  renderStories();
+}
+function closeCProfile(){document.getElementById('cprofile-ov').classList.remove('open');}
+
+function onTopbarClick(){openCProfile(CONTACTS[0].id);}
+function goHome(){currentView='home';}
+
+// ── PLATFORM TOGGLES ─────────────────────────────────
+function showPlatformToggles(){document.getElementById('ptoggle-ov').classList.add('open');}
+function closePToggles(){document.getElementById('ptoggle-ov').classList.remove('open');}
+const ptState={x:true,t:true};
+function togglePlatformPt(p){
+  ptState[p]=!ptState[p];
+  const el=document.getElementById('pt-'+p);
+  const knob=el.children[0];
+  if(ptState[p]){el.style.background='var(--ok)';knob.style.left='21px';}
+  else{el.style.background='var(--line)';knob.style.left='3px';}
+  showToast(`${p==='x'?'X':'TikTok'} ${ptState[p]?'enabled':'disabled'}`,ptState[p]?'ok':'');
+}
+
+// ── TOAST ─────────────────────────────────────────────
+let toastT;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast'+(type?' '+type:'');
+  clearTimeout(toastT);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  toastT=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── LIVE SIMULATION ───────────────────────────────────
+setInterval(()=>{
+  let changed=false;
+  const running=JOBS.filter(j=>j.status==='running');
+  running.forEach(j=>{
+    if(j.prog!=null){
+      j.prog=Math.min(100,(j.prog||0)+Math.random()*8);
+      if(j.prog>=100){
+        j.status='completed';j.size=Math.round(20+Math.random()*150)+' MB';delete j.prog;
+        MESSAGES.push({type:'sys',text:`Download complete: ${j.title} · ${j.size}`});
+        changed=true;
+      }
+    }
+  });
+  const q=JOBS.filter(j=>j.status==='queued');
+  if(q.length>0&&running.length<3){q[0].status='running';q[0].prog=0;changed=true;}
+  if(changed){renderFeed();updateSmartReplies();renderStories();}
+  else{
+    // Update progress bars without full re-render
+    running.forEach(j=>{
+      const bars=document.querySelectorAll('.sb-pbar-fill');
+      // just re-render to keep things simple
+    });
+    renderFeed();
+  }
+},2400);
+
+// ── INIT ─────────────────────────────────────────────
+renderStories();
+renderFeed();
+updateSmartReplies();
+document.getElementById('send-btn').disabled=true;
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeCProfile();closePToggles();}
+});
+</script>
+</body>
+</html>

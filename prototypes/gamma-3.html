@@ -3,654 +3,871 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Media Vault — Gamma-3: Spatial Depth Layers</title>
+<title>Media Vault — Gamma-3: Depth Layers</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --f1:#07090f;--f2:#0d1120;--mid1:#111827;--mid2:#1a2340;--back1:#0b1219;--back2:#111822;
-  --glass:rgba(255,255,255,.06);--glass2:rgba(255,255,255,.10);--glass3:rgba(255,255,255,.04);--glass4:rgba(255,255,255,.14);
-  --line:rgba(255,255,255,.11);--line2:rgba(255,255,255,.07);
-  --ink:#e8eeff;--muted:#7d8daa;--faint:#3d4d65;
-  --acc:#4f9cf9;--acc-l:rgba(79,156,249,.15);--acc-s:rgba(79,156,249,.08);
-  --grn:#34d399;--grn-l:rgba(52,211,153,.14);
-  --red:#f87171;--red-l:rgba(248,113,113,.14);
-  --amber:#fbbf24;--amber-l:rgba(251,191,36,.14);
-  --purp:#a78bfa;--purp-l:rgba(167,139,250,.14);
-  --rose:#fb7185;
-  --s1:0 4px 20px rgba(0,0,0,.5);--s2:0 12px 40px rgba(0,0,0,.7);--s3:0 28px 72px rgba(0,0,0,.85);
-  --r:14px;--rl:20px;--rf:999px;
-  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
-  --trans:.52s cubic-bezier(.4,0,.2,1);
+  --bg:#0f1219;
+  --card:#1a1f2e;
+  --card2:#1e2436;
+  --line:rgba(255,255,255,.09);
+  --line2:rgba(255,255,255,.06);
+  --ink:#dde4f0;
+  --muted:#7a8aa8;
+  --faint:#3e4f68;
+  --acc:#00d4aa;
+  --acc-l:rgba(0,212,170,.12);
+  --acc-s:rgba(0,212,170,.07);
+  --blue:#4f9cf9;
+  --blue-l:rgba(79,156,249,.12);
+  --purp:#a78bfa;
+  --purp-l:rgba(167,139,250,.12);
+  --grn:#34d399;
+  --grn-l:rgba(52,211,153,.12);
+  --red:#f87171;
+  --red-l:rgba(248,113,113,.12);
+  --amber:#fbbf24;
+  --amber-l:rgba(251,191,36,.12);
+  --r:12px;
+  --rl:16px;
+  --rf:999px;
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;
 }
-html{font-family:var(--f);background:var(--f1);color:var(--ink);font-size:15px}
-body{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(ellipse at 18% 22%,#0a1435 0%,#07090f 65%)}
 
-/* ─── TOP NAV ─── */
-.nav{height:52px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid var(--line2);flex-shrink:0;gap:12px;background:rgba(7,9,15,.75);backdrop-filter:blur(14px);position:relative;z-index:500}
-.nav-logo{font-weight:800;font-size:15px;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;color:var(--ink);flex-shrink:0}
-.nav-mark{width:26px;height:26px;background:linear-gradient(135deg,var(--acc),var(--purp));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff}
-.nav-sep{width:1px;height:18px;background:var(--line2);margin:0 4px;flex-shrink:0}
-.layer-btns{display:flex;gap:2px}
-.lbtn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--f);color:var(--muted);background:transparent;transition:all .15s;position:relative}
-.lbtn:hover{background:var(--glass);color:var(--ink)}
-.lbtn.on{background:var(--glass2);color:var(--ink)}
-.lbtn.on::after{content:'';position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:22px;height:2px;background:var(--acc);border-radius:1px}
-.lbtn-ico{width:13px;height:13px;opacity:.7;flex-shrink:0}
-.lnum{font-size:9px;width:16px;height:16px;border-radius:50%;background:var(--acc-l);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+html{font-family:var(--f);background:var(--bg);color:var(--ink);font-size:15px}
+body{
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0,212,170,.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(99,102,241,.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 90%, rgba(79,156,249,.04) 0%, transparent 55%),
+    radial-gradient(ellipse at 20% 10%, #0d1a2e 0%, #0f1219 60%);
+}
+
+/* ─── NAV ─── */
+.nav{
+  height:50px;display:flex;align-items:center;padding:0 18px;gap:10px;
+  background:rgba(12,15,22,.75);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border-bottom:1px solid rgba(255,255,255,.1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04), 0 4px 16px rgba(0,0,0,.3);
+  flex-shrink:0;z-index:500;position:relative;
+}
+.nav-logo{
+  font-weight:800;font-size:14.5px;letter-spacing:-.3px;display:flex;align-items:center;
+  gap:8px;color:var(--ink);flex-shrink:0;
+}
+.nav-mark{
+  width:26px;height:26px;border-radius:7px;
+  background:linear-gradient(135deg,var(--acc),var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:900;color:#0f1219;
+}
+.nav-sep{width:1px;height:16px;background:var(--line);margin:0 2px;flex-shrink:0}
+.nav-tabs{display:flex;gap:1px}
+.ntab{
+  display:flex;align-items:center;gap:6px;padding:5px 14px;
+  border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;
+  font-family:var(--f);color:var(--muted);background:transparent;
+  transition:color .15s,background .15s;position:relative;
+}
+.ntab:hover{background:rgba(255,255,255,.05);color:var(--ink)}
+.ntab.active{color:var(--ink);background:rgba(255,255,255,.08)}
+.ntab.active::after{
+  content:'';position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+  width:20px;height:2px;background:var(--acc);border-radius:1px;
+}
+.ntab-badge{
+  font-size:9.5px;width:16px;height:16px;border-radius:50%;
+  background:var(--acc-l);color:var(--acc);
+  display:flex;align-items:center;justify-content:center;font-weight:700;
+}
 .nav-sp{flex:1}
-.nav-hint{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
-.nav-hint kbd{padding:2px 6px;border-radius:4px;background:var(--glass);border:1px solid var(--line2);font-size:10px;font-family:var(--f);color:var(--muted)}
-.layer-depth{font-size:11px;color:var(--faint);padding:4px 10px;border-radius:var(--rf);background:var(--glass);border:1px solid var(--line2);transition:all .2s}
+.nav-hint{
+  font-size:11.5px;color:var(--faint);
+  display:flex;align-items:center;gap:5px;
+}
+.nav-hint kbd{
+  padding:1px 5px;border-radius:4px;
+  background:rgba(255,255,255,.06);border:1px solid var(--line2);
+  font-size:10px;font-family:var(--f);color:var(--muted);
+}
 
-/* ─── STAGE (perspective container) ─── */
-.stage{flex:1;position:relative;overflow:hidden;perspective:1400px;perspective-origin:50% 38%}
+/* ─── STAGE ─── */
+.stage{flex:1;position:relative;overflow:hidden}
 
-/* ─── LAYERS ─── */
-.layer{
+/* ─── LAYER PANELS ─── */
+/*
+  KEY FIX: Only ONE layer is visible at a time.
+  Non-active layers are opacity:0, pointer-events:none, and
+  translated off-screen so they can't bleed through.
+
+  Transition states:
+  .layer-panel               = hidden (waiting behind, will come in from deeper/front)
+  .layer-panel.is-active     = visible (current)
+  .layer-panel.slide-out-back = leaving toward back (scale down, fade)
+  .layer-panel.slide-out-front = leaving toward front (scale up, fade)
+  .layer-panel.slide-in-back = entering from behind (scale up, fade in)
+  .layer-panel.slide-in-front = entering from front (scale down, fade in)
+*/
+
+.layer-panel{
   position:absolute;inset:0;
-  display:flex;align-items:center;justify-content:center;padding:16px;
-  transition:transform var(--trans),opacity var(--trans),filter var(--trans),z-index 0s;
-  will-change:transform,opacity,filter;
-  overflow:hidden;
-}
-
-/* Z-index is managed by JS via inline style to avoid CSS specificity fights */
-
-/* Focused — front and center */
-.layer.focused{
-  transform:translateZ(0) scale(1);
-  opacity:1;filter:blur(0px);
-  pointer-events:all;
-}
-
-/* One step behind the focused layer */
-.layer.behind-1{
-  transform:translateZ(-320px) scale(.8);
-  opacity:.45;filter:blur(2.5px);
-  pointer-events:none;
-}
-
-/* Two steps behind */
-.layer.behind-2{
-  transform:translateZ(-640px) scale(.62);
-  opacity:.2;filter:blur(5px);
-  pointer-events:none;
-}
-
-/* One step in front (coming forward) — used during transition to lower layers */
-.layer.before-1{
-  transform:translateZ(260px) scale(1.08);
-  opacity:.8;filter:blur(1px);
-  pointer-events:none;
-}
-
-/* Scrollable inner */
-.layer-inner{
-  width:100%;max-width:980px;
-  max-height:calc(100vh - 120px);
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:14px 16px 60px;
   overflow-y:auto;overflow-x:hidden;
+  /* Hidden state: invisible, no interaction */
+  opacity:0;
+  pointer-events:none;
+  /* Default hidden position: scaled down slightly, as if "behind" */
+  transform:scale(0.92);
+  filter:blur(6px);
+  transition:opacity 400ms ease-out, transform 400ms ease-out, filter 400ms ease-out;
+  will-change:opacity,transform,filter;
 }
-.layer-inner.wide{max-width:100%}
-.layer-inner::-webkit-scrollbar{width:4px}
-.layer-inner::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.layer-panel::-webkit-scrollbar{width:4px}
+.layer-panel::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
 
-/* ─── LAYER NAV BAR (bottom) ─── */
-.layer-nav{
-  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
-  display:flex;gap:10px;z-index:600;align-items:center;
-  background:rgba(7,9,15,.8);backdrop-filter:blur(12px);
-  border:1px solid var(--line2);border-radius:var(--rf);padding:7px 14px;
-  box-shadow:0 4px 20px rgba(0,0,0,.5);
+/* ACTIVE layer: fully visible, centered */
+.layer-panel.is-active{
+  opacity:1;
+  pointer-events:all;
+  transform:scale(1);
+  filter:blur(0px);
 }
-.lna{
+
+/* Outgoing: moving to back (going deeper) — shrinks and fades */
+.layer-panel.exit-to-back{
+  opacity:0;
+  transform:scale(0.88);
+  filter:blur(8px);
+  transition:opacity 400ms ease-out, transform 400ms ease-out, filter 400ms ease-out;
+  pointer-events:none;
+}
+
+/* Outgoing: moving to front (coming back up) — expands and fades */
+.layer-panel.exit-to-front{
+  opacity:0;
+  transform:scale(1.08);
+  filter:blur(6px);
+  transition:opacity 400ms ease-out, transform 400ms ease-out, filter 400ms ease-out;
+  pointer-events:none;
+}
+
+/* Incoming from back (was behind, now becoming active) — starts big, scales to 1 */
+/* We set this immediately before adding is-active */
+.layer-panel.enter-from-back{
+  opacity:0;
+  transform:scale(1.06);
+  filter:blur(4px);
+  transition:none; /* instant snap to start position */
+  pointer-events:none;
+}
+
+/* Incoming from front (was in front, now becoming active) — starts small, scales to 1 */
+.layer-panel.enter-from-front{
+  opacity:0;
+  transform:scale(0.94);
+  filter:blur(4px);
+  transition:none;
+  pointer-events:none;
+}
+
+/* ─── BOTTOM NAV ─── */
+.bnav{
+  position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;align-items:center;z-index:600;
+  background:rgba(12,15,22,.7);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  border:1px solid rgba(255,255,255,.11);
+  border-radius:var(--rf);
+  padding:7px 14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.07) inset;
+}
+.bnav-btn{
   width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);
-  background:var(--glass);cursor:pointer;display:flex;align-items:center;
-  justify-content:center;color:var(--muted);font-size:16px;transition:all .13s;
-  font-family:var(--f);line-height:1;
+  background:rgba(255,255,255,.05);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:16px;font-family:var(--f);
+  transition:background .13s,color .13s;line-height:1;
 }
-.lna:hover{background:var(--glass2);color:var(--ink)}
-.lna:disabled{opacity:.28;cursor:not-allowed}
-.ldots{display:flex;gap:7px;align-items:center}
-.ldot{
-  width:7px;height:7px;border-radius:50%;background:var(--faint);
-  transition:all .22s;cursor:pointer;
+.bnav-btn:hover{background:rgba(255,255,255,.1);color:var(--ink)}
+.bnav-btn:disabled{opacity:.25;cursor:not-allowed;pointer-events:none}
+.bnav-dots{display:flex;gap:8px;align-items:center}
+.bnav-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--faint);cursor:pointer;
+  transition:background .22s,transform .22s,box-shadow .22s;
 }
-.ldot.on{background:var(--acc);transform:scale(1.35);box-shadow:0 0 6px rgba(79,156,249,.5)}
-.layer-label{font-size:11px;font-weight:600;color:var(--muted);min-width:56px;text-align:center}
+.bnav-dot.active{
+  background:var(--acc);transform:scale(1.4);
+  box-shadow:0 0 8px rgba(0,212,170,.5);
+}
+.bnav-label{
+  font-size:11px;font-weight:600;color:var(--muted);
+  min-width:60px;text-align:center;
+}
 
-/* ─── GLASSMORPHISM behind-layer peek ─── */
-/* Each layer has a subtle glass tint so you glimpse layers behind */
-.layer-peek{
-  position:absolute;inset:0;pointer-events:none;z-index:1;
-  transition:opacity var(--trans);
-}
-#layer0 .layer-peek{background:radial-gradient(ellipse at top,rgba(79,156,249,.06) 0%,transparent 60%)}
-#layer1 .layer-peek{background:radial-gradient(ellipse at bottom right,rgba(167,139,250,.06) 0%,transparent 60%)}
-#layer2 .layer-peek{background:radial-gradient(ellipse at top left,rgba(52,211,153,.05) 0%,transparent 60%)}
+/* ─── SHARED COMPONENTS ─── */
+.sec-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sec-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--faint)}
+.sec-badge{padding:2px 9px;border-radius:var(--rf);font-size:11px;font-weight:700}
+.badge-amber{background:var(--amber-l);color:var(--amber)}
+.badge-grn{background:var(--grn-l);color:var(--grn)}
+.badge-blue{background:var(--blue-l);color:var(--blue)}
+.badge-muted{background:rgba(255,255,255,.07);color:var(--muted);border:1px solid var(--line2)}
+.sec-sp{flex:1}
 
-/* ───────────────────────────────────────
-   LAYER 0 — Front: Active Downloads
-─────────────────────────────────────── */
-.intake-card{
-  background:var(--glass);backdrop-filter:blur(22px);
-  border:1px solid var(--line);border-radius:var(--rl);
-  padding:28px 28px 22px;margin-bottom:20px;box-shadow:var(--s2);
+.card{
+  background:rgba(26,31,46,.6);
+  backdrop-filter:blur(12px) saturate(150%);
+  -webkit-backdrop-filter:blur(12px) saturate(150%);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--rl);padding:18px;
+  box-shadow:0 8px 32px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
+}
+
+.empty{text-align:center;padding:40px 12px;color:var(--muted)}
+.empty-ico{font-size:32px;margin-bottom:8px}
+.empty-h{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:3px}
+
+/* ─── LAYER 0: ACTIVE ─── */
+#layer0{max-width:820px;width:100%;margin:0 auto}
+
+.intake-wrap{
+  background:rgba(26,31,46,.55);
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--rl);padding:26px 24px 20px;
+  margin-bottom:18px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,170,.08), 0 1px 0 rgba(255,255,255,.07) inset;
   position:relative;overflow:hidden;
 }
-.intake-card::before{
-  content:'';position:absolute;top:-40%;left:-20%;width:60%;height:80%;
-  background:radial-gradient(circle,rgba(79,156,249,.06) 0%,transparent 70%);
+.intake-wrap::before{
+  content:'';position:absolute;top:-60%;left:-30%;width:70%;height:80%;
+  background:radial-gradient(circle,rgba(0,212,170,.05) 0%,transparent 70%);
   pointer-events:none;
 }
-.intake-header{text-align:center;margin-bottom:22px}
 .intake-title{
-  font-size:clamp(20px,3vw,32px);font-weight:800;letter-spacing:-1px;
-  background:linear-gradient(135deg,var(--acc) 20%,var(--purp) 80%);
+  text-align:center;margin-bottom:20px;
+}
+.intake-title h1{
+  font-size:clamp(18px,2.8vw,28px);font-weight:800;letter-spacing:-.5px;
+  background:linear-gradient(135deg,var(--acc) 20%,var(--blue) 80%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
 }
-.intake-sub{color:var(--muted);font-size:13.5px;margin-top:5px}
-.uw{position:relative;max-width:580px;margin:0 auto}
-.ui{
-  width:100%;padding:14px 110px 14px 18px;font-size:14.5px;
-  background:rgba(255,255,255,.07);border:1.5px solid var(--line);
-  border-radius:var(--rl);color:var(--ink);font-family:var(--f);outline:none;
+.intake-title p{color:var(--muted);font-size:13px;margin-top:4px}
+
+.url-wrap{position:relative;max-width:560px;margin:0 auto}
+.url-input{
+  width:100%;padding:13px 106px 13px 16px;
+  font-size:14px;background:rgba(255,255,255,.06);
+  border:1.5px solid var(--line);border-radius:var(--rl);
+  color:var(--ink);font-family:var(--f);outline:none;
   transition:border-color .16s,box-shadow .16s,background .16s;
   backdrop-filter:blur(8px);
 }
-.ui::placeholder{color:var(--faint)}
-.ui:focus{border-color:var(--acc);box-shadow:0 0 0 4px rgba(79,156,249,.12);background:rgba(255,255,255,.09)}
-.ui.ok{border-color:var(--grn);box-shadow:0 0 0 4px rgba(52,211,153,.1)}
-.ui.invalid{border-color:var(--red);box-shadow:0 0 0 4px rgba(248,113,113,.1);animation:shake .32s ease}
-@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.ub{
-  position:absolute;right:7px;top:50%;transform:translateY(-50%);
-  padding:8px 16px;background:var(--acc);color:#fff;border:none;border-radius:10px;
-  font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f);transition:all .15s;
+.url-input::placeholder{color:var(--faint)}
+.url-input:focus{
+  border-color:var(--acc);
+  box-shadow:0 0 0 3px rgba(0,212,170,.1);
+  background:rgba(255,255,255,.08);
 }
-.ub:hover{background:#3a8ae0;transform:translateY(-50%) scale(1.04)}
-.ub:active{transform:translateY(-50%) scale(.97)}
-.ub.loading{background:linear-gradient(90deg,var(--acc) 0%,var(--purp) 50%,var(--acc) 100%);background-size:200% auto;animation:bshim 1.1s linear infinite}
-@keyframes bshim{to{background-position:200% center}}
-.pchips{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.url-input.valid{border-color:var(--grn);box-shadow:0 0 0 3px rgba(52,211,153,.1)}
+.url-input.invalid{
+  border-color:var(--red);box-shadow:0 0 0 3px rgba(248,113,113,.1);
+  animation:shake .3s ease;
+}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.url-btn{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  padding:7px 15px;background:var(--acc);color:#0f1219;
+  border:none;border-radius:10px;font-weight:700;font-size:13px;
+  cursor:pointer;font-family:var(--f);transition:background .15s,transform .15s;
+}
+.url-btn:hover{background:#00bfa0;transform:translateY(-50%) scale(1.04)}
+.url-btn:active{transform:translateY(-50%) scale(.97)}
+.url-btn.loading{
+  background:linear-gradient(90deg,var(--acc) 0%,var(--blue) 50%,var(--acc) 100%);
+  background-size:200% auto;animation:shimmer 1.05s linear infinite;
+}
+@keyframes shimmer{to{background-position:200% center}}
+
+.plat-chips{display:flex;gap:8px;justify-content:center;margin-top:14px}
 .pchip{
-  padding:4px 12px;border-radius:var(--rf);font-size:11px;font-weight:700;
-  border:1px solid;display:flex;align-items:center;gap:5px;
-  transition:all .15s;cursor:default;
+  display:flex;align-items:center;gap:5px;padding:4px 12px;
+  border-radius:var(--rf);font-size:11px;font-weight:700;border:1px solid;
 }
-.pchip-dot{width:6px;height:6px;border-radius:50%}
-.cx{background:rgba(79,156,249,.1);color:var(--acc);border-color:rgba(79,156,249,.25)}
-.ctt{background:rgba(167,139,250,.1);color:var(--purp);border-color:rgba(167,139,250,.25)}
-
-.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}
-.sec-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--faint)}
-.sec-badge{padding:3px 9px;border-radius:var(--rf);background:var(--amber-l);color:var(--amber);font-size:11px;font-weight:700}
-.sec-act{display:flex;gap:6px;align-items:center}
-
-/* Bulk bar */
-.bulk-bar{
-  background:rgba(10,14,28,.92);backdrop-filter:blur(12px);
-  border:1px solid rgba(79,156,249,.2);border-radius:var(--r);
-  padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;
-  animation:sdin .16s ease;
-}
-@keyframes sdin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-.bcnt{font-weight:700;font-size:13px;color:var(--acc)}
-.bsp{flex:1}
-.bb{
-  padding:5px 12px;border-radius:7px;border:1px solid;cursor:pointer;
-  font-size:12px;font-weight:600;font-family:var(--f);transition:all .12s;
-}
-.bdel{background:var(--red-l);border-color:rgba(248,113,113,.4);color:var(--red)}
-.bdel:hover{background:var(--red);color:#fff;border-color:var(--red)}
-.bcan{background:var(--glass);border-color:var(--line2);color:var(--muted)}
-.bcan:hover{color:var(--ink);background:var(--glass2)}
+.pchip-x{background:rgba(79,156,249,.1);color:var(--blue);border-color:rgba(79,156,249,.25)}
+.pchip-tt{background:rgba(167,139,250,.1);color:var(--purp);border-color:rgba(167,139,250,.25)}
+.pchip-dot{width:5px;height:5px;border-radius:50%}
 
 /* Job list */
-.jl{display:flex;flex-direction:column;gap:8px}
-.jcard{
-  background:var(--glass);backdrop-filter:blur(12px);
-  border:1px solid var(--line2);border-radius:var(--r);
-  padding:12px 14px;display:flex;align-items:center;gap:11px;
-  transition:all .17s;cursor:pointer;position:relative;overflow:hidden;
+.bulk-bar{
+  background:rgba(10,14,28,.65);
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(0,212,170,.22);
+  border-radius:var(--r);
+  padding:9px 13px;display:flex;align-items:center;gap:8px;
+  margin-bottom:10px;
+  box-shadow:0 4px 20px rgba(0,0,0,.4), 0 0 0 1px rgba(0,212,170,.08);
+  animation:slidein .16s ease;
 }
-.jcard:hover{background:var(--glass2);border-color:var(--line);transform:translateX(2px);box-shadow:var(--s1)}
-.jcard.sel-card{border-color:rgba(79,156,249,.35);background:rgba(79,156,249,.07)}
+@keyframes slidein{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.bulk-count{font-weight:700;font-size:13px;color:var(--acc)}
+.bulk-sp{flex:1}
+.bulk-btn{
+  padding:4px 11px;border-radius:7px;border:1px solid;cursor:pointer;
+  font-size:12px;font-weight:600;font-family:var(--f);transition:all .12s;
+}
+.bulk-del{background:var(--red-l);border-color:rgba(248,113,113,.35);color:var(--red)}
+.bulk-del:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.bulk-cancel{background:rgba(255,255,255,.05);border-color:var(--line2);color:var(--muted)}
+.bulk-cancel:hover{color:var(--ink);background:rgba(255,255,255,.08)}
+
+.job-list{display:flex;flex-direction:column;gap:7px}
+.jcard{
+  background:rgba(26,31,46,.6);
+  backdrop-filter:blur(10px) saturate(140%);
+  -webkit-backdrop-filter:blur(10px) saturate(140%);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--r);
+  padding:11px 13px;display:flex;align-items:center;gap:10px;
+  transition:background .16s,border-color .16s,transform .16s,box-shadow .16s;
+  cursor:pointer;position:relative;overflow:hidden;
+}
+.jcard:hover{
+  background:rgba(30,36,54,.7);
+  border-color:rgba(255,255,255,.13);
+  transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.07) inset;
+}
+.jcard.selected{border-color:rgba(0,212,170,.35);background:rgba(0,212,170,.08)}
+
 .jbar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0 2px 2px 0}
-.jbar-r{background:var(--amber);animation:bpulse 1.4s ease-in-out infinite}
-.jbar-c{background:var(--grn)}
-.jbar-f{background:var(--red)}
-.jbar-q{background:var(--faint)}
-@keyframes bpulse{0%,100%{opacity:1}50%{opacity:.3}}
-.jth{width:44px;height:32px;border-radius:7px;background:var(--glass2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px}
-.ji{flex:1;min-width:0}
-.jt{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
-.jm{display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap}
-.jp{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
-.jpx{background:rgba(79,156,249,.2);color:var(--acc)}
-.jptt{background:rgba(167,139,250,.2);color:var(--purp)}
-.jhand{font-size:11px;color:var(--muted)}
-.jti{font-size:10.5px;color:var(--faint)}
-.jbadge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:var(--rf);flex-shrink:0;white-space:nowrap}
-.jbad-r{background:var(--amber-l);color:var(--amber)}
-.jbad-c{background:var(--grn-l);color:var(--grn)}
-.jbad-f{background:var(--red-l);color:var(--red)}
-.jbad-q{background:var(--glass);color:var(--faint);border:1px solid var(--line2)}
-.jprog{position:absolute;bottom:0;left:3px;height:2px;background:linear-gradient(90deg,var(--amber),#fde68a);border-radius:1px;transition:width .6s ease}
-.jacts{display:flex;gap:4px;flex-shrink:0}
-.ja{
-  padding:4px 9px;border-radius:6px;border:1px solid var(--line2);
+.jbar-running{background:var(--amber);animation:pulse-bar 1.4s ease-in-out infinite}
+.jbar-completed{background:var(--grn)}
+.jbar-failed{background:var(--red)}
+.jbar-queued{background:var(--faint)}
+@keyframes pulse-bar{0%,100%{opacity:1}50%{opacity:.25}}
+
+.jchk{
+  width:14px;height:14px;flex-shrink:0;accent-color:var(--acc);cursor:pointer;
+  transition:transform .15s;
+}
+.jchk:checked{transform:scale(1.15)}
+
+.jthumbnail{
+  width:40px;height:30px;border-radius:7px;background:rgba(255,255,255,.06);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;
+}
+.jinfo{flex:1;min-width:0}
+.jtitle{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.jmeta{display:flex;gap:5px;margin-top:3px;align-items:center;flex-wrap:wrap}
+.jpill{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
+.jpill-x{background:rgba(79,156,249,.2);color:var(--blue)}
+.jpill-tt{background:rgba(167,139,250,.2);color:var(--purp)}
+.jhandle{font-size:11px;color:var(--muted)}
+.jtime{font-size:10.5px;color:var(--faint)}
+
+.jstatus{
+  font-size:10.5px;font-weight:700;padding:3px 8px;
+  border-radius:var(--rf);flex-shrink:0;white-space:nowrap;
+}
+.js-running{background:var(--amber-l);color:var(--amber)}
+.js-completed{background:var(--grn-l);color:var(--grn)}
+.js-failed{background:var(--red-l);color:var(--red)}
+.js-queued{background:rgba(255,255,255,.07);color:var(--muted);border:1px solid var(--line2)}
+
+.jactions{display:flex;gap:3px;flex-shrink:0}
+.jact{
+  padding:3px 8px;border-radius:6px;border:1px solid var(--line2);
   background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;
   font-family:var(--f);transition:all .12s;color:var(--muted);
 }
-.ja:hover{background:var(--glass2);color:var(--ink)}
-.ja.del:hover{background:var(--red-l);color:var(--red);border-color:rgba(248,113,113,.4)}
-.ja.retry:hover{background:var(--acc-l);color:var(--acc);border-color:rgba(79,156,249,.4)}
+.jact:hover{background:rgba(255,255,255,.07);color:var(--ink)}
+.jact.del:hover{background:var(--red-l);color:var(--red);border-color:rgba(248,113,113,.4)}
+.jact.retry:hover{background:var(--acc-l);color:var(--acc);border-color:rgba(0,212,170,.4)}
 
-/* ─── LAYER 1: Gallery & Creators ─── */
-.mid-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  max-height:calc(100vh - 140px);
+.jprog{
+  position:absolute;bottom:0;left:3px;right:0;height:2px;
+  background:linear-gradient(90deg,var(--amber),#fde68a);border-radius:1px;
+  transition:width .6s ease;
 }
-.mid-panel{
-  background:var(--glass);backdrop-filter:blur(18px);
-  border:1px solid var(--line);border-radius:var(--rl);
-  padding:18px;overflow-y:auto;box-shadow:var(--s1);
-  max-height:calc(100vh - 140px);
-}
-.mid-panel::-webkit-scrollbar{width:4px}
-.mid-panel::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
-.mp-title{
-  font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--faint);margin-bottom:14px;display:flex;align-items:center;gap:8px;
-}
-.mp-title-dot{width:6px;height:6px;border-radius:50%}
 
-/* Gallery */
-.gallery{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.gallery-item{
+/* ─── LAYER 1: GALLERY ─── */
+#layer1{width:100%;max-width:1100px;margin:0 auto}
+
+.gallery-layout{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;width:100%}
+
+.panel{
+  background:rgba(26,31,46,.6);
+  backdrop-filter:blur(14px) saturate(150%);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:var(--rl);padding:16px;
+  box-shadow:0 8px 28px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
+}
+.panel-title{
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--faint);margin-bottom:14px;display:flex;align-items:center;gap:7px;
+}
+.panel-dot{width:5px;height:5px;border-radius:50%}
+.panel-scroll{max-height:calc(100vh - 220px);overflow-y:auto}
+.panel-scroll::-webkit-scrollbar{width:3px}
+.panel-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+
+.gallery-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gitem{
   aspect-ratio:16/9;border-radius:9px;
-  background:var(--glass2);border:1px solid var(--line2);
-  overflow:hidden;cursor:pointer;transition:all .2s;
-  position:relative;display:flex;align-items:center;justify-content:center;font-size:26px;
+  background:rgba(26,31,46,.55);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.08);
+  overflow:hidden;cursor:pointer;
+  transition:transform .2s,border-color .2s,box-shadow .2s;
+  position:relative;display:flex;align-items:center;justify-content:center;
+  font-size:24px;
 }
-.gallery-item:hover{transform:scale(1.04);border-color:var(--line);box-shadow:var(--s1)}
-.gi-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,transparent 60%);opacity:0;transition:opacity .18s}
-.gallery-item:hover .gi-overlay{opacity:1}
-.gi-info{position:absolute;bottom:0;left:0;right:0;padding:8px;opacity:0;transform:translateY(4px);transition:all .18s}
-.gallery-item:hover .gi-info{opacity:1;transform:none}
-.gi-title{font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gi-handle{font-size:10px;color:rgba(255,255,255,.55)}
-.gi-badge{position:absolute;top:6px;right:6px;padding:2px 7px;border-radius:4px;font-size:9.5px;font-weight:700;background:rgba(52,211,153,.2);color:var(--grn)}
+.gitem:hover{
+  transform:scale(1.04);
+  border-color:rgba(255,255,255,.14);
+  box-shadow:0 10px 28px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.08) inset;
+}
+.g-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.85) 0%,transparent 55%);
+  opacity:0;transition:opacity .18s;
+}
+.gitem:hover .g-overlay{opacity:1}
+.g-info{
+  position:absolute;bottom:0;left:0;right:0;padding:8px;
+  opacity:0;transform:translateY(5px);transition:all .18s;
+}
+.gitem:hover .g-info{opacity:1;transform:none}
+.g-title{font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-handle{font-size:10px;color:rgba(255,255,255,.5)}
+.g-badge{
+  position:absolute;top:5px;right:5px;
+  padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:700;
+  background:rgba(52,211,153,.2);color:var(--grn);
+}
 
-/* Creators */
-.cr-list{display:flex;flex-direction:column;gap:5px}
+.cr-list{display:flex;flex-direction:column;gap:4px}
 .cr-row{
   display:flex;align-items:center;gap:10px;padding:9px 10px;
-  border-radius:9px;cursor:pointer;transition:all .16s;border:1px solid transparent;
+  border-radius:9px;cursor:pointer;transition:all .15s;border:1px solid transparent;
 }
-.cr-row:hover{background:var(--glass2);border-color:var(--line2);transform:translateX(2px)}
-.crav{
+.cr-row:hover{background:rgba(255,255,255,.05);border-color:var(--line2);transform:translateX(2px)}
+.cr-avatar{
   width:36px;height:36px;border-radius:50%;display:flex;align-items:center;
   justify-content:center;font-size:16px;flex-shrink:0;
 }
-.crn{font-size:13px;font-weight:700;color:var(--ink)}
-.crh{font-size:11px;color:var(--muted);margin-top:1px}
+.cr-name{font-size:13px;font-weight:700;color:var(--ink)}
+.cr-handle{font-size:11px;color:var(--muted);margin-top:1px}
 .cr-sp{flex:1}
-.cr-stats{display:flex;gap:8px}
+.cr-stats{display:flex;gap:10px}
 .cr-stat{text-align:center}
-.cr-sv{font-size:14px;font-weight:800;color:var(--ink)}
-.cr-sl{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+.cr-stat-val{font-size:14px;font-weight:800;color:var(--ink)}
+.cr-stat-lbl{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
 
-/* ─── LAYER 2: Activity & Settings ─── */
-.back-grid{
-  display:grid;grid-template-columns:1.4fr 1fr;gap:16px;
-  max-height:calc(100vh - 140px);
+/* ─── LAYER 2: ACTIVITY ─── */
+#layer2{width:100%;max-width:1100px;margin:0 auto}
+
+.activity-layout{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;width:100%}
+
+.ac-panel{
+  background:rgba(26,31,46,.6);
+  backdrop-filter:blur(14px) saturate(150%);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:var(--rl);padding:16px;
+  box-shadow:0 8px 28px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
 }
-.ac-card{
-  background:var(--glass);backdrop-filter:blur(18px);
-  border:1px solid var(--line);border-radius:var(--rl);
-  padding:18px;display:flex;flex-direction:column;box-shadow:var(--s1);
-  max-height:calc(100vh - 140px);overflow:hidden;
-}
-.ac-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.ac-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--faint)}
-.ac-live{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--grn);margin-left:auto}
-.ac-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:acdp 1.5s ease-in-out infinite}
-@keyframes acdp{0%,100%{opacity:1}50%{opacity:.35}}
-.ac-filt{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
-.apill{
+.ac-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ac-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--faint)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);margin-left:auto;animation:livepulse 1.5s ease-in-out infinite}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.3}}
+.live-txt{font-size:11px;font-weight:700;color:var(--grn)}
+
+.ac-filters{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.afpill{
   padding:3px 9px;border-radius:var(--rf);font-size:11px;font-weight:600;
   border:1px solid var(--line2);background:transparent;cursor:pointer;
-  color:var(--muted);transition:all .12s;font-family:var(--f);
+  color:var(--muted);font-family:var(--f);transition:all .12s;
 }
-.apill:hover{color:var(--ink);border-color:var(--line)}
-.apill.on{background:var(--acc-s);border-color:rgba(79,156,249,.4);color:var(--acc)}
-.ac-scroll{flex:1;overflow-y:auto;padding-right:2px}
+.afpill:hover{color:var(--ink);border-color:var(--line)}
+.afpill.active{background:var(--acc-s);border-color:rgba(0,212,170,.35);color:var(--acc)}
+
+.ac-scroll{max-height:calc(100vh - 240px);overflow-y:auto;padding-right:2px}
 .ac-scroll::-webkit-scrollbar{width:3px}
 .ac-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
-.ac-row{
-  display:flex;gap:9px;padding:6px 7px;border-radius:7px;
+.ac-entry{
+  display:flex;gap:8px;padding:5px 6px;border-radius:7px;
   transition:background .12s;align-items:flex-start;
-  animation:acrow .2s ease;
+  animation:acfade .2s ease;
 }
-@keyframes acrow{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
-.ac-row:hover{background:var(--glass2)}
-.ac-ts{font-size:9.5px;color:var(--faint);font-family:monospace;white-space:nowrap;padding-top:2px;min-width:52px}
-.ac-lvl{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;text-transform:uppercase;flex-shrink:0;margin-top:1px}
-.al-info{background:var(--acc-l);color:var(--acc)}
-.al-warn{background:var(--amber-l);color:var(--amber)}
-.al-error{background:var(--red-l);color:var(--red)}
-.al-debug{background:var(--glass);color:var(--faint);border:1px solid var(--line2)}
+@keyframes acfade{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+.ac-entry:hover{background:rgba(255,255,255,.04)}
+.ac-ts{font-size:9.5px;color:var(--faint);font-family:monospace;white-space:nowrap;padding-top:2px;min-width:50px}
+.ac-lvl{
+  font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;
+  text-transform:uppercase;flex-shrink:0;margin-top:1px;
+}
+.lvl-info{background:var(--blue-l);color:var(--blue)}
+.lvl-warn{background:var(--amber-l);color:var(--amber)}
+.lvl-error{background:var(--red-l);color:var(--red)}
+.lvl-debug{background:rgba(255,255,255,.06);color:var(--faint);border:1px solid var(--line2)}
 .ac-msg{font-size:12px;line-height:1.45;color:var(--muted);flex:1}
-.ac-tag{font-size:10px;font-family:monospace;padding:1px 5px;border-radius:3px;background:var(--glass);color:var(--faint);margin-left:4px}
+.ac-job{font-size:10px;font-family:monospace;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.05);color:var(--faint);margin-left:4px}
 
-/* Settings */
-.se-card{
-  background:var(--glass);backdrop-filter:blur(18px);
-  border:1px solid var(--line);border-radius:var(--rl);
-  padding:18px;overflow-y:auto;box-shadow:var(--s1);
-  max-height:calc(100vh - 140px);
+.se-panel{
+  background:rgba(26,31,46,.6);
+  backdrop-filter:blur(14px) saturate(150%);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:var(--rl);padding:16px;
+  box-shadow:0 8px 28px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
 }
-.se-card::-webkit-scrollbar{width:4px}
-.se-card::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
-.se-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:14px}
-.se-sec{margin-bottom:18px}
-.se-sh{font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:9px;border-bottom:1px solid var(--line2);padding-bottom:6px}
-.se-row{display:flex;align-items:center;padding:10px 0;gap:10px;border-bottom:1px solid var(--line2)}
+.se-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:14px}
+.se-section{margin-bottom:16px}
+.se-section-title{
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--faint);margin-bottom:9px;
+  border-bottom:1px solid var(--line2);padding-bottom:5px;
+}
+.se-row{
+  display:flex;align-items:center;padding:9px 0;gap:10px;
+  border-bottom:1px solid var(--line2);
+}
 .se-row:last-child{border-bottom:none}
-.se-ico{font-size:15px;flex-shrink:0;width:24px;text-align:center}
+.se-icon{font-size:14px;flex-shrink:0;width:22px;text-align:center}
 .se-info{flex:1}
-.se-lbl{font-size:13px;font-weight:600;color:var(--ink)}
-.se-d{font-size:11px;color:var(--muted);margin-top:1px}
-.tog{
+.se-label{font-size:13px;font-weight:600;color:var(--ink)}
+.se-desc{font-size:11px;color:var(--muted);margin-top:1px}
+.se-val{font-size:12px;color:var(--muted);font-weight:600}
+
+.toggle{
   width:38px;height:21px;border-radius:11px;
-  background:var(--glass2);border:1px solid var(--line2);
-  cursor:pointer;position:relative;transition:all .16s;flex-shrink:0;
+  background:rgba(255,255,255,.08);border:1px solid var(--line2);
+  cursor:pointer;position:relative;transition:background .16s,border-color .16s;flex-shrink:0;
 }
-.tog.on{background:rgba(52,211,153,.28);border-color:rgba(52,211,153,.5)}
-.togt{
+.toggle.on{background:rgba(52,211,153,.28);border-color:rgba(52,211,153,.5)}
+.toggle-thumb{
   position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
   background:var(--muted);box-shadow:0 1px 4px rgba(0,0,0,.4);
   transition:left .17s cubic-bezier(.4,0,.2,1),background .17s;
 }
-.tog.on .togt{left:19px;background:var(--grn)}
+.toggle.on .toggle-thumb{left:19px;background:var(--grn)}
 
-/* ─── DEPTH NOTIFICATIONS (Ghost Cards) ─── */
-.ghost-container{
-  position:fixed;right:20px;bottom:80px;
-  display:flex;flex-direction:column-reverse;gap:10px;
-  z-index:1200;pointer-events:none;
-  max-width:280px;
+/* ─── DEPTH TOASTS ─── */
+.toast-container{
+  position:fixed;right:16px;bottom:72px;
+  display:flex;flex-direction:column-reverse;gap:8px;
+  z-index:1200;pointer-events:none;max-width:270px;
 }
-.ghost-card{
-  background:rgba(7,9,15,.94);backdrop-filter:blur(16px);
-  border:1px solid var(--line);border-radius:var(--r);
-  padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px rgba(79,156,249,.15);
-  display:flex;gap:10px;align-items:flex-start;
-  animation:ghostrise 3.4s cubic-bezier(.4,0,.2,1) forwards;
+.depth-toast{
+  background:rgba(15,18,25,.7);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--r);
+  padding:11px 13px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(0,212,170,.14), 0 1px 0 rgba(255,255,255,.08) inset;
+  display:flex;gap:9px;align-items:flex-start;
+  pointer-events:all;cursor:pointer;
+  animation:toastrise .35s cubic-bezier(.34,1.56,.64,1) forwards;
   position:relative;overflow:hidden;
 }
-.ghost-card::before{
+.depth-toast::before{
   content:'';position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(79,156,249,.06) 0%,rgba(167,139,250,.04) 100%);
+  background:linear-gradient(135deg,rgba(0,212,170,.07) 0%,rgba(79,156,249,.05) 100%);
   pointer-events:none;
 }
-@keyframes ghostrise{
-  0%{opacity:0;transform:translateY(16px) scale(.94)}
-  12%{opacity:1;transform:translateY(0) scale(1)}
-  70%{opacity:1;transform:translateY(0) scale(1)}
-  88%{opacity:.5;transform:translateY(-6px) scale(.97)}
-  100%{opacity:0;transform:translateY(-14px) scale(.94)}
+@keyframes toastrise{
+  from{opacity:0;transform:translateY(12px) scale(.94)}
+  to{opacity:1;transform:translateY(0) scale(1)}
 }
-.gn-ico{font-size:20px;flex-shrink:0}
-.gn-title{font-size:12.5px;font-weight:700;color:var(--ink)}
-.gn-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
-.gn-badge{display:inline-block;margin-top:5px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:var(--grn-l);color:var(--grn)}
-.gn-ripple{
-  position:absolute;top:50%;left:50%;width:0;height:0;border-radius:50%;
-  background:rgba(79,156,249,.15);transform:translate(-50%,-50%);
-  animation:gnrip .6s ease-out forwards;
+.toast-fadeout{animation:toastfade .3s ease forwards}
+@keyframes toastfade{to{opacity:0;transform:translateY(-8px) scale(.96)}}
+.dt-ico{font-size:18px;flex-shrink:0}
+.dt-title{font-size:12.5px;font-weight:700;color:var(--ink)}
+.dt-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+.dt-badge{
+  display:inline-block;margin-top:5px;padding:2px 7px;
+  border-radius:4px;font-size:10px;font-weight:700;
 }
-@keyframes gnrip{to{width:300px;height:300px;opacity:0}}
+.dt-badge-grn{background:var(--grn-l);color:var(--grn)}
+.dt-badge-red{background:var(--red-l);color:var(--red)}
+
+/* ─── INFO TOAST (top center) ─── */
+.info-toast{
+  position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);
+  background:rgba(12,15,22,.72);
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--r);
+  padding:9px 18px;font-size:13px;font-weight:600;color:var(--ink);
+  box-shadow:0 4px 20px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.07) inset;
+  z-index:800;pointer-events:none;
+  opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap;
+}
+.info-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ─── PROFILE OVERLAY ─── */
-.ov{
-  position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);
-  z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  backdrop-filter:blur(10px) saturate(140%);
+  -webkit-backdrop-filter:blur(10px) saturate(140%);
+  z-index:900;
+  display:flex;align-items:center;justify-content:center;padding:16px;
   opacity:0;pointer-events:none;transition:opacity .2s;
 }
-.ov.on{opacity:1;pointer-events:all}
-.mod{
-  background:var(--mid1);border:1px solid var(--line);border-radius:var(--rl);
-  width:100%;max-width:660px;max-height:82vh;overflow:hidden;
-  display:flex;flex-direction:column;box-shadow:var(--s3);
-  transform:scale(.92) translateY(8px);
-  transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+.overlay.show{opacity:1;pointer-events:all}
+.modal{
+  background:rgba(22,27,42,.75);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  border:1px solid rgba(255,255,255,.11);
+  border-radius:var(--rl);
+  width:100%;max-width:640px;max-height:82vh;
+  overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 24px 64px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.08) inset;
+  transform:scale(.92) translateY(8px);transition:transform .22s cubic-bezier(.34,1.56,.64,1);
 }
-.ov.on .mod{transform:scale(1) translateY(0)}
-.mhd{
-  padding:18px 20px 14px;border-bottom:1px solid var(--line2);
-  display:flex;align-items:center;gap:13px;flex-shrink:0;
+.overlay.show .modal{transform:scale(1) translateY(0)}
+.modal-head{
+  padding:16px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
 }
-.mav{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
-.mn{font-size:17px;font-weight:800;color:var(--ink)}
-.mhn{font-size:12px;color:var(--muted)}
-.mcl{
+.modal-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.modal-name{font-size:16px;font-weight:800;color:var(--ink)}
+.modal-handle{font-size:12px;color:var(--muted)}
+.modal-close{
   margin-left:auto;width:28px;height:28px;border-radius:7px;
-  background:var(--glass2);border:1px solid var(--line2);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  color:var(--muted);font-size:16px;transition:all .12s;line-height:1;flex-shrink:0;
+  background:rgba(255,255,255,.07);border:1px solid var(--line2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--muted);
+  font-size:16px;transition:all .12s;line-height:1;flex-shrink:0;
 }
-.mcl:hover{background:var(--red-l);color:var(--red);border-color:rgba(248,113,113,.4)}
-.mbd{padding:16px 20px;overflow-y:auto;flex:1}
-.mbd::-webkit-scrollbar{width:4px}
-.mbd::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
-.psr{display:flex;gap:10px;margin-bottom:16px}
-.psrc{flex:1;background:var(--glass);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--line2)}
-.psrv{font-size:20px;font-weight:800;color:var(--acc)}
-.psrl{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-
-.empty{text-align:center;padding:48px 16px;color:var(--muted)}
-.ei{font-size:38px;margin-bottom:10px}
-.eh{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px}
-
-/* ─── TOAST ─── */
-.toast{
-  position:fixed;top:62px;left:50%;transform:translateX(-50%) translateY(-10px);
-  background:rgba(10,14,28,.95);backdrop-filter:blur(12px);
-  border:1px solid var(--line2);border-radius:var(--r);
-  padding:10px 18px;font-size:13px;font-weight:600;
-  color:var(--ink);z-index:800;pointer-events:none;
-  opacity:0;transition:all .2s;white-space:nowrap;
-}
-.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.modal-close:hover{background:var(--red-l);color:var(--red);border-color:rgba(248,113,113,.4)}
+.modal-body{padding:14px 18px;overflow-y:auto;flex:1}
+.modal-body::-webkit-scrollbar{width:4px}
+.modal-body::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+.profile-stats{display:flex;gap:8px;margin-bottom:16px}
+.pstat{flex:1;background:rgba(255,255,255,.05);border-radius:var(--r);padding:10px;text-align:center;border:1px solid var(--line2)}
+.pstat-val{font-size:20px;font-weight:800;color:var(--acc)}
+.pstat-lbl{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 
 /* ─── RESPONSIVE ─── */
 @media(max-width:980px){
-  .mid-grid,.back-grid{grid-template-columns:1fr}
+  .gallery-layout,.activity-layout{grid-template-columns:1fr}
   .nav-hint{display:none}
-  .layer-inner{max-height:calc(100vh - 100px)}
-  .gallery{grid-template-columns:1fr 1fr}
+  #layer0{max-width:100%}
+  #layer1,#layer2{max-width:100%}
+  .gallery-grid{grid-template-columns:1fr 1fr}
 }
+
+/* ─── REDUCED MOTION ─── */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
+  .layer-panel{transition:none!important}
 }
+
+/* ─── SCROLL HINT ─── */
+.scroll-hint{
+  position:fixed;bottom:60px;right:20px;
+  font-size:11px;color:var(--faint);
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  animation:hintfade 2.5s ease-in-out 2s forwards;
+  pointer-events:none;z-index:400;
+}
+@keyframes hintfade{0%{opacity:.7}80%{opacity:.7}100%{opacity:0}}
+.hint-arrow{font-size:16px;animation:hintarrow 1.2s ease-in-out 2s infinite}
+@keyframes hintarrow{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
 </style>
 </head>
 <body>
 
-<!-- NAV -->
+<!-- ─── NAV ─── -->
 <div class="nav">
   <div class="nav-logo">
     <div class="nav-mark">V</div>
     Media Vault
   </div>
   <div class="nav-sep"></div>
-  <div class="layer-btns">
-    <button class="lbtn on" data-l="0" onclick="gotoLayer(0)">
-      <svg class="lbtn-ico" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5A6.5 6.5 0 118 14.5 6.5 6.5 0 018 1.5zm0 1.5a5 5 0 100 10A5 5 0 008 3z" opacity=".5"/></svg>
+  <div class="nav-tabs">
+    <button class="ntab active" onclick="gotoLayer(0,true)">
       Active
-      <span class="lnum" id="ln0">2</span>
+      <span class="ntab-badge" id="badge0">2</span>
     </button>
-    <button class="lbtn" data-l="1" onclick="gotoLayer(1)">
-      <svg class="lbtn-ico" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="6" height="4" rx="1" opacity=".5"/><rect x="9" y="3" width="6" height="4" rx="1" opacity=".5"/><rect x="1" y="9" width="6" height="4" rx="1"/><rect x="9" y="9" width="6" height="4" rx="1"/></svg>
-      Gallery
-    </button>
-    <button class="lbtn" data-l="2" onclick="gotoLayer(2)">
-      <svg class="lbtn-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M1 4h14v1H1V4zm0 3h14v1H1V7zm0 3h14v1H1v-1zm0 3h8v1H1v-1z" opacity=".6"/><circle cx="13" cy="13" r="1.5"/></svg>
-      Activity
-    </button>
+    <button class="ntab" onclick="gotoLayer(1,true)">Gallery</button>
+    <button class="ntab" onclick="gotoLayer(2,true)">Activity</button>
   </div>
   <div class="nav-sp"></div>
   <div class="nav-hint">
-    <kbd>scroll</kbd> to navigate layers
-    <div class="layer-depth" id="layer-depth-lbl">Layer 1 of 3 — Active</div>
+    <kbd>scroll</kbd> or <kbd>← →</kbd> to navigate &nbsp;·&nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> layers
   </div>
 </div>
 
-<!-- STAGE (perspective container for 3D layers) -->
+<!-- ─── STAGE ─── -->
 <div class="stage" id="stage">
 
-  <!-- LAYER 0: FRONT — Active Downloads -->
-  <div class="layer focused" data-l="0" id="layer0" style="z-index:30">
-    <div class="layer-peek"></div>
-    <div class="layer-inner">
-      <!-- Intake Card -->
-      <div class="intake-card">
-        <div class="intake-header">
-          <div class="intake-title">Download Media</div>
-          <div class="intake-sub">Paste an X or TikTok URL to save to your vault</div>
+  <!-- LAYER 0: ACTIVE DOWNLOADS -->
+  <div class="layer-panel is-active" id="layer0">
+    <div id="l0-inner" style="width:100%;max-width:820px">
+      <!-- Intake -->
+      <div class="intake-wrap">
+        <div class="intake-title">
+          <h1>Download Media</h1>
+          <p>Paste an X or TikTok URL to save to your vault</p>
         </div>
-        <div class="uw">
-          <input class="ui" id="urli"
+        <div class="url-wrap">
+          <input class="url-input" id="url-input"
             placeholder="https://x.com/... or tiktok.com/..."
-            oninput="chkUrl(this)"
-            onkeydown="if(event.key==='Enter')doDownload()">
-          <button class="ub" id="dload-btn" onclick="doDownload()">Download</button>
+            oninput="checkUrl(this)"
+            onkeydown="if(event.key==='Enter')submitUrl()">
+          <button class="url-btn" id="submit-btn" onclick="submitUrl()">Download</button>
         </div>
-        <div class="pchips">
-          <div class="pchip cx"><div class="pchip-dot" style="background:var(--acc)"></div>X (Twitter)</div>
-          <div class="pchip ctt"><div class="pchip-dot" style="background:var(--purp)"></div>TikTok</div>
+        <div class="plat-chips">
+          <div class="pchip pchip-x"><div class="pchip-dot" style="background:var(--blue)"></div>X (Twitter)</div>
+          <div class="pchip pchip-tt"><div class="pchip-dot" style="background:var(--purp)"></div>TikTok</div>
         </div>
       </div>
 
       <!-- Jobs -->
-      <div class="active-section">
+      <div>
         <div class="sec-hdr">
           <div class="sec-title">All Jobs</div>
-          <div class="sec-act">
-            <span class="sec-badge" id="runbadge">2 running</span>
-          </div>
+          <div class="sec-sp"></div>
+          <span class="sec-badge badge-amber" id="run-badge">2 running</span>
         </div>
-        <div id="bulk" style="display:none" class="bulk-bar">
-          <span class="bcnt" id="bcnt">0 selected</span>
-          <span class="bsp"></span>
-          <button class="bb bdel" onclick="bulkDelete()">Delete Selected</button>
-          <button class="bb bcan" onclick="clearSel()">Cancel</button>
+        <div id="bulk-bar" style="display:none" class="bulk-bar">
+          <span class="bulk-count" id="bulk-count">0 selected</span>
+          <span class="bulk-sp"></span>
+          <button class="bulk-btn bulk-del" onclick="bulkDelete()">Delete Selected</button>
+          <button class="bulk-btn bulk-cancel" onclick="clearSelection()">Cancel</button>
         </div>
-        <div class="jl" id="jl"></div>
+        <div class="job-list" id="job-list"></div>
       </div>
     </div>
   </div>
 
-  <!-- LAYER 1: MID — Gallery & Creators -->
-  <div class="layer" data-l="1" id="layer1" style="z-index:20">
-    <div class="layer-peek"></div>
-    <div class="layer-inner wide">
-      <div class="mid-grid">
-        <!-- Completed Gallery -->
-        <div class="mid-panel">
-          <div class="mp-title">
-            <div class="mp-title-dot" style="background:var(--acc)"></div>
+  <!-- LAYER 1: GALLERY & CREATORS -->
+  <div class="layer-panel" id="layer1">
+    <div style="width:100%;max-width:1100px">
+      <div class="gallery-layout">
+        <div class="panel">
+          <div class="panel-title">
+            <div class="panel-dot" style="background:var(--acc)"></div>
             Completed Downloads
           </div>
-          <div class="gallery" id="gallery"></div>
+          <div class="panel-scroll">
+            <div class="gallery-grid" id="gallery-grid"></div>
+          </div>
         </div>
-        <!-- Creators -->
-        <div class="mid-panel">
-          <div class="mp-title">
-            <div class="mp-title-dot" style="background:var(--rose)"></div>
+        <div class="panel">
+          <div class="panel-title">
+            <div class="panel-dot" style="background:var(--purp)"></div>
             Creators
           </div>
-          <div class="cr-list" id="crlist"></div>
+          <div class="panel-scroll">
+            <div class="cr-list" id="creator-list"></div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- LAYER 2: BACK — Activity & Settings -->
-  <div class="layer" data-l="2" id="layer2" style="z-index:10">
-    <div class="layer-peek"></div>
-    <div class="layer-inner wide">
-      <div class="back-grid">
-        <!-- Activity Feed -->
-        <div class="ac-card">
+  <!-- LAYER 2: ACTIVITY & SETTINGS -->
+  <div class="layer-panel" id="layer2">
+    <div style="width:100%;max-width:1100px">
+      <div class="activity-layout">
+        <!-- Activity log -->
+        <div class="ac-panel">
           <div class="ac-head">
             <div class="ac-title">Activity Log</div>
-            <div class="ac-live"><div class="ac-dot"></div>Live</div>
+            <div class="live-dot"></div>
+            <div class="live-txt">Live</div>
           </div>
-          <div class="ac-filt">
-            <button class="apill on" onclick="filterAc(this,'all')">All</button>
-            <button class="apill" onclick="filterAc(this,'info')">Info</button>
-            <button class="apill" onclick="filterAc(this,'warn')">Warn</button>
-            <button class="apill" onclick="filterAc(this,'error')">Error</button>
-            <button class="apill" onclick="filterAc(this,'debug')">Debug</button>
+          <div class="ac-filters">
+            <button class="afpill active" onclick="filterActivity(this,'all')">All</button>
+            <button class="afpill" onclick="filterActivity(this,'info')">Info</button>
+            <button class="afpill" onclick="filterActivity(this,'warn')">Warn</button>
+            <button class="afpill" onclick="filterActivity(this,'error')">Error</button>
+            <button class="afpill" onclick="filterActivity(this,'debug')">Debug</button>
           </div>
-          <div class="ac-scroll">
-            <div id="aclist"></div>
-          </div>
+          <div class="ac-scroll" id="activity-list"></div>
         </div>
 
         <!-- Settings -->
-        <div class="se-card">
+        <div class="se-panel">
           <div class="se-title">Settings</div>
-          <div class="se-sec">
-            <div class="se-sh">Platforms</div>
+          <div class="se-section">
+            <div class="se-section-title">Platforms</div>
             <div class="se-row">
-              <div class="se-ico">𝕏</div>
-              <div class="se-info"><div class="se-lbl">X (Twitter)</div><div class="se-d">Download from X posts</div></div>
-              <button class="tog on" onclick="togSetting(this,'x')"><div class="togt"></div></button>
+              <div class="se-icon">𝕏</div>
+              <div class="se-info"><div class="se-label">X (Twitter)</div><div class="se-desc">Download from X posts</div></div>
+              <button class="toggle on" onclick="toggleSetting(this,'X')"><div class="toggle-thumb"></div></button>
             </div>
             <div class="se-row">
-              <div class="se-ico">▶</div>
-              <div class="se-info"><div class="se-lbl">TikTok</div><div class="se-d">Playwright automation</div></div>
-              <button class="tog on" onclick="togSetting(this,'tiktok')"><div class="togt"></div></button>
-            </div>
-          </div>
-          <div class="se-sec">
-            <div class="se-sh">Interface</div>
-            <div class="se-row">
-              <div class="se-ico">✦</div>
-              <div class="se-info"><div class="se-lbl">Depth Notifications</div><div class="se-d">Ghost cards rise through layers on events</div></div>
-              <button class="tog on" id="gn-tog" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
-            </div>
-            <div class="se-row">
-              <div class="se-ico">◉</div>
-              <div class="se-info"><div class="se-lbl">Layer Blur Effect</div><div class="se-d">Depth blur on non-focused layers</div></div>
-              <button class="tog on" id="blur-tog" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
-            </div>
-            <div class="se-row">
-              <div class="se-ico">⚡</div>
-              <div class="se-info"><div class="se-lbl">Live Job Simulation</div><div class="se-d">Animate job progress in real time</div></div>
-              <button class="tog on" id="sim-tog" onclick="togSim(this)"><div class="togt"></div></button>
+              <div class="se-icon">▶</div>
+              <div class="se-info"><div class="se-label">TikTok</div><div class="se-desc">Playwright automation</div></div>
+              <button class="toggle on" onclick="toggleSetting(this,'TikTok')"><div class="toggle-thumb"></div></button>
             </div>
           </div>
-          <div class="se-sec">
-            <div class="se-sh">Processing</div>
+          <div class="se-section">
+            <div class="se-section-title">Interface</div>
             <div class="se-row">
-              <div class="se-ico">⏱</div>
-              <div class="se-info"><div class="se-lbl">Extraction Timeout</div><div class="se-d">Max wait for Playwright</div></div>
-              <span style="font-size:12px;color:var(--muted);font-weight:600">180s</span>
+              <div class="se-icon">✦</div>
+              <div class="se-info"><div class="se-label">Depth Notifications</div><div class="se-desc">Toast alerts across layers</div></div>
+              <button class="toggle on" id="notif-toggle" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></button>
             </div>
             <div class="se-row">
-              <div class="se-ico">↺</div>
-              <div class="se-info"><div class="se-lbl">Auto-Retry Failed</div><div class="se-d">Re-queue failed jobs once</div></div>
-              <button class="tog" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
+              <div class="se-icon">⚡</div>
+              <div class="se-info"><div class="se-label">Live Simulation</div><div class="se-desc">Animate job progress</div></div>
+              <button class="toggle on" id="sim-toggle" onclick="toggleSim(this)"><div class="toggle-thumb"></div></button>
+            </div>
+          </div>
+          <div class="se-section">
+            <div class="se-section-title">Processing</div>
+            <div class="se-row">
+              <div class="se-icon">⏱</div>
+              <div class="se-info"><div class="se-label">Extraction Timeout</div><div class="se-desc">Max wait for Playwright</div></div>
+              <span class="se-val">180s</span>
             </div>
             <div class="se-row">
-              <div class="se-ico">⊕</div>
-              <div class="se-info"><div class="se-lbl">HLS Fallback</div><div class="se-d">Use ffmpeg for .m3u8 streams</div></div>
-              <button class="tog on" onclick="this.classList.toggle('on')"><div class="togt"></div></button>
+              <div class="se-icon">↺</div>
+              <div class="se-info"><div class="se-label">Auto-Retry Failed</div><div class="se-desc">Re-queue failed jobs once</div></div>
+              <button class="toggle" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></button>
+            </div>
+            <div class="se-row">
+              <div class="se-icon">⊕</div>
+              <div class="se-info"><div class="se-label">HLS Fallback</div><div class="se-desc">Use ffmpeg for .m3u8</div></div>
+              <button class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></button>
+            </div>
+          </div>
+          <div class="se-section">
+            <div class="se-section-title">System</div>
+            <div class="se-row">
+              <div class="se-icon">◉</div>
+              <div class="se-info"><div class="se-label">Worker Status</div><div class="se-desc">Queue poller — 1s interval</div></div>
+              <span style="font-size:11px;font-weight:700;color:var(--grn)">● Active</span>
+            </div>
+            <div class="se-row">
+              <div class="se-icon">🔗</div>
+              <div class="se-info"><div class="se-label">MongoDB</div><div class="se-desc">Atlas connection</div></div>
+              <span class="se-val" style="color:var(--grn)">Connected</span>
+            </div>
+            <div class="se-row">
+              <div class="se-icon">🎭</div>
+              <div class="se-info"><div class="se-label">Playwright</div><div class="se-desc">Chromium context</div></div>
+              <span class="se-val" style="color:var(--grn)">Ready</span>
             </div>
           </div>
         </div>
@@ -658,339 +875,365 @@ body{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:
     </div>
   </div>
 
-  <!-- BOTTOM NAV DOTS -->
-  <div class="layer-nav">
-    <button class="lna" id="nav-prev" onclick="prevLayer()" disabled title="Previous layer">&#8592;</button>
-    <div class="ldots">
-      <div class="ldot on" onclick="gotoLayer(0)" title="Active Downloads"></div>
-      <div class="ldot" onclick="gotoLayer(1)" title="Gallery & Creators"></div>
-      <div class="ldot" onclick="gotoLayer(2)" title="Activity & Settings"></div>
-    </div>
-    <div class="layer-label" id="nav-lbl">Active</div>
-    <button class="lna" id="nav-next" onclick="nextLayer()" title="Next layer">&#8594;</button>
-  </div>
+</div><!-- /stage -->
 
+<!-- ─── BOTTOM NAV ─── -->
+<div class="bnav">
+  <button class="bnav-btn" id="prev-btn" onclick="prevLayer()" disabled>&#8592;</button>
+  <div class="bnav-dots">
+    <div class="bnav-dot active" onclick="gotoLayer(0,true)" title="Active Downloads"></div>
+    <div class="bnav-dot" onclick="gotoLayer(1,true)" title="Gallery & Creators"></div>
+    <div class="bnav-dot" onclick="gotoLayer(2,true)" title="Activity & Settings"></div>
+  </div>
+  <div class="bnav-label" id="bnav-label">Active</div>
+  <button class="bnav-btn" id="next-btn" onclick="nextLayer()">&#8594;</button>
 </div>
 
-<!-- GHOST NOTIFICATION CONTAINER -->
-<div class="ghost-container" id="gnc"></div>
+<!-- ─── DEPTH TOASTS ─── -->
+<div class="toast-container" id="toast-container"></div>
 
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
+<!-- ─── INFO TOAST ─── -->
+<div class="info-toast" id="info-toast"></div>
 
-<!-- PROFILE OVERLAY -->
-<div class="ov" id="ov" onclick="if(event.target===this)closeOverlay()">
-  <div class="mod">
-    <div class="mhd" id="mhd"></div>
-    <div class="mbd" id="mbd"></div>
+<!-- ─── SCROLL HINT ─── -->
+<div class="scroll-hint">
+  <div class="hint-arrow">&#x2193;</div>
+  <div>scroll to navigate</div>
+</div>
+
+<!-- ─── PROFILE OVERLAY ─── -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeProfile()">
+  <div class="modal">
+    <div class="modal-head" id="modal-head"></div>
+    <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
 
 <script>
 'use strict';
 
-// ─── DATA ───────────────────────────────────────────────────────────────────
+// ─── MOCK DATA ───────────────────────────────────────────────────────────────
 
 const JOBS = [
-  {id:'j1',t:'@elonmusk tweet about Mars colonization',c:'elonmusk',p:'x',s:'running',pct:67,ti:'2m ago',e:'🚀'},
-  {id:'j2',t:'@natgeo deep ocean documentary series',c:'natgeo',p:'x',s:'running',pct:34,ti:'4m ago',e:'🌊'},
-  {id:'j3',t:"@charlidamelio viral dance routine compilation",c:'charlidamelio',p:'tiktok',s:'completed',pct:100,ti:'12m ago',e:'💃'},
-  {id:'j4',t:'@mkbhd latest flagship phone review',c:'mkbhd',p:'x',s:'completed',pct:100,ti:'28m ago',e:'📱'},
-  {id:'j5',t:'@nasa ISS orbital time-lapse',c:'nasa',p:'x',s:'failed',pct:0,ti:'1h ago',e:'🛸'},
-  {id:'j6',t:'@gordonramsay perfect pasta recipe',c:'gordonramsay',p:'tiktok',s:'queued',pct:0,ti:'just now',e:'👨‍🍳'},
-  {id:'j7',t:'@nytimes breaking news segment',c:'nytimes',p:'x',s:'completed',pct:100,ti:'2h ago',e:'📰'},
-  {id:'j8',t:'@billnye science explainer for kids',c:'billnye',p:'tiktok',s:'completed',pct:100,ti:'3h ago',e:'🔬'},
+  {id:'j1',title:'@elonmusk tweet about Mars colonization',creator:'elonmusk',platform:'x',status:'running',pct:67,time:'2m ago',icon:'🚀'},
+  {id:'j2',title:'@natgeo deep ocean documentary series',creator:'natgeo',platform:'x',status:'running',pct:34,time:'4m ago',icon:'🌊'},
+  {id:'j3',title:"@charlidamelio viral dance compilation",creator:'charlidamelio',platform:'tiktok',status:'completed',pct:100,time:'12m ago',icon:'💃'},
+  {id:'j4',title:'@mkbhd latest flagship phone review',creator:'mkbhd',platform:'x',status:'completed',pct:100,time:'28m ago',icon:'📱'},
+  {id:'j5',title:'@nasa ISS orbital time-lapse 4K',creator:'nasa',platform:'x',status:'failed',pct:0,time:'1h ago',icon:'🛸'},
+  {id:'j6',title:"@gordonramsay perfect pasta recipe tutorial",creator:'gordonramsay',platform:'tiktok',status:'queued',pct:0,time:'just now',icon:'👨‍🍳'},
+  {id:'j7',title:'@nytimes breaking news segment',creator:'nytimes',platform:'x',status:'completed',pct:100,time:'2h ago',icon:'📰'},
+  {id:'j8',title:'@billnye science explainer for kids',creator:'billnye',platform:'tiktok',status:'completed',pct:100,time:'3h ago',icon:'🔬'},
+  {id:'j9',title:'@veritasium quantum physics explained',creator:'veritasium',platform:'x',status:'queued',pct:0,time:'just now',icon:'⚛️'},
 ];
 
 const CREATORS = [
-  {sl:'elonmusk',n:'Elon Musk',h:'@elonmusk',j:12,d:10,p:'x',col:'#1a4de8',e:'🚀'},
-  {sl:'natgeo',n:'National Geographic',h:'@natgeo',j:8,d:8,p:'x',col:'#e8a51a',e:'🌍'},
-  {sl:'charlidamelio',n:"Charli D'Amelio",h:'@charlidamelio',j:24,d:22,p:'tiktok',col:'#e81a8e',e:'💃'},
-  {sl:'mkbhd',n:'MKBHD',h:'@mkbhd',j:16,d:15,p:'x',col:'#555',e:'📱'},
-  {sl:'nasa',n:'NASA',h:'@nasa',j:6,d:4,p:'x',col:'#1a4de8',e:'🛸'},
-  {sl:'gordonramsay',n:'Gordon Ramsay',h:'@gordonramsay',j:19,d:19,p:'tiktok',col:'#e8361a',e:'👨‍🍳'},
-  {sl:'nytimes',n:'NY Times',h:'@nytimes',j:11,d:9,p:'x',col:'#888',e:'📰'},
-  {sl:'billnye',n:'Bill Nye',h:'@billnye',j:7,d:6,p:'tiktok',col:'#1ae8b4',e:'🔬'},
+  {slug:'elonmusk',name:'Elon Musk',handle:'@elonmusk',jobs:12,done:10,platform:'x',color:'#1a4de8',icon:'🚀'},
+  {slug:'natgeo',name:'National Geographic',handle:'@natgeo',jobs:8,done:8,platform:'x',color:'#e8a51a',icon:'🌍'},
+  {slug:'charlidamelio',name:"Charli D'Amelio",handle:'@charlidamelio',jobs:24,done:22,platform:'tiktok',color:'#e81a8e',icon:'💃'},
+  {slug:'mkbhd',name:'MKBHD',handle:'@mkbhd',jobs:16,done:15,platform:'x',color:'#444',icon:'📱'},
+  {slug:'nasa',name:'NASA',handle:'@nasa',jobs:6,done:4,platform:'x',color:'#1a4de8',icon:'🛸'},
+  {slug:'gordonramsay',name:'Gordon Ramsay',handle:'@gordonramsay',jobs:19,done:19,platform:'tiktok',color:'#e8361a',icon:'👨‍🍳'},
+  {slug:'nytimes',name:'NY Times',handle:'@nytimes',jobs:11,done:9,platform:'x',color:'#666',icon:'📰'},
+  {slug:'billnye',name:'Bill Nye',handle:'@billnye',jobs:7,done:6,platform:'tiktok',color:'#1ae8b4',icon:'🔬'},
+  {slug:'veritasium',name:'Veritasium',handle:'@veritasium',jobs:9,done:7,platform:'x',color:'#ff6b35',icon:'⚛️'},
 ];
 
-let AC_EVENTS = [
-  {t:'14:32:01',l:'info',m:'Job j1 transitioned to running status',j:'j1'},
-  {t:'14:31:58',l:'info',m:'Playwright extracted 3 media candidates from page',j:'j1'},
-  {t:'14:31:55',l:'info',m:'Job j2 claimed by worker — atomic FIFO claim',j:'j2'},
-  {t:'14:31:50',l:'warn',m:'TikTok rate limit detected, backing off 2s',j:'j6'},
-  {t:'14:31:44',l:'info',m:'Job j3 completed — downloads/charlidamelio/j3.mp4',j:'j3'},
-  {t:'14:31:40',l:'error',m:'Extraction timeout for job j5 after 180s',j:'j5'},
-  {t:'14:31:35',l:'debug',m:'ffmpeg HLS stream started, 47 segments detected',j:'j2'},
-  {t:'14:31:30',l:'info',m:'Worker heartbeat OK — queue depth: 2',j:null},
-  {t:'14:31:25',l:'info',m:'New job j6 queued via POST /api/jobs',j:'j6'},
-  {t:'14:31:10',l:'debug',m:'Playwright browser context reused (singleton)',j:'j1'},
-  {t:'14:30:55',l:'info',m:'Job j4 completed in 34.2s',j:'j4'},
-  {t:'14:30:40',l:'warn',m:'MongoDB slow query (>100ms) on jobs collection',j:null},
-  {t:'14:30:20',l:'debug',m:'pickMediaUrl scored 3 candidates — direct MP4 wins',j:'j4'},
-  {t:'14:30:00',l:'info',m:'Server started on port 4000',j:null},
+let ACTIVITY = [
+  {time:'14:32:01',level:'info',msg:'Job j1 transitioned to running status',job:'j1'},
+  {time:'14:31:58',level:'info',msg:'Playwright extracted 3 media candidates',job:'j1'},
+  {time:'14:31:55',level:'info',msg:'Job j2 claimed by worker — atomic FIFO claim',job:'j2'},
+  {time:'14:31:50',level:'warn',msg:'TikTok rate limit detected, backing off 2s',job:'j6'},
+  {time:'14:31:44',level:'info',msg:'Job j3 completed — downloads/charlidamelio/j3.mp4',job:'j3'},
+  {time:'14:31:40',level:'error',msg:'Extraction timeout for job j5 after 180s',job:'j5'},
+  {time:'14:31:35',level:'debug',msg:'ffmpeg HLS stream started, 47 segments detected',job:'j2'},
+  {time:'14:31:30',level:'info',msg:'Worker heartbeat OK — queue depth: 2',job:null},
+  {time:'14:31:25',level:'info',msg:'New job j6 queued via POST /api/jobs',job:'j6'},
+  {time:'14:31:10',level:'debug',msg:'Playwright browser context reused (singleton)',job:'j1'},
+  {time:'14:30:55',level:'info',msg:'Job j4 completed in 34.2s',job:'j4'},
+  {time:'14:30:40',level:'warn',msg:'MongoDB slow query (>100ms) on jobs collection',job:null},
+  {time:'14:30:20',level:'debug',msg:'pickMediaUrl scored 3 candidates — direct MP4 wins',job:'j4'},
+  {time:'14:30:05',level:'debug',msg:'Worker poll interval: 1000ms, no jobs in queue',job:null},
+  {time:'14:30:00',level:'info',msg:'Server started on port 4000, MongoDB connected',job:null},
+  {time:'14:29:55',level:'info',msg:'Playwright singleton context initialized',job:null},
+  {time:'14:29:50',level:'debug',msg:'ENABLE_X=true ENABLE_TIKTOK=true loaded from env',job:null},
+  {time:'14:29:45',level:'info',msg:'Telemetry ring buffer initialized (4000 slots)',job:null},
 ];
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
-let curLayer = 0;
-let sel = new Set();
-let simInterval = null;
-let acFilter = 'all';
+let currentLayer = 0;
+let transitioning = false;
+let selectedJobs = new Set();
+let activityFilter = 'all';
 let wheelCooldown = false;
-
-// ─── LAYER LABELS ────────────────────────────────────────────────────────────
-const LAYER_NAMES = ['Active', 'Gallery', 'Activity'];
-const LAYER_DESCS = ['Layer 1 of 3 — Active', 'Layer 2 of 3 — Gallery', 'Layer 3 of 3 — Activity'];
+let simRunning = true;
+let simTimer = null;
 
 // ─── LAYER NAVIGATION ────────────────────────────────────────────────────────
 
-function gotoLayer(n) {
-  const layers = [
-    document.getElementById('layer0'),
-    document.getElementById('layer1'),
-    document.getElementById('layer2'),
-  ];
-  const blurOn = document.getElementById('blur-tog') && document.getElementById('blur-tog').classList.contains('on');
-  curLayer = n;
+const LAYER_NAMES = ['Active', 'Gallery', 'Activity'];
+const LAYER_COUNT = 3;
 
-  layers.forEach((el, i) => {
-    // Remove all state classes
-    el.className = 'layer';
+function gotoLayer(target, isUserAction) {
+  if (transitioning) return;
+  if (target === currentLayer) return;
+  if (target < 0 || target >= LAYER_COUNT) return;
 
-    // Assign z-index inline so it's not fighting CSS specificity
-    // The focused layer needs to be on top
-    if (i === n) {
-      el.style.zIndex = 30;
-      el.classList.add('focused');
-    } else if (i < n) {
-      // This layer is behind (was in front before)
-      const steps = n - i;
-      el.style.zIndex = 30 - steps * 10;
-      el.classList.add('behind-' + Math.min(steps, 2));
-    } else {
-      // This layer is in front (will be revealed next)
-      // Keep lower z-index so focused layer renders on top
-      const steps = i - n;
-      el.style.zIndex = 10 - steps * 5;
-      el.classList.add('before-' + Math.min(steps, 1));
-    }
-  });
+  transitioning = true;
+  const from = currentLayer;
+  const goingDeeper = target > from; // scrolling "into" the stack
 
-  // Update nav buttons
-  document.querySelectorAll('.lbtn').forEach(b => b.classList.toggle('on', Number(b.dataset.l) === n));
-  document.querySelectorAll('.ldot').forEach((d, i) => d.classList.toggle('on', i === n));
-  document.getElementById('nav-prev').disabled = n === 0;
-  document.getElementById('nav-next').disabled = n === 2;
-  document.getElementById('nav-lbl').textContent = LAYER_NAMES[n];
-  if (document.getElementById('layer-depth-lbl')) {
-    document.getElementById('layer-depth-lbl').textContent = LAYER_DESCS[n];
-  }
+  const fromEl = document.getElementById('layer' + from);
+  const toEl   = document.getElementById('layer' + target);
+
+  // Step 1: Set the incoming panel to its START position instantly (no transition)
+  toEl.className = 'layer-panel ' + (goingDeeper ? 'enter-from-back' : 'enter-from-front');
+
+  // Force a reflow so the browser sees the start position before we animate
+  void toEl.offsetWidth;
+
+  // Step 2: Start outgoing animation on current panel
+  fromEl.classList.remove('is-active');
+  fromEl.classList.add(goingDeeper ? 'exit-to-back' : 'exit-to-front');
+
+  // Step 3: Start incoming animation — add is-active which triggers the CSS transition
+  toEl.classList.remove('enter-from-back', 'enter-from-front');
+  toEl.classList.add('is-active');
+
+  currentLayer = target;
+  updateNavUI();
+
+  // Cleanup: remove exit class from old panel after transition completes
+  setTimeout(() => {
+    fromEl.className = 'layer-panel'; // back to default hidden state
+    transitioning = false;
+  }, 450);
 }
 
-function prevLayer() { if (curLayer > 0) gotoLayer(curLayer - 1); }
-function nextLayer() { if (curLayer < 2) gotoLayer(curLayer + 1); }
+function prevLayer() { gotoLayer(currentLayer - 1, true); }
+function nextLayer() { gotoLayer(currentLayer + 1, true); }
 
-// Scroll navigation with debounce
+function updateNavUI() {
+  const n = currentLayer;
+  // Nav tabs
+  document.querySelectorAll('.ntab').forEach((t, i) => t.classList.toggle('active', i === n));
+  // Dots
+  document.querySelectorAll('.bnav-dot').forEach((d, i) => d.classList.toggle('active', i === n));
+  // Label
+  document.getElementById('bnav-label').textContent = LAYER_NAMES[n];
+  // Arrows
+  document.getElementById('prev-btn').disabled = n === 0;
+  document.getElementById('next-btn').disabled = n === LAYER_COUNT - 1;
+}
+
+// Scroll to navigate (with debounce)
 document.getElementById('stage').addEventListener('wheel', (e) => {
   if (wheelCooldown) return;
-  if (e.deltaY > 30 && curLayer < 2) {
+  const delta = e.deltaY;
+  if (delta > 25 && currentLayer < LAYER_COUNT - 1) {
     nextLayer();
     wheelCooldown = true;
-    setTimeout(() => { wheelCooldown = false; }, 600);
-  } else if (e.deltaY < -30 && curLayer > 0) {
+    setTimeout(() => { wheelCooldown = false; }, 700);
+  } else if (delta < -25 && currentLayer > 0) {
     prevLayer();
     wheelCooldown = true;
-    setTimeout(() => { wheelCooldown = false; }, 600);
+    setTimeout(() => { wheelCooldown = false; }, 700);
   }
 }, { passive: true });
 
 // Keyboard navigation
 document.addEventListener('keydown', (e) => {
-  if (document.getElementById('ov').classList.contains('on')) return;
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextLayer();
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevLayer();
-  if (e.key === '1') gotoLayer(0);
-  if (e.key === '2') gotoLayer(1);
-  if (e.key === '3') gotoLayer(2);
-  if (e.key === 'Escape') closeOverlay();
+  if (document.getElementById('overlay').classList.contains('show')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); nextLayer(); }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); prevLayer(); }
+  if (e.key === '1') gotoLayer(0, true);
+  if (e.key === '2') gotoLayer(1, true);
+  if (e.key === '3') gotoLayer(2, true);
+  if (e.key === 'Escape') closeProfile();
 });
 
 // ─── URL INPUT ───────────────────────────────────────────────────────────────
 
-function chkUrl(el) {
+function checkUrl(el) {
   const v = el.value;
-  el.classList.remove('ok', 'invalid');
+  el.classList.remove('valid', 'invalid');
   if (v && (v.includes('x.com') || v.includes('twitter.com') || v.includes('tiktok.com'))) {
-    el.classList.add('ok');
+    el.classList.add('valid');
   }
 }
 
-function doDownload() {
-  const el = document.getElementById('urli');
-  const btn = document.getElementById('dload-btn');
-  const v = el.value.trim();
-  if (!v) { el.focus(); return; }
-  const isX = v.includes('x.com') || v.includes('twitter.com');
+function submitUrl() {
+  const inp = document.getElementById('url-input');
+  const btn = document.getElementById('submit-btn');
+  const v = inp.value.trim();
+  if (!v) { inp.focus(); return; }
+  const isX  = v.includes('x.com') || v.includes('twitter.com');
   const isTT = v.includes('tiktok.com');
   if (!isX && !isTT) {
-    el.classList.add('invalid');
-    setTimeout(() => el.classList.remove('invalid'), 1000);
+    inp.classList.add('invalid');
+    setTimeout(() => inp.classList.remove('invalid'), 900);
     return;
   }
-  // Loading state
   btn.classList.add('loading');
   btn.textContent = '...';
   btn.disabled = true;
   setTimeout(() => {
     const id = 'j' + Date.now();
     JOBS.unshift({
-      id, t: 'New download from ' + (isX ? 'X (Twitter)' : 'TikTok'),
-      c: 'unknown', p: isX ? 'x' : 'tiktok', s: 'queued', pct: 0, ti: 'just now', e: '📥'
+      id, title:'New download from ' + (isX ? 'X (Twitter)' : 'TikTok'),
+      creator:'unknown', platform: isX ? 'x' : 'tiktok',
+      status:'queued', pct:0, time:'just now', icon:'📥'
     });
-    el.value = '';
-    el.classList.remove('ok');
+    inp.value = '';
+    inp.classList.remove('valid');
     btn.classList.remove('loading');
     btn.textContent = 'Download';
     btn.disabled = false;
     renderJobs();
-    showToast('Job queued — processing will begin shortly');
-    addActivity('info', 'New job ' + id + ' queued via intake form', id);
-  }, 800);
+    showInfoToast('Job queued — processing will begin shortly');
+    pushActivity('info', 'New job ' + id + ' queued via intake form', id);
+  }, 900);
 }
 
-// ─── JOB RENDERING ───────────────────────────────────────────────────────────
+// ─── JOBS ─────────────────────────────────────────────────────────────────────
 
 function statusClass(s) {
-  return { running: 'r', completed: 'c', failed: 'f', queued: 'q' }[s] || 'q';
+  return {running:'running',completed:'completed',failed:'failed',queued:'queued'}[s] || 'queued';
 }
 
 function renderJobs() {
-  const el = document.getElementById('jl');
+  const el = document.getElementById('job-list');
   if (!JOBS.length) {
-    el.innerHTML = '<div class="empty"><div class="ei">📭</div><div class="eh">No jobs yet</div><p>Submit a URL above to start downloading.</p></div>';
+    el.innerHTML = '<div class="empty"><div class="empty-ico">📭</div><div class="empty-h">No jobs yet</div><p>Submit a URL above to start downloading.</p></div>';
     return;
   }
-  // Sort: running first, then queued, then completed, then failed
-  const order = { running: 0, queued: 1, completed: 2, failed: 3 };
-  const sorted = [...JOBS].sort((a, b) => (order[a.s] ?? 9) - (order[b.s] ?? 9));
+  const order = {running:0,queued:1,completed:2,failed:3};
+  const sorted = [...JOBS].sort((a,b) => (order[a.status]??9)-(order[b.status]??9));
 
   el.innerHTML = sorted.map(j => {
-    const sc = statusClass(j.s);
-    const isSel = sel.has(j.id);
+    const sc = statusClass(j.status);
+    const isSel = selectedJobs.has(j.id);
+    const statusLabel = j.status === 'running' ? j.pct + '%' : j.status;
     return `
-    <div class="jcard${isSel ? ' sel-card' : ''}" onclick="toggleSel('${j.id}',event)">
+    <div class="jcard${isSel ? ' selected' : ''}" onclick="toggleSelect('${j.id}',event)">
       <div class="jbar jbar-${sc}"></div>
-      <input type="checkbox" style="width:14px;height:14px;accent-color:var(--acc);cursor:pointer;flex-shrink:0"
-        ${isSel ? 'checked' : ''}
-        onclick="event.stopPropagation();toggleSel('${j.id}',event)">
-      <div class="jth">${j.e}</div>
-      <div class="ji">
-        <div class="jt">${j.t}</div>
-        <div class="jm">
-          <span class="jp jp${j.p}">${j.p === 'x' ? 'X' : 'TikTok'}</span>
-          <span class="jhand">@${j.c}</span>
-          <span class="jti">${j.ti}</span>
+      <input class="jchk" type="checkbox" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSelect('${j.id}',event)">
+      <div class="jthumbnail">${j.icon}</div>
+      <div class="jinfo">
+        <div class="jtitle">${j.title}</div>
+        <div class="jmeta">
+          <span class="jpill jpill-${j.platform}">${j.platform === 'x' ? 'X' : 'TikTok'}</span>
+          <span class="jhandle">@${j.creator}</span>
+          <span class="jtime">${j.time}</span>
         </div>
       </div>
-      <span class="jbadge jbad-${sc}">${j.s === 'running' ? j.pct + '%' : j.s}</span>
-      <div class="jacts">
-        ${j.s === 'completed' ? '<button class="ja" onclick="event.stopPropagation();showToast(\'Downloading file…\')" title="Download">⬇</button>' : ''}
-        ${j.s === 'failed' ? '<button class="ja retry" onclick="event.stopPropagation();retryJob(\''+j.id+'\')" title="Retry">↺</button>' : ''}
-        <button class="ja del" onclick="event.stopPropagation();deleteJob('${j.id}')" title="Delete">✕</button>
+      <span class="jstatus js-${sc}">${statusLabel}</span>
+      <div class="jactions">
+        ${j.status==='completed' ? `<button class="jact" onclick="event.stopPropagation();showInfoToast('Downloading file…')" title="Download">⬇</button>` : ''}
+        ${j.status==='failed'    ? `<button class="jact retry" onclick="event.stopPropagation();retryJob('${j.id}')" title="Retry">↺</button>` : ''}
+        <button class="jact del" onclick="event.stopPropagation();deleteJob('${j.id}')" title="Delete">✕</button>
       </div>
-      ${j.s === 'running' ? `<div class="jprog" style="width:${j.pct}%"></div>` : ''}
+      ${j.status==='running' ? `<div class="jprog" style="width:${j.pct}%"></div>` : ''}
     </div>`;
   }).join('');
 
-  const running = JOBS.filter(x => x.s === 'running');
-  document.getElementById('runbadge').textContent = running.length + ' running';
-  document.getElementById('ln0').textContent = running.length || JOBS.filter(x=>x.s==='queued').length || '0';
+  const running = JOBS.filter(x => x.status === 'running');
+  const queued  = JOBS.filter(x => x.status === 'queued');
+  document.getElementById('run-badge').textContent = running.length + ' running';
+  document.getElementById('badge0').textContent = running.length || queued.length || '0';
   updateBulkBar();
 }
 
-// ─── SELECTION ────────────────────────────────────────────────────────────────
-
-function toggleSel(id, e) {
-  if (e && e.target.tagName === 'INPUT') return; // let checkbox handle natively
-  if (sel.has(id)) sel.delete(id); else sel.add(id);
+function toggleSelect(id, e) {
+  if (e && e.target.tagName === 'INPUT') return;
+  if (selectedJobs.has(id)) selectedJobs.delete(id); else selectedJobs.add(id);
   updateBulkBar();
   renderJobs();
 }
 
 function updateBulkBar() {
-  const bar = document.getElementById('bulk');
-  if (sel.size > 0) {
+  const bar = document.getElementById('bulk-bar');
+  if (selectedJobs.size > 0) {
     bar.style.display = 'flex';
-    document.getElementById('bcnt').textContent = sel.size + ' selected';
+    document.getElementById('bulk-count').textContent = selectedJobs.size + ' selected';
   } else {
     bar.style.display = 'none';
   }
 }
 
-function clearSel() { sel.clear(); updateBulkBar(); renderJobs(); }
+function clearSelection() { selectedJobs.clear(); updateBulkBar(); renderJobs(); }
+
 function bulkDelete() {
-  sel.forEach(id => { const i = JOBS.findIndex(x => x.id === id); if (i > -1) JOBS.splice(i, 1); });
-  const n = sel.size;
-  sel.clear();
+  const n = selectedJobs.size;
+  selectedJobs.forEach(id => {
+    const i = JOBS.findIndex(x => x.id === id);
+    if (i > -1) JOBS.splice(i, 1);
+  });
+  selectedJobs.clear();
   updateBulkBar();
   renderJobs();
   renderGallery();
-  showToast(n + ' job' + (n > 1 ? 's' : '') + ' deleted');
+  showInfoToast(n + ' job' + (n > 1 ? 's' : '') + ' deleted');
 }
+
 function deleteJob(id) {
   const i = JOBS.findIndex(x => x.id === id);
   if (i > -1) JOBS.splice(i, 1);
-  sel.delete(id);
+  selectedJobs.delete(id);
   updateBulkBar();
   renderJobs();
   renderGallery();
 }
+
 function retryJob(id) {
   const j = JOBS.find(x => x.id === id);
   if (!j) return;
-  j.s = 'queued';
+  j.status = 'queued';
   j.pct = 0;
-  j.ti = 'just now';
+  j.time = 'just now';
   renderJobs();
-  addActivity('info', 'Job ' + id + ' manually re-queued', id);
-  showToast('Job re-queued for retry');
+  pushActivity('info', 'Job ' + id + ' manually re-queued for retry', id);
+  showInfoToast('Job re-queued');
 }
 
 // ─── GALLERY ──────────────────────────────────────────────────────────────────
 
 function renderGallery() {
-  const done = JOBS.filter(x => x.s === 'completed');
-  const el = document.getElementById('gallery');
+  const done = JOBS.filter(x => x.status === 'completed');
+  const el = document.getElementById('gallery-grid');
   if (!done.length) {
-    el.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="ei">🗂</div><div class="eh">No completed downloads</div></div>';
+    el.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <div class="empty-ico">🗂</div>
+      <div class="empty-h">No completed downloads</div>
+    </div>`;
     return;
   }
   el.innerHTML = done.map(j => `
-    <div class="gallery-item" onclick="openProfile('${j.c}')" title="${j.t}">
-      ${j.e}
-      <div class="gi-overlay"></div>
-      <div class="gi-info">
-        <div class="gi-title">${j.t}</div>
-        <div class="gi-handle">@${j.c}</div>
+    <div class="gitem" onclick="openProfile('${j.creator}')" title="${j.title}">
+      ${j.icon}
+      <div class="g-overlay"></div>
+      <div class="g-info">
+        <div class="g-title">${j.title}</div>
+        <div class="g-handle">@${j.creator}</div>
       </div>
-      <span class="gi-badge">✓ done</span>
+      <span class="g-badge">✓ done</span>
     </div>`).join('');
 }
 
 // ─── CREATORS ─────────────────────────────────────────────────────────────────
 
 function renderCreators() {
-  document.getElementById('crlist').innerHTML = CREATORS.map(c => `
-    <div class="cr-row" onclick="openProfile('${c.sl}')">
-      <div class="crav" style="background:${c.col}20;border:1.5px solid ${c.col}40">${c.e}</div>
+  document.getElementById('creator-list').innerHTML = CREATORS.map(c => `
+    <div class="cr-row" onclick="openProfile('${c.slug}')">
+      <div class="cr-avatar" style="background:${c.color}22;border:1.5px solid ${c.color}40">${c.icon}</div>
       <div>
-        <div class="crn">${c.n}</div>
-        <div class="crh">${c.h} &middot; <span style="color:${c.p==='x'?'var(--acc)':'var(--purp)'}">${c.p==='x'?'X':'TikTok'}</span></div>
+        <div class="cr-name">${c.name}</div>
+        <div class="cr-handle">${c.handle} · <span style="color:${c.platform==='x'?'var(--blue)':'var(--purp)'}">${c.platform==='x'?'X':'TikTok'}</span></div>
       </div>
       <div class="cr-sp"></div>
       <div class="cr-stats">
-        <div class="cr-stat"><div class="cr-sv">${c.j}</div><div class="cr-sl">jobs</div></div>
-        <div class="cr-stat"><div class="cr-sv" style="color:var(--grn)">${c.d}</div><div class="cr-sl">done</div></div>
+        <div class="cr-stat"><div class="cr-stat-val">${c.jobs}</div><div class="cr-stat-lbl">jobs</div></div>
+        <div class="cr-stat"><div class="cr-stat-val" style="color:var(--grn)">${c.done}</div><div class="cr-stat-lbl">done</div></div>
       </div>
     </div>`).join('');
 }
@@ -998,180 +1241,175 @@ function renderCreators() {
 // ─── ACTIVITY ─────────────────────────────────────────────────────────────────
 
 function renderActivity(filter) {
-  const list = filter === 'all' ? AC_EVENTS : AC_EVENTS.filter(x => x.l === filter);
-  document.getElementById('aclist').innerHTML = list.map(ev => `
-    <div class="ac-row">
-      <span class="ac-ts">${ev.t}</span>
-      <span class="ac-lvl al-${ev.l}">${ev.l}</span>
-      <span class="ac-msg">${ev.m}${ev.j ? `<span class="ac-tag">[${ev.j}]</span>` : ''}</span>
+  const list = filter === 'all' ? ACTIVITY : ACTIVITY.filter(x => x.level === filter);
+  document.getElementById('activity-list').innerHTML = list.map(ev => `
+    <div class="ac-entry">
+      <span class="ac-ts">${ev.time}</span>
+      <span class="ac-lvl lvl-${ev.level}">${ev.level}</span>
+      <span class="ac-msg">${ev.msg}${ev.job ? `<span class="ac-job">[${ev.job}]</span>` : ''}</span>
     </div>`).join('');
 }
 
-function filterAc(btn, f) {
-  acFilter = f;
-  document.querySelectorAll('.ac-filt .apill').forEach(p => p.classList.toggle('on', p === btn));
+function filterActivity(btn, f) {
+  activityFilter = f;
+  document.querySelectorAll('.afpill').forEach(p => p.classList.toggle('active', p === btn));
   renderActivity(f);
 }
 
-function addActivity(level, msg, jobId) {
+function pushActivity(level, msg, jobId) {
   const now = new Date();
-  const t = now.toTimeString().slice(0,8);
-  AC_EVENTS.unshift({ t, l: level, m: msg, j: jobId || null });
-  if (AC_EVENTS.length > 50) AC_EVENTS.pop();
-  renderActivity(acFilter);
+  const t = now.toTimeString().slice(0, 8);
+  ACTIVITY.unshift({time:t, level, msg, job:jobId || null});
+  if (ACTIVITY.length > 60) ACTIVITY.pop();
+  renderActivity(activityFilter);
 }
 
 // ─── PROFILE OVERLAY ──────────────────────────────────────────────────────────
 
 function openProfile(slug) {
-  const c = CREATORS.find(x => x.sl === slug);
+  const c = CREATORS.find(x => x.slug === slug);
+  const jobs = JOBS.filter(x => x.creator === slug);
+
   if (!c) {
-    // Creator not in list — show generic
-    openUnknownProfile(slug);
+    document.getElementById('modal-head').innerHTML = `
+      <div class="modal-av" style="background:rgba(0,212,170,.12)">👤</div>
+      <div><div class="modal-name">@${slug}</div><div class="modal-handle">Unknown creator</div></div>
+      <button class="modal-close" onclick="closeProfile()">&times;</button>`;
+    document.getElementById('modal-body').innerHTML = `
+      <div class="empty"><div class="empty-ico">📭</div><div class="empty-h">No profile data</div></div>`;
+    document.getElementById('overlay').classList.add('show');
     return;
   }
-  const jobs = JOBS.filter(x => x.c === slug);
-  const done = jobs.filter(x => x.s === 'completed').length;
-  const active = jobs.filter(x => x.s === 'running' || x.s === 'queued').length;
-  document.getElementById('mhd').innerHTML = `
-    <div class="mav" style="background:${c.col}20;border:2px solid ${c.col}50">${c.e}</div>
+
+  const done   = jobs.filter(x => x.status === 'completed').length;
+  const active = jobs.filter(x => x.status === 'running' || x.status === 'queued').length;
+
+  document.getElementById('modal-head').innerHTML = `
+    <div class="modal-av" style="background:${c.color}22;border:2px solid ${c.color}44">${c.icon}</div>
     <div>
-      <div class="mn">${c.n}</div>
-      <div class="mhn">${c.h} &middot; <span style="color:${c.p==='x'?'var(--acc)':'var(--purp)'}">${c.p==='x'?'X (Twitter)':'TikTok'}</span></div>
+      <div class="modal-name">${c.name}</div>
+      <div class="modal-handle">${c.handle} · <span style="color:${c.platform==='x'?'var(--blue)':'var(--purp)'}">${c.platform==='x'?'X (Twitter)':'TikTok'}</span></div>
     </div>
-    <button class="mcl" onclick="closeOverlay()" title="Close">&times;</button>`;
-  document.getElementById('mbd').innerHTML = `
-    <div class="psr">
-      <div class="psrc"><div class="psrv">${c.j}</div><div class="psrl">Total</div></div>
-      <div class="psrc"><div class="psrv" style="color:var(--grn)">${c.d}</div><div class="psrl">Completed</div></div>
-      <div class="psrc"><div class="psrv" style="color:var(--amber)">${active}</div><div class="psrl">Active</div></div>
+    <button class="modal-close" onclick="closeProfile()">&times;</button>`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="profile-stats">
+      <div class="pstat"><div class="pstat-val">${c.jobs}</div><div class="pstat-lbl">Total</div></div>
+      <div class="pstat"><div class="pstat-val" style="color:var(--grn)">${c.done}</div><div class="pstat-lbl">Completed</div></div>
+      <div class="pstat"><div class="pstat-val" style="color:var(--amber)">${active}</div><div class="pstat-lbl">Active</div></div>
     </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:10px;margin-top:4px">Recent Downloads</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:10px">Recent Downloads</div>
     ${jobs.length ? `<div style="display:flex;flex-direction:column;gap:7px">${jobs.map(j => `
       <div class="jcard" style="cursor:default">
-        <div class="jbar jbar-${statusClass(j.s)}"></div>
-        <div class="jth">${j.e}</div>
-        <div class="ji">
-          <div class="jt">${j.t}</div>
-          <div class="jm"><span class="jti">${j.ti}</span></div>
+        <div class="jbar jbar-${statusClass(j.status)}"></div>
+        <div class="jthumbnail">${j.icon}</div>
+        <div class="jinfo">
+          <div class="jtitle">${j.title}</div>
+          <div class="jmeta"><span class="jtime">${j.time}</span></div>
         </div>
-        <span class="jbadge jbad-${statusClass(j.s)}">${j.s}</span>
+        <span class="jstatus js-${statusClass(j.status)}">${j.status}</span>
       </div>`).join('')}</div>` :
-    '<div class="empty" style="padding:28px 0"><div class="ei">📭</div><div class="eh">No downloads yet</div></div>'}`;
-  document.getElementById('ov').classList.add('on');
+    '<div class="empty" style="padding:24px 0"><div class="empty-ico">📭</div><div class="empty-h">No downloads yet</div></div>'}`;
+
+  document.getElementById('overlay').classList.add('show');
 }
 
-function openUnknownProfile(slug) {
-  document.getElementById('mhd').innerHTML = `
-    <div class="mav" style="background:rgba(79,156,249,.15)">👤</div>
-    <div><div class="mn">@${slug}</div><div class="mhn">Unknown creator</div></div>
-    <button class="mcl" onclick="closeOverlay()">&times;</button>`;
-  document.getElementById('mbd').innerHTML = `
-    <div class="empty"><div class="ei">📭</div><div class="eh">No profile data</div></div>`;
-  document.getElementById('ov').classList.add('on');
-}
+function closeProfile() { document.getElementById('overlay').classList.remove('show'); }
 
-function closeOverlay() { document.getElementById('ov').classList.remove('on'); }
+// ─── DEPTH TOASTS ─────────────────────────────────────────────────────────────
 
-// ─── DEPTH NOTIFICATIONS (Ghost Cards) ────────────────────────────────────────
-
-function spawnGhostNotif(job, type) {
-  const togEl = document.getElementById('gn-tog');
+function spawnDepthToast(job, type) {
+  const togEl = document.getElementById('notif-toggle');
   if (!togEl || !togEl.classList.contains('on')) return;
-  // Only show if the user is NOT on layer 0 (where the job lives)
-  if (curLayer === 0) return;
+  if (currentLayer === 0) return; // already on the layer where the job is
+
+  const icon = type === 'completed' ? job.icon : type === 'failed' ? '✗' : '⟳';
+  const title = type === 'completed' ? 'Download Complete' : type === 'failed' ? 'Download Failed' : 'Job Started';
+  const label = job.title.length > 40 ? job.title.slice(0, 37) + '…' : job.title;
+  const badgeCls = type === 'completed' ? 'dt-badge-grn' : 'dt-badge-red';
+  const badgeTxt = type === 'completed' ? '✓ completed' : '✗ failed';
 
   const div = document.createElement('div');
-  div.className = 'ghost-card';
-
-  const ripple = document.createElement('div');
-  ripple.className = 'gn-ripple';
-  div.appendChild(ripple);
-
-  const badge = type === 'completed'
-    ? '<span class="gn-badge">✓ completed</span>'
-    : type === 'failed'
-    ? '<span class="gn-badge" style="background:var(--red-l);color:var(--red)">✗ failed</span>'
-    : '<span class="gn-badge" style="background:var(--amber-l);color:var(--amber)">↻ retrying</span>';
-
-  const title = type === 'completed' ? 'Download Complete' : type === 'failed' ? 'Download Failed' : 'Job Started';
-  const label = job.t.length > 38 ? job.t.slice(0, 35) + '…' : job.t;
-
-  div.innerHTML += `
-    <div class="gn-ico">${job.e}</div>
+  div.className = 'depth-toast';
+  div.innerHTML = `
+    <div class="dt-ico">${icon}</div>
     <div>
-      <div class="gn-title">${title}</div>
-      <div class="gn-sub">${label}</div>
-      ${badge}
+      <div class="dt-title">${title}</div>
+      <div class="dt-sub">${label}</div>
+      <span class="dt-badge ${badgeCls}">${badgeTxt}</span>
     </div>`;
 
-  const container = document.getElementById('gnc');
+  div.addEventListener('click', () => {
+    gotoLayer(0, true);
+    div.classList.add('toast-fadeout');
+    setTimeout(() => div.remove(), 320);
+  });
+
+  const container = document.getElementById('toast-container');
   container.appendChild(div);
 
-  // Remove after animation
+  // Auto-dismiss after 4s
   setTimeout(() => {
-    div.remove();
-  }, 3500);
+    if (!div.parentNode) return;
+    div.classList.add('toast-fadeout');
+    setTimeout(() => div.remove(), 320);
+  }, 4000);
+}
+
+// ─── INFO TOAST ───────────────────────────────────────────────────────────────
+
+let infoToastTimer = null;
+function showInfoToast(msg) {
+  const t = document.getElementById('info-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(infoToastTimer);
+  infoToastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 
-function togSetting(btn, platform) {
+function toggleSetting(btn, label) {
   btn.classList.toggle('on');
   const on = btn.classList.contains('on');
-  showToast(platform.toUpperCase() + ' platform ' + (on ? 'enabled' : 'disabled'));
+  showInfoToast(label + ' platform ' + (on ? 'enabled' : 'disabled'));
 }
 
-let simRunning = true;
-function togSim(btn) {
+let simRunningFlag = true;
+function toggleSim(btn) {
   btn.classList.toggle('on');
-  simRunning = btn.classList.contains('on');
-  if (simRunning) startSim();
-}
-
-// ─── TOAST ────────────────────────────────────────────────────────────────────
-
-let toastTimer = null;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('on');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('on'), 2200);
+  simRunningFlag = btn.classList.contains('on');
+  if (simRunningFlag) startSimulation();
 }
 
 // ─── SIMULATION ───────────────────────────────────────────────────────────────
 
-function startSim() {
-  if (simInterval) clearInterval(simInterval);
-  simInterval = setInterval(() => {
-    if (!simRunning) return;
+function startSimulation() {
+  if (simTimer) clearInterval(simTimer);
+  simTimer = setInterval(() => {
+    if (!simRunningFlag) return;
 
-    // Track which jobs were running before this tick
-    const wasRunning = new Set(JOBS.filter(x => x.s === 'running').map(x => x.id));
+    const wasRunning = new Set(JOBS.filter(x => x.status === 'running').map(x => x.id));
 
     // Advance running jobs
-    JOBS.filter(x => x.s === 'running').forEach(x => {
-      x.pct = Math.min(100, x.pct + Math.random() * 9 + 2);
-      if (x.pct >= 100) {
-        x.s = 'completed';
-        x.pct = 100;
-      }
+    JOBS.filter(x => x.status === 'running').forEach(j => {
+      j.pct = Math.min(100, j.pct + Math.random() * 10 + 3);
+      if (j.pct >= 100) { j.status = 'completed'; j.pct = 100; }
     });
 
-    // Promote queued jobs to running (one at a time)
-    const queued = JOBS.filter(x => x.s === 'queued');
-    const running = JOBS.filter(x => x.s === 'running');
+    // Promote queued → running (max 2 concurrent)
+    const running = JOBS.filter(x => x.status === 'running');
+    const queued  = JOBS.filter(x => x.status === 'queued');
     if (running.length < 2 && queued.length > 0) {
-      queued[0].s = 'running';
+      queued[0].status = 'running';
       queued[0].pct = 0;
-      addActivity('info', 'Job ' + queued[0].id + ' claimed by worker — atomic FIFO', queued[0].id);
+      pushActivity('info', 'Job ' + queued[0].id + ' claimed by worker — atomic FIFO', queued[0].id);
     }
 
-    // Find newly completed jobs
-    JOBS.filter(x => x.s === 'completed' && wasRunning.has(x.id)).forEach(j => {
-      addActivity('info', 'Job ' + j.id + ' completed — downloads/' + j.c + '/' + j.id + '.mp4', j.id);
-      spawnGhostNotif(j, 'completed');
+    // Fire completion events
+    JOBS.filter(x => x.status === 'completed' && wasRunning.has(x.id)).forEach(j => {
+      pushActivity('info', 'Job ' + j.id + ' completed — downloads/' + j.creator + '/' + j.id + '.mp4', j.id);
+      spawnDepthToast(j, 'completed');
     });
 
     renderJobs();
@@ -1179,18 +1417,19 @@ function startSim() {
   }, 1800);
 }
 
-// Periodic live activity events
+// Periodic system activity
 setInterval(() => {
-  if (!simRunning) return;
+  if (!simRunningFlag) return;
   const msgs = [
-    ['debug','Worker heartbeat OK — queue depth: '+JOBS.filter(x=>x.s==='queued').length,null],
-    ['debug','Playwright browser context reused (singleton)',null],
-    ['info','MongoDB connection pool healthy',null],
-    ['debug','pickMediaUrl scored candidates — selecting highest bitrate',JOBS[0]?.id],
+    ['debug', 'Worker heartbeat OK — queue depth: ' + JOBS.filter(x=>x.status==='queued').length, null],
+    ['debug', 'Playwright browser context reused (singleton)', null],
+    ['info',  'MongoDB connection pool healthy', null],
+    ['debug', 'pickMediaUrl ranking candidates by bitrate/codec', JOBS[0]?.id || null],
+    ['debug', 'SSE heartbeat sent to 1 connected client', null],
   ];
   const m = msgs[Math.floor(Math.random() * msgs.length)];
-  addActivity(m[0], m[1], m[2]);
-}, 5000);
+  pushActivity(m[0], m[1], m[2]);
+}, 4500);
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
@@ -1199,13 +1438,15 @@ function init() {
   renderGallery();
   renderCreators();
   renderActivity('all');
-  gotoLayer(0);
-  startSim();
+  updateNavUI();
+  startSimulation();
 
-  // Demo ghost notification after 4s
+  // Demo depth notification after 5s (only if not on layer 0)
   setTimeout(() => {
-    spawnGhostNotif({ e: '✨', t: 'Depth notifications are working!', c: 'system' }, 'completed');
-  }, 4000);
+    if (currentLayer !== 0) {
+      spawnDepthToast({icon:'✨', title:'Depth notifications are working!', creator:'system'}, 'completed');
+    }
+  }, 5000);
 }
 
 init();
