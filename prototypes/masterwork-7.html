@@ -1,0 +1,1742 @@
+<!--
+  Media Vault — Masterwork
+  Agent: 7
+  Concept: Slate Workshop — an interface carved from dark stone
+-->
+<!-- SPECIAL FEATURE: Erosion Memory — Elements wear down with use, developing visible patina and smoother edges from repeated interaction, like stone steps worn by centuries of footsteps. Each button tracks its interaction count and visually evolves. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Slate Workshop</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:root {
+  /* Slate stone palette — lit by a single amber desk lamp from upper left */
+  --slate-deep: #1a1d22;
+  --slate-base: #252830;
+  --slate-mid: #2f333d;
+  --slate-light: #3a3f4c;
+  --slate-surface: #444a59;
+  --slate-edge: #555d6f;
+  --slate-chip: #6b7489;      /* exposed lighter stone */
+  --slate-dust: #8891a5;      /* stone dust / worn surface */
+  --slate-grain: #a0a8bb;
+
+  /* Amber lamp light */
+  --lamp-warm: #c9956a;
+  --lamp-glow: #e8b87a;
+  --lamp-bright: #f2cc8f;
+  --lamp-dim: #7a6244;
+
+  /* Functional carve marks */
+  --carve-active: #6ba3c9;    /* cool chisel mark — running */
+  --carve-done: #7aaa82;      /* moss in cracks — completed */
+  --carve-fail: #b07272;      /* iron oxide stain — failed */
+  --carve-wait: #8891a5;      /* untouched stone — queued */
+  --carve-cancel: #6b6b6b;    /* shadow — canceled */
+
+  /* Type */
+  --font-carved: 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'Consolas', monospace;
+
+  /* Stone physics */
+  --weight-fast: 280ms;
+  --weight-normal: 450ms;
+  --weight-heavy: 700ms;
+  --easing-settle: cubic-bezier(0.22, 0.68, 0.35, 1.0);
+  --easing-drop: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+}
+
+html { font-size: 15px; }
+
+body {
+  font-family: var(--font-carved);
+  background: var(--slate-deep);
+  color: var(--slate-grain);
+  min-height: 100vh;
+  overflow-x: hidden;
+  /* Stone surface texture via layered gradients */
+  background-image:
+    /* Lamp light from upper left */
+    radial-gradient(ellipse at 15% 10%, rgba(201, 149, 106, 0.07) 0%, transparent 60%),
+    /* Subtle grain */
+    repeating-linear-gradient(
+      172deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(255,255,255, 0.008) 3px,
+      rgba(255,255,255, 0.008) 4px
+    ),
+    repeating-linear-gradient(
+      85deg,
+      transparent 0px,
+      transparent 7px,
+      rgba(0,0,0, 0.04) 7px,
+      rgba(0,0,0, 0.04) 8px
+    );
+  background-attachment: fixed;
+}
+
+/* ---- STONE MATERIAL SYSTEM ---- */
+
+/* Carved depression — used for panels */
+.stone-slab {
+  background: var(--slate-base);
+  border: 1px solid var(--slate-mid);
+  /* Chiseled edge: light top-left, shadow bottom-right */
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.04),
+    inset -1px -1px 0 rgba(0,0,0,0.3),
+    0 2px 8px rgba(0,0,0,0.4);
+  border-radius: 3px; /* stone doesn't round smoothly */
+  position: relative;
+}
+
+/* Raised stone — used for interactive elements */
+.stone-raised {
+  background: linear-gradient(168deg, var(--slate-mid) 0%, var(--slate-base) 100%);
+  border: 1px solid var(--slate-light);
+  box-shadow:
+    1px 1px 0 rgba(255,255,255,0.06),
+    -1px -1px 0 rgba(0,0,0,0.15),
+    0 3px 6px rgba(0,0,0,0.35),
+    0 1px 2px rgba(0,0,0,0.25);
+  border-radius: 2px;
+  transition:
+    box-shadow var(--weight-fast) var(--easing-settle),
+    transform var(--weight-fast) var(--easing-settle);
+}
+
+.stone-raised:hover {
+  box-shadow:
+    1px 1px 0 rgba(255,255,255,0.08),
+    -1px -1px 0 rgba(0,0,0,0.15),
+    0 5px 12px rgba(0,0,0,0.45),
+    0 2px 4px rgba(0,0,0,0.3);
+  transform: translateY(-1px);
+}
+
+.stone-raised:active {
+  box-shadow:
+    inset 1px 1px 2px rgba(0,0,0,0.3),
+    0 1px 2px rgba(0,0,0,0.2);
+  transform: translateY(1px);
+}
+
+/* Incised text — carved into stone */
+.text-incised {
+  color: var(--slate-dust);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6), 0 -1px 0 rgba(255,255,255,0.04);
+}
+
+/* Chiseled heading — deep carved letters */
+.text-chiseled {
+  color: var(--lamp-warm);
+  text-shadow:
+    0 1px 0 rgba(0,0,0,0.8),
+    0 2px 4px rgba(0,0,0,0.4),
+    0 0 20px rgba(201, 149, 106, 0.1);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* Crack line — decorative separator */
+.crack-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--slate-light) 15%,
+    var(--slate-edge) 40%,
+    var(--slate-light) 60%,
+    var(--slate-mid) 85%,
+    transparent 100%
+  );
+  margin: 12px 0;
+  position: relative;
+}
+.crack-line::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 10%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.4) 50%, transparent);
+}
+
+/* Erosion system — wear levels 0-5 */
+[data-wear="1"] { border-radius: 3px; }
+[data-wear="2"] { border-radius: 4px; filter: brightness(1.02); }
+[data-wear="3"] { border-radius: 6px; filter: brightness(1.04); }
+[data-wear="4"] { border-radius: 8px; filter: brightness(1.06); }
+[data-wear="5"] { border-radius: 10px; filter: brightness(1.08); }
+
+[data-wear="3"]::after,
+[data-wear="4"]::after,
+[data-wear="5"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 50%, rgba(160, 168, 187, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ---- LAYOUT ---- */
+
+.workshop {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.workshop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 8px;
+  margin-bottom: 6px;
+}
+
+.workshop-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.workshop-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-tablet {
+  padding: 7px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--slate-dust);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  transition: all var(--weight-fast) var(--easing-settle);
+  position: relative;
+}
+
+.nav-tablet:hover {
+  color: var(--lamp-warm);
+  background: rgba(201, 149, 106, 0.06);
+}
+
+.nav-tablet.active {
+  color: var(--lamp-glow);
+  background: var(--slate-mid);
+  border-color: var(--slate-light);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 -2px 4px rgba(0,0,0,0.2);
+}
+
+.nav-tablet:focus-visible {
+  outline: 2px solid var(--lamp-warm);
+  outline-offset: 2px;
+}
+
+/* ---- VIEWS ---- */
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* ---- INTAKE — THE ALTAR ---- */
+
+.altar {
+  padding: 28px 24px 24px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Lamp light pooling on the altar surface */
+.altar::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: 20%;
+  width: 60%;
+  height: 80px;
+  background: radial-gradient(ellipse, rgba(232, 184, 122, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.altar-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--lamp-dim);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.altar-trough {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.altar-input-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.altar-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: var(--font-carved);
+  font-size: 1rem;
+  color: var(--slate-grain);
+  background: var(--slate-deep);
+  border: 1px solid var(--slate-mid);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.4),
+    inset 0 0 0 1px rgba(0,0,0,0.1);
+  transition: all var(--weight-fast) var(--easing-settle);
+  outline: none;
+}
+
+.altar-input::placeholder {
+  color: var(--slate-edge);
+  font-style: italic;
+}
+
+.altar-input:focus {
+  border-color: var(--lamp-warm);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.4),
+    0 0 0 2px rgba(201, 149, 106, 0.2),
+    0 0 20px rgba(201, 149, 106, 0.05);
+}
+
+/* Validation states */
+.altar-input.valid {
+  border-color: var(--carve-done);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.4),
+    0 0 0 2px rgba(122, 170, 130, 0.15);
+}
+
+.altar-input.invalid {
+  border-color: var(--carve-fail);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.4),
+    0 0 0 2px rgba(176, 114, 114, 0.15);
+}
+
+.altar-platform {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity var(--weight-fast) var(--easing-settle);
+}
+
+.altar-platform.show { opacity: 1; }
+.altar-platform.x { color: var(--carve-active); background: rgba(107,163,201,0.1); }
+.altar-platform.tiktok { color: var(--lamp-glow); background: rgba(232,184,122,0.1); }
+
+.altar-submit {
+  padding: 14px 24px;
+  font-family: var(--font-carved);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slate-deep);
+  background: linear-gradient(168deg, var(--lamp-glow) 0%, var(--lamp-warm) 100%);
+  border: 1px solid var(--lamp-warm);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--weight-fast) var(--easing-settle);
+}
+
+.altar-submit:hover {
+  background: linear-gradient(168deg, var(--lamp-bright) 0%, var(--lamp-glow) 100%);
+}
+
+.altar-submit:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.altar-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.altar-submit:focus-visible {
+  outline: 2px solid var(--lamp-bright);
+  outline-offset: 2px;
+}
+
+/* Chisel strike animation on submit */
+@keyframes chisel-strike {
+  0% { transform: scale(1); }
+  15% { transform: scale(0.97) translateY(2px); }
+  30% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+
+.altar.striking {
+  animation: chisel-strike var(--weight-normal) var(--easing-settle);
+}
+
+/* Dust particles on submit */
+@keyframes dust-rise {
+  0% { opacity: 0.8; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-30px) scale(0.3); }
+}
+
+.dust-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: var(--slate-dust);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: dust-rise 800ms var(--easing-settle) forwards;
+}
+
+.altar-hint {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--slate-edge);
+  min-height: 1.2em;
+}
+
+.altar-hint.error { color: var(--carve-fail); }
+
+/* ---- JOB LIST — THE LEDGER ---- */
+
+.ledger {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ledger-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ledger-title {
+  font-size: 0.95rem;
+}
+
+.ledger-count {
+  font-size: 0.72rem;
+  color: var(--slate-edge);
+  letter-spacing: 0.06em;
+}
+
+.ledger-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Job row — a stone tablet */
+.job-tablet {
+  display: grid;
+  grid-template-columns: 6px 1fr auto;
+  gap: 0 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: linear-gradient(175deg, var(--slate-mid) 0%, var(--slate-base) 100%);
+  border: 1px solid var(--slate-light);
+  border-radius: 2px;
+  box-shadow:
+    1px 1px 0 rgba(255,255,255,0.03),
+    0 2px 4px rgba(0,0,0,0.25);
+  transition: all var(--weight-fast) var(--easing-settle);
+  position: relative;
+  cursor: default;
+}
+
+.job-tablet:hover {
+  background: linear-gradient(175deg, var(--slate-light) 0%, var(--slate-mid) 100%);
+  box-shadow:
+    1px 1px 0 rgba(255,255,255,0.05),
+    0 4px 12px rgba(0,0,0,0.35);
+}
+
+/* Status chisel mark — vertical score on left */
+.job-status-mark {
+  width: 4px;
+  height: 28px;
+  border-radius: 1px;
+  grid-row: 1 / 3;
+  justify-self: start;
+  position: relative;
+}
+
+.job-status-mark.queued { background: var(--carve-wait); }
+.job-status-mark.running {
+  background: var(--carve-active);
+  box-shadow: 0 0 8px rgba(107,163,201,0.3);
+}
+.job-status-mark.completed { background: var(--carve-done); }
+.job-status-mark.failed { background: var(--carve-fail); }
+.job-status-mark.canceled { background: var(--carve-cancel); }
+
+/* Pulse for running — like stone being actively worked */
+@keyframes chisel-working {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; box-shadow: 0 0 12px rgba(107,163,201,0.5); }
+}
+
+.job-status-mark.running {
+  animation: chisel-working 2s ease-in-out infinite;
+}
+
+.job-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.job-url {
+  font-size: 0.82rem;
+  color: var(--slate-grain);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.job-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--slate-edge);
+}
+
+.job-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.job-status-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.65rem;
+}
+
+.job-status-label.queued { color: var(--carve-wait); }
+.job-status-label.running { color: var(--carve-active); }
+.job-status-label.completed { color: var(--carve-done); }
+.job-status-label.failed { color: var(--carve-fail); }
+.job-status-label.canceled { color: var(--carve-cancel); }
+
+.job-platform-tag {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.job-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.job-action-btn {
+  padding: 5px 10px;
+  font-family: var(--font-carved);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--slate-dust);
+  background: var(--slate-base);
+  border: 1px solid var(--slate-light);
+  border-radius: 2px;
+  transition: all var(--weight-fast) var(--easing-settle);
+  position: relative;
+}
+
+.job-action-btn:hover {
+  color: var(--lamp-warm);
+  border-color: var(--lamp-dim);
+  background: rgba(201, 149, 106, 0.08);
+}
+
+.job-action-btn.danger:hover {
+  color: var(--carve-fail);
+  border-color: var(--carve-fail);
+  background: rgba(176, 114, 114, 0.08);
+}
+
+.job-action-btn:focus-visible {
+  outline: 2px solid var(--lamp-warm);
+  outline-offset: 1px;
+}
+
+/* Progress groove — carved channel filling with moss */
+.job-progress {
+  grid-column: 2 / 4;
+  height: 3px;
+  background: var(--slate-deep);
+  border-radius: 1px;
+  margin-top: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.job-progress-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 1s linear;
+}
+
+.job-progress-fill.running {
+  background: linear-gradient(90deg, var(--carve-active), rgba(107,163,201,0.5));
+}
+
+.job-progress-fill.completed {
+  background: var(--carve-done);
+}
+
+/* ---- CONTACTS — THE GALLERY ---- */
+
+.gallery {
+  padding: 16px;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.contact-plaque {
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Lamp highlight catching the top edge */
+.contact-plaque::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 30%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232,184,122,0.2), transparent);
+}
+
+.contact-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Stone-carved monogram */
+.contact-monogram {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--slate-deep);
+  border: 1px solid var(--slate-light);
+  border-radius: 2px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--lamp-warm);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.8);
+  flex-shrink: 0;
+}
+
+.contact-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--slate-grain);
+}
+
+.contact-handle {
+  font-size: 0.72rem;
+  color: var(--slate-edge);
+}
+
+.contact-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.contact-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.contact-stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--lamp-warm);
+  font-variant-numeric: tabular-nums;
+}
+
+.contact-stat-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--slate-edge);
+}
+
+.contact-recent {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--slate-mid);
+}
+
+.contact-recent-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--slate-edge);
+  margin-bottom: 6px;
+}
+
+.contact-recent-item {
+  font-size: 0.72rem;
+  color: var(--slate-dust);
+  padding: 3px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.contact-recent-status {
+  font-weight: 600;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+/* ---- ACTIVITY — THE CHISEL LOG ---- */
+
+.chisel-log {
+  padding: 16px;
+}
+
+.chisel-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.log-stream {
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--slate-light) var(--slate-deep);
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 0 10px;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  border-bottom: 1px solid rgba(47, 51, 61, 0.5);
+  transition: background var(--weight-fast) var(--easing-settle);
+  position: relative;
+}
+
+.log-entry.new {
+  background: rgba(201, 149, 106, 0.04);
+}
+
+/* Entry appears carved fresh — lighter, then fades */
+@keyframes fresh-carve {
+  0% { background: rgba(201, 149, 106, 0.1); }
+  100% { background: transparent; }
+}
+
+.log-entry.just-carved {
+  animation: fresh-carve 2s var(--easing-settle) forwards;
+}
+
+.log-time {
+  color: var(--slate-edge);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-msg {
+  color: var(--slate-dust);
+}
+
+.log-level {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.log-level.info { background: var(--carve-active); }
+.log-level.success { background: var(--carve-done); }
+.log-level.warn { background: var(--lamp-warm); }
+.log-level.error { background: var(--carve-fail); }
+
+.log-level-text {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  margin-right: 4px;
+}
+
+.log-level-text.info { color: var(--carve-active); }
+.log-level-text.success { color: var(--carve-done); }
+.log-level-text.warn { color: var(--lamp-warm); }
+.log-level-text.error { color: var(--carve-fail); }
+
+/* ---- SETTINGS — THE FOUNDRY ---- */
+
+.foundry {
+  padding: 16px;
+}
+
+.foundry-section {
+  margin-bottom: 20px;
+}
+
+.foundry-section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--lamp-dim);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.platform-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+
+.platform-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: var(--slate-deep);
+  border: 1px solid var(--slate-light);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.platform-name {
+  font-weight: 600;
+  color: var(--slate-grain);
+  font-size: 0.9rem;
+}
+
+.platform-desc {
+  font-size: 0.7rem;
+  color: var(--slate-edge);
+  margin-top: 1px;
+}
+
+/* Stone toggle switch — a sliding slab */
+.stone-toggle {
+  width: 48px;
+  height: 26px;
+  background: var(--slate-deep);
+  border: 1px solid var(--slate-mid);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  transition: all var(--weight-normal) var(--easing-settle);
+}
+
+.stone-toggle:focus-visible {
+  outline: 2px solid var(--lamp-warm);
+  outline-offset: 2px;
+}
+
+.stone-toggle.on {
+  border-color: var(--carve-done);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), 0 0 8px rgba(122,170,130,0.15);
+}
+
+.stone-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(168deg, var(--slate-surface) 0%, var(--slate-mid) 100%);
+  border: 1px solid var(--slate-edge);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all var(--weight-normal) var(--easing-settle);
+}
+
+.stone-toggle.on .stone-toggle-knob {
+  left: 25px;
+  background: linear-gradient(168deg, var(--carve-done) 0%, #5a9465 100%);
+  border-color: var(--carve-done);
+}
+
+.toggle-status {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-left: 8px;
+}
+
+.toggle-status.on { color: var(--carve-done); }
+.toggle-status.off { color: var(--slate-edge); }
+
+/* ---- FOOTER INSCRIPTION ---- */
+
+.inscription {
+  text-align: center;
+  padding: 20px 0 8px;
+  font-size: 0.65rem;
+  color: var(--slate-edge);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- RESPONSIVE ---- */
+
+@media (max-width: 700px) {
+  .workshop { padding: 12px 8px 24px; }
+  .workshop-header { flex-direction: column; gap: 8px; }
+  .workshop-nav { flex-wrap: wrap; justify-content: center; }
+  .altar-trough { flex-direction: column; }
+  .gallery-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- SCROLLBAR ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--slate-deep); }
+::-webkit-scrollbar-thumb { background: var(--slate-light); border-radius: 1px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate-edge); }
+
+/* ---- SCREEN READER ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Breathing idle animation — subtle stone weight-shift */
+@keyframes stone-breathe {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 1px 1px 0 rgba(255,255,255,0.04), inset -1px -1px 0 rgba(0,0,0,0.3); }
+  50% { box-shadow: 0 3px 10px rgba(0,0,0,0.45), inset 1px 1px 0 rgba(255,255,255,0.05), inset -1px -1px 0 rgba(0,0,0,0.3); }
+}
+
+.stone-slab { animation: stone-breathe 8s ease-in-out infinite; }
+
+/* Crack propagation on failed jobs */
+@keyframes crack-spread {
+  0% { width: 0; opacity: 0; }
+  40% { opacity: 0.8; }
+  100% { width: 60%; opacity: 0.3; }
+}
+
+.job-tablet.failed-crack::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, var(--carve-fail), transparent);
+  animation: crack-spread 1s var(--easing-settle) forwards;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="workshop" id="app">
+  <!-- Header -->
+  <header class="workshop-header">
+    <h1 class="workshop-title text-chiseled">Media Vault</h1>
+    <nav class="workshop-nav" role="tablist" aria-label="Main navigation">
+      <button class="nav-tablet active" role="tab" aria-selected="true" data-view="vault" data-wear="0" tabindex="0">Vault</button>
+      <button class="nav-tablet" role="tab" aria-selected="false" data-view="contacts" data-wear="0" tabindex="-1">Contacts</button>
+      <button class="nav-tablet" role="tab" aria-selected="false" data-view="activity" data-wear="0" tabindex="-1">Activity</button>
+      <button class="nav-tablet" role="tab" aria-selected="false" data-view="settings" data-wear="0" tabindex="-1">Settings</button>
+    </nav>
+  </header>
+
+  <div class="crack-line"></div>
+
+  <!-- === VAULT VIEW (Intake + Job List) === -->
+  <section class="view active" id="view-vault" role="tabpanel" aria-label="Vault">
+
+    <!-- Intake — The Altar -->
+    <div class="altar stone-slab" id="altar">
+      <div class="altar-label text-incised">Carve a new download</div>
+      <div class="altar-trough">
+        <div class="altar-input-wrap">
+          <input
+            type="url"
+            class="altar-input"
+            id="intake-input"
+            placeholder="Paste an X or TikTok URL to begin..."
+            aria-label="Video URL"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <span class="altar-platform" id="platform-tag"></span>
+        </div>
+        <button class="altar-submit stone-raised" id="intake-submit" data-wear="0" disabled>
+          Chisel
+        </button>
+      </div>
+      <div class="altar-hint" id="intake-hint" aria-live="polite"></div>
+    </div>
+
+    <!-- Job List — The Ledger -->
+    <div class="ledger stone-slab">
+      <div class="ledger-header">
+        <h2 class="text-chiseled" style="font-size:1rem;">Ledger</h2>
+        <span class="ledger-count" id="job-count">0 inscriptions</span>
+      </div>
+      <div class="ledger-entries" id="job-list" role="list" aria-label="Download jobs">
+        <!-- Jobs rendered by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- === CONTACTS VIEW === -->
+  <section class="view" id="view-contacts" role="tabpanel" aria-label="Contacts">
+    <div class="gallery stone-slab">
+      <h2 class="text-chiseled" style="font-size:1rem;">Stone Gallery</h2>
+      <div class="crack-line"></div>
+      <div class="gallery-grid" id="contacts-grid">
+        <!-- Contacts rendered by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- === ACTIVITY VIEW === -->
+  <section class="view" id="view-activity" role="tabpanel" aria-label="Activity feed">
+    <div class="chisel-log stone-slab">
+      <div class="chisel-log-header">
+        <h2 class="text-chiseled" style="font-size:1rem;">Chisel Log</h2>
+        <span class="ledger-count" id="log-count">0 marks</span>
+      </div>
+      <div class="crack-line"></div>
+      <div class="log-stream" id="log-stream" role="log" aria-label="Activity log" aria-live="polite">
+        <!-- Log entries rendered by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- === SETTINGS VIEW === -->
+  <section class="view" id="view-settings" role="tabpanel" aria-label="Settings">
+    <div class="foundry stone-slab">
+      <h2 class="text-chiseled" style="font-size:1rem; margin-bottom:16px;">The Foundry</h2>
+
+      <div class="foundry-section">
+        <div class="foundry-section-title text-incised">Platform Quarries</div>
+
+        <div class="platform-toggle-row stone-slab" style="box-shadow: inset 1px 1px 0 rgba(255,255,255,0.03), inset -1px -1px 0 rgba(0,0,0,0.2);">
+          <div class="platform-label">
+            <div class="platform-icon">𝕏</div>
+            <div>
+              <div class="platform-name">X (Twitter)</div>
+              <div class="platform-desc">Video and media extraction</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;">
+            <div class="stone-toggle on" id="toggle-x" role="switch" aria-checked="true" aria-label="Enable X platform" tabindex="0" data-wear="0">
+              <div class="stone-toggle-knob"></div>
+            </div>
+            <span class="toggle-status on" id="toggle-x-status">Enabled</span>
+          </div>
+        </div>
+
+        <div class="platform-toggle-row stone-slab" style="box-shadow: inset 1px 1px 0 rgba(255,255,255,0.03), inset -1px -1px 0 rgba(0,0,0,0.2);">
+          <div class="platform-label">
+            <div class="platform-icon">♪</div>
+            <div>
+              <div class="platform-name">TikTok</div>
+              <div class="platform-desc">Short-form video downloads</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;">
+            <div class="stone-toggle on" id="toggle-tiktok" role="switch" aria-checked="true" aria-label="Enable TikTok platform" tabindex="0" data-wear="0">
+              <div class="stone-toggle-knob"></div>
+            </div>
+            <span class="toggle-status on" id="toggle-tiktok-status">Enabled</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="crack-line"></div>
+
+      <div class="foundry-section">
+        <div class="foundry-section-title text-incised">Workshop Info</div>
+        <div style="font-size:0.75rem; color:var(--slate-dust); line-height:1.6;">
+          <div>Slate Workshop v1.0 — carved from dark Welsh slate</div>
+          <div style="margin-top:4px;">Erosion level: <span id="erosion-level" style="color:var(--lamp-warm);font-weight:700;">Pristine</span></div>
+          <div>Total interactions: <span id="interaction-count" style="color:var(--lamp-warm);font-variant-numeric:tabular-nums;font-weight:700;">0</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="inscription">Carved in stone — Media Vault Workshop</div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+
+const state = {
+  currentView: 'vault',
+  jobs: [],
+  contacts: [],
+  logs: [],
+  platforms: { x: true, tiktok: true },
+  interactions: 0,
+  wearMap: new Map(), // element id -> interaction count
+  nextJobId: 1,
+  nextLogId: 1,
+};
+
+// ============================================================
+// EROSION MEMORY SYSTEM (SPECIAL FEATURE)
+// ============================================================
+
+function recordInteraction(el) {
+  if (!el || !el.dataset) return;
+  state.interactions++;
+  const key = el.dataset.view || el.id || el.className;
+  const current = state.wearMap.get(key) || 0;
+  const next = current + 1;
+  state.wearMap.set(key, next);
+
+  // Map interactions to wear levels
+  const wearLevel = Math.min(5, Math.floor(next / 3));
+  if (el.dataset.wear !== undefined) {
+    el.dataset.wear = String(wearLevel);
+  }
+
+  // Update display
+  const countEl = document.getElementById('interaction-count');
+  if (countEl) countEl.textContent = state.interactions;
+
+  const levelEl = document.getElementById('erosion-level');
+  if (levelEl) {
+    const levels = ['Pristine', 'Touched', 'Worn', 'Polished', 'Smooth', 'Ancient'];
+    const globalWear = Math.min(5, Math.floor(state.interactions / 15));
+    levelEl.textContent = levels[globalWear];
+  }
+}
+
+// ============================================================
+// SAMPLE DATA
+// ============================================================
+
+const sampleCreators = [
+  { name: 'Alejandra Voss', handle: '@alejandravoss', platform: 'x', monogram: 'AV' },
+  { name: 'DJ Kitsune', handle: '@djkitsune', platform: 'tiktok', monogram: 'DK' },
+  { name: 'Yuki Tanaka', handle: '@yukitanaka', platform: 'x', monogram: 'YT' },
+  { name: 'Street Chef Mike', handle: '@streetchefmike', platform: 'tiktok', monogram: 'SM' },
+];
+
+const sampleUrls = [
+  'https://x.com/alejandravoss/status/1892547123456',
+  'https://tiktok.com/@djkitsune/video/7234567890123',
+  'https://x.com/yukitanaka/status/1891234567890',
+  'https://tiktok.com/@streetchefmike/video/7234567890456',
+  'https://x.com/alejandravoss/status/1892999888777',
+  'https://tiktok.com/@djkitsune/video/7234567890789',
+];
+
+const activityTemplates = [
+  { level: 'info', msgs: [
+    'Worker polling queue — 0 pending',
+    'Playwright context alive — reusing session',
+    'Health check passed — MongoDB connected',
+    'SSE heartbeat sent — 0 subscribers',
+    'Queue scan complete — no stale jobs found',
+  ]},
+  { level: 'info', msgs: [
+    'Job claimed by worker — extracting media',
+    'Navigating to page — waiting for network idle',
+    'Network interception active — monitoring requests',
+    'Media candidate found — evaluating quality',
+    'HLS manifest detected — queuing ffmpeg',
+  ]},
+  { level: 'success', msgs: [
+    'Download complete — 4.2MB MP4 saved',
+    'Thumbnail generated — 45KB JPEG',
+    'Job completed successfully',
+    'Media extraction finished — direct MP4',
+  ]},
+  { level: 'warn', msgs: [
+    'Slow network response — retrying',
+    'Cloudflare challenge detected — waiting',
+    'Rate limit approaching — backing off',
+  ]},
+  { level: 'error', msgs: [
+    'Extraction timeout — page did not settle',
+    'No valid media candidates found',
+    'ffmpeg process exited with code 1',
+  ]},
+];
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+
+const navButtons = document.querySelectorAll('.nav-tablet');
+const views = document.querySelectorAll('.view');
+
+function switchView(viewName) {
+  state.currentView = viewName;
+  navButtons.forEach(btn => {
+    const isActive = btn.dataset.view === viewName;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive);
+    btn.tabIndex = isActive ? 0 : -1;
+  });
+  views.forEach(v => {
+    v.classList.toggle('active', v.id === 'view-' + viewName);
+  });
+}
+
+navButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    recordInteraction(btn);
+    switchView(btn.dataset.view);
+  });
+  btn.addEventListener('keydown', (e) => {
+    const tabs = Array.from(navButtons);
+    const idx = tabs.indexOf(btn);
+    let newIdx = -1;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      newIdx = (idx + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      newIdx = (idx - 1 + tabs.length) % tabs.length;
+    }
+    if (newIdx >= 0) {
+      tabs[newIdx].focus();
+      recordInteraction(tabs[newIdx]);
+      switchView(tabs[newIdx].dataset.view);
+    }
+  });
+});
+
+// ============================================================
+// INTAKE FORM
+// ============================================================
+
+const intakeInput = document.getElementById('intake-input');
+const intakeSubmit = document.getElementById('intake-submit');
+const platformTag = document.getElementById('platform-tag');
+const intakeHint = document.getElementById('intake-hint');
+const altar = document.getElementById('altar');
+
+function detectPlatform(url) {
+  if (/x\.com|twitter\.com/i.test(url)) return 'x';
+  if (/tiktok\.com/i.test(url)) return 'tiktok';
+  return null;
+}
+
+function validateUrl(url) {
+  if (!url.trim()) return { valid: false, platform: null, error: '' };
+  const platform = detectPlatform(url);
+  if (!platform) return { valid: false, platform: null, error: 'URL must be from X or TikTok' };
+  if (!state.platforms[platform]) return { valid: false, platform, error: `${platform === 'x' ? 'X' : 'TikTok'} platform is disabled` };
+  try {
+    new URL(url);
+    return { valid: true, platform, error: '' };
+  } catch {
+    return { valid: false, platform: null, error: 'Invalid URL format' };
+  }
+}
+
+intakeInput.addEventListener('input', () => {
+  const { valid, platform, error } = validateUrl(intakeInput.value);
+
+  intakeInput.classList.toggle('valid', valid);
+  intakeInput.classList.toggle('invalid', !valid && intakeInput.value.trim().length > 0);
+  intakeSubmit.disabled = !valid;
+
+  platformTag.className = 'altar-platform';
+  if (platform) {
+    platformTag.textContent = platform === 'x' ? 'X' : 'TIKTOK';
+    platformTag.classList.add('show', platform);
+  }
+
+  intakeHint.textContent = error;
+  intakeHint.className = 'altar-hint' + (error ? ' error' : '');
+});
+
+function spawnDust(el) {
+  const rect = el.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const dust = document.createElement('div');
+    dust.className = 'dust-particle';
+    dust.style.left = (Math.random() * rect.width) + 'px';
+    dust.style.bottom = '0';
+    dust.style.animationDelay = (Math.random() * 200) + 'ms';
+    el.appendChild(dust);
+    setTimeout(() => dust.remove(), 1000);
+  }
+}
+
+function submitJob() {
+  const url = intakeInput.value.trim();
+  const { valid, platform } = validateUrl(url);
+  if (!valid) return;
+
+  recordInteraction(intakeSubmit);
+
+  // Chisel strike
+  altar.classList.add('striking');
+  spawnDust(altar);
+  setTimeout(() => altar.classList.remove('striking'), 500);
+
+  // Create job
+  const creator = sampleCreators.find(c => c.platform === platform) || sampleCreators[0];
+  const job = {
+    id: 'job-' + (state.nextJobId++),
+    url: url,
+    platform: platform,
+    status: 'queued',
+    progress: 0,
+    creator: creator,
+    createdAt: new Date(),
+    error: null,
+  };
+
+  state.jobs.unshift(job);
+  renderJobs();
+  addLogEntry('info', `Job ${job.id} inscribed — ${platform} — queued`);
+
+  // Clear input
+  intakeInput.value = '';
+  intakeInput.className = 'altar-input';
+  intakeSubmit.disabled = true;
+  platformTag.className = 'altar-platform';
+  intakeHint.textContent = 'Inscription accepted — stone will be carved shortly';
+  intakeHint.className = 'altar-hint';
+
+  // Start processing after delay
+  setTimeout(() => processJob(job), 2000 + Math.random() * 3000);
+}
+
+intakeSubmit.addEventListener('click', submitJob);
+intakeInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !intakeSubmit.disabled) submitJob();
+});
+
+// ============================================================
+// JOB PROCESSING SIMULATION
+// ============================================================
+
+function processJob(job) {
+  if (job.status !== 'queued') return;
+
+  job.status = 'running';
+  job.progress = 0;
+  renderJobs();
+  addLogEntry('info', `Worker claimed ${job.id} — extraction beginning`);
+
+  // Progress simulation
+  const progressInterval = setInterval(() => {
+    if (job.status !== 'running') { clearInterval(progressInterval); return; }
+    job.progress = Math.min(95, job.progress + 5 + Math.random() * 10);
+    renderJobs();
+  }, 800);
+
+  // Complete or fail after 8-15 seconds
+  const duration = 8000 + Math.random() * 7000;
+  const willFail = Math.random() < 0.15; // 15% failure rate
+
+  setTimeout(() => {
+    clearInterval(progressInterval);
+    if (job.status !== 'running') return;
+
+    if (willFail) {
+      job.status = 'failed';
+      job.progress = job.progress;
+      job.error = 'Extraction timeout — page did not settle';
+      addLogEntry('error', `Job ${job.id} failed — extraction timeout`);
+    } else {
+      job.status = 'completed';
+      job.progress = 100;
+      addLogEntry('success', `Job ${job.id} complete — media saved`);
+    }
+    renderJobs();
+    updateContacts();
+  }, duration);
+}
+
+// ============================================================
+// JOB RENDERING
+// ============================================================
+
+function renderJobs() {
+  const list = document.getElementById('job-list');
+  const countEl = document.getElementById('job-count');
+  countEl.textContent = state.jobs.length + ' inscription' + (state.jobs.length !== 1 ? 's' : '');
+
+  list.innerHTML = state.jobs.map(job => {
+    const showProgress = job.status === 'running' || job.status === 'completed';
+    const failedCrack = job.status === 'failed' ? ' failed-crack' : '';
+    const timeStr = formatTime(job.createdAt);
+
+    let actions = '';
+    if (job.status === 'failed') {
+      actions = `<button class="job-action-btn" onclick="retryJob('${job.id}')" aria-label="Retry job" data-wear="0">Retry</button>`;
+    }
+    if (job.status !== 'running') {
+      actions += `<button class="job-action-btn danger" onclick="deleteJob('${job.id}')" aria-label="Delete job" data-wear="0">Remove</button>`;
+    }
+    if (job.status === 'running') {
+      actions = `<button class="job-action-btn danger" onclick="cancelJob('${job.id}')" aria-label="Cancel job" data-wear="0">Cancel</button>`;
+    }
+
+    return `
+      <div class="job-tablet${failedCrack}" role="listitem" aria-label="Job ${job.id}: ${job.status}">
+        <div class="job-status-mark ${job.status}" aria-hidden="true"></div>
+        <div class="job-info">
+          <div class="job-url" title="${job.url}">${job.url}</div>
+          <div class="job-meta">
+            <span class="job-meta-item">
+              <span class="job-status-label ${job.status}">${job.status}</span>
+            </span>
+            <span class="job-meta-item job-platform-tag" style="color:${job.platform === 'x' ? 'var(--carve-active)' : 'var(--lamp-glow)'}">${job.platform === 'x' ? 'X' : 'TikTok'}</span>
+            <span class="job-meta-item">${job.creator.handle}</span>
+            <span class="job-meta-item">${timeStr}</span>
+            ${job.error ? `<span class="job-meta-item" style="color:var(--carve-fail)">${job.error}</span>` : ''}
+          </div>
+        </div>
+        <div class="job-actions">${actions}</div>
+        ${showProgress ? `
+          <div class="job-progress">
+            <div class="job-progress-fill ${job.status}" style="width:${job.progress}%"></div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function retryJob(id) {
+  const job = state.jobs.find(j => j.id === id);
+  if (!job || job.status !== 'failed') return;
+  job.status = 'queued';
+  job.progress = 0;
+  job.error = null;
+  renderJobs();
+  addLogEntry('info', `Job ${id} re-queued for retry`);
+  setTimeout(() => processJob(job), 1500 + Math.random() * 2000);
+}
+
+function deleteJob(id) {
+  state.jobs = state.jobs.filter(j => j.id !== id);
+  renderJobs();
+  addLogEntry('warn', `Job ${id} removed from ledger`);
+}
+
+function cancelJob(id) {
+  const job = state.jobs.find(j => j.id === id);
+  if (!job || job.status !== 'running') return;
+  job.status = 'canceled';
+  renderJobs();
+  addLogEntry('warn', `Job ${id} canceled by user`);
+}
+
+// ============================================================
+// CONTACTS
+// ============================================================
+
+function updateContacts() {
+  const contactMap = {};
+  state.jobs.forEach(job => {
+    const key = job.creator.handle;
+    if (!contactMap[key]) {
+      contactMap[key] = { ...job.creator, total: 0, completed: 0, failed: 0, jobs: [] };
+    }
+    contactMap[key].total++;
+    if (job.status === 'completed') contactMap[key].completed++;
+    if (job.status === 'failed') contactMap[key].failed++;
+    contactMap[key].jobs.push(job);
+  });
+  state.contacts = Object.values(contactMap);
+  renderContacts();
+}
+
+function renderContacts() {
+  const grid = document.getElementById('contacts-grid');
+
+  if (state.contacts.length === 0) {
+    grid.innerHTML = '<div style="padding:20px;text-align:center;color:var(--slate-edge);font-size:0.8rem;">No artisans yet — submit URLs to build the gallery</div>';
+    return;
+  }
+
+  grid.innerHTML = state.contacts.map(c => `
+    <div class="contact-plaque stone-slab">
+      <div class="contact-header">
+        <div class="contact-monogram">${c.monogram}</div>
+        <div>
+          <div class="contact-name">${c.name}</div>
+          <div class="contact-handle">${c.handle}</div>
+        </div>
+      </div>
+      <div class="contact-stats">
+        <div class="contact-stat">
+          <div class="contact-stat-value">${c.total}</div>
+          <div class="contact-stat-label">Total</div>
+        </div>
+        <div class="contact-stat">
+          <div class="contact-stat-value" style="color:var(--carve-done)">${c.completed}</div>
+          <div class="contact-stat-label">Done</div>
+        </div>
+        <div class="contact-stat">
+          <div class="contact-stat-value" style="color:var(--carve-fail)">${c.failed}</div>
+          <div class="contact-stat-label">Failed</div>
+        </div>
+      </div>
+      <div class="contact-recent">
+        <div class="contact-recent-label">Recent inscriptions</div>
+        ${c.jobs.slice(0, 3).map(j => `
+          <div class="contact-recent-item">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${j.url.replace(/https?:\/\//, '')}</span>
+            <span class="contact-recent-status" style="color:${statusColor(j.status)}">${j.status}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function statusColor(s) {
+  const map = { queued: 'var(--carve-wait)', running: 'var(--carve-active)', completed: 'var(--carve-done)', failed: 'var(--carve-fail)', canceled: 'var(--carve-cancel)' };
+  return map[s] || 'var(--slate-edge)';
+}
+
+// ============================================================
+// ACTIVITY LOG
+// ============================================================
+
+function addLogEntry(level, msg) {
+  const entry = {
+    id: state.nextLogId++,
+    level: level,
+    msg: msg,
+    time: new Date(),
+  };
+  state.logs.unshift(entry);
+  if (state.logs.length > 200) state.logs.length = 200;
+
+  renderLogs(entry.id);
+  document.getElementById('log-count').textContent = state.logs.length + ' mark' + (state.logs.length !== 1 ? 's' : '');
+}
+
+function renderLogs(newId) {
+  const stream = document.getElementById('log-stream');
+  const levelTextMap = { info: 'INFO', success: 'DONE', warn: 'WARN', error: 'FAIL' };
+
+  stream.innerHTML = state.logs.map(e => `
+    <div class="log-entry${e.id === newId ? ' just-carved' : ''}">
+      <div class="log-time">${formatTime(e.time)}</div>
+      <div class="log-msg">
+        <span class="log-level ${e.level}" aria-hidden="true"></span>
+        <span class="log-level-text ${e.level}">${levelTextMap[e.level]}</span>
+        ${e.msg}
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatTime(d) {
+  return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ============================================================
+// SETTINGS TOGGLES
+// ============================================================
+
+function setupToggle(id, platform) {
+  const toggle = document.getElementById(id);
+  const statusEl = document.getElementById(id + '-status');
+
+  function doToggle() {
+    recordInteraction(toggle);
+    const isOn = toggle.classList.toggle('on');
+    toggle.setAttribute('aria-checked', isOn);
+    state.platforms[platform] = isOn;
+    statusEl.textContent = isOn ? 'Enabled' : 'Disabled';
+    statusEl.className = 'toggle-status ' + (isOn ? 'on' : 'off');
+    addLogEntry(isOn ? 'info' : 'warn', `${platform === 'x' ? 'X' : 'TikTok'} platform ${isOn ? 'enabled' : 'disabled'}`);
+  }
+
+  toggle.addEventListener('click', doToggle);
+  toggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      doToggle();
+    }
+  });
+}
+
+setupToggle('toggle-x', 'x');
+setupToggle('toggle-tiktok', 'tiktok');
+
+// ============================================================
+// SIMULATION — SEED INITIAL DATA & BACKGROUND ACTIVITY
+// ============================================================
+
+function seedJobs() {
+  const statuses = ['completed', 'completed', 'running', 'queued', 'failed', 'completed'];
+  sampleUrls.forEach((url, i) => {
+    const platform = detectPlatform(url);
+    const creator = sampleCreators.find(c => url.includes(c.handle.replace('@', ''))) || sampleCreators[i % sampleCreators.length];
+    const status = statuses[i] || 'queued';
+
+    const job = {
+      id: 'job-' + (state.nextJobId++),
+      url: url,
+      platform: platform,
+      status: status,
+      progress: status === 'completed' ? 100 : status === 'running' ? 35 + Math.random() * 40 : status === 'failed' ? 67 : 0,
+      creator: creator,
+      createdAt: new Date(Date.now() - (sampleUrls.length - i) * 60000 * (3 + Math.random() * 5)),
+      error: status === 'failed' ? 'No valid media candidates found' : null,
+    };
+
+    state.jobs.push(job);
+
+    // Process queued and running jobs
+    if (status === 'queued') {
+      setTimeout(() => processJob(job), 3000 + Math.random() * 5000);
+    } else if (status === 'running') {
+      setTimeout(() => {
+        if (job.status !== 'running') return;
+        job.status = 'completed';
+        job.progress = 100;
+        renderJobs();
+        updateContacts();
+        addLogEntry('success', `Job ${job.id} complete — media saved`);
+      }, 8000 + Math.random() * 7000);
+
+      // Progress while running
+      const pi = setInterval(() => {
+        if (job.status !== 'running') { clearInterval(pi); return; }
+        job.progress = Math.min(95, job.progress + 3 + Math.random() * 6);
+        renderJobs();
+      }, 1000);
+    }
+  });
+
+  renderJobs();
+  updateContacts();
+}
+
+// Background activity feed
+function startBackgroundActivity() {
+  setInterval(() => {
+    const group = activityTemplates[Math.random() < 0.6 ? 0 : Math.random() < 0.7 ? 1 : Math.random() < 0.8 ? 2 : Math.random() < 0.9 ? 3 : 4];
+    const msg = group.msgs[Math.floor(Math.random() * group.msgs.length)];
+    addLogEntry(group.level, msg);
+  }, 2000 + Math.random() * 2000);
+}
+
+// Seed initial log entries
+function seedLogs() {
+  const initial = [
+    { level: 'info', msg: 'Workshop opened — slate surfaces initialized' },
+    { level: 'info', msg: 'MongoDB connection established — Atlas cluster' },
+    { level: 'info', msg: 'Playwright context created — persistent session' },
+    { level: 'info', msg: 'Worker started — polling queue every 1s' },
+    { level: 'success', msg: 'Health check passed — all systems nominal' },
+  ];
+  initial.reverse().forEach(e => addLogEntry(e.level, e.msg));
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+seedLogs();
+seedJobs();
+startBackgroundActivity();
+</script>
+</body>
+</html>
