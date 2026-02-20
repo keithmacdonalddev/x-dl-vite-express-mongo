@@ -51,7 +51,7 @@ function isDirectVideoCandidate(url) {
     return true;
   }
 
-  if (/\/video\/tos\//i.test(url) || /\/aweme\/v1\/play\//i.test(url)) {
+  if (/\/video\/tos\//i.test(url) || /\/aweme\/v1\/play\//i.test(url) || /\/obj\/tos[a-z-]*\//i.test(url)) {
     return true;
   }
 

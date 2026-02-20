@@ -641,7 +641,11 @@ function createPlaywrightPageFactory(options = {}) {
           const rehydrationUrls = await extractTikTokRehydrationUrls(page);
           for (const entry of rehydrationUrls) {
             if (entry && typeof entry.url === 'string') {
-              combined.add(entry.url);
+              // Only add non-watermarked sources (play_addr, bitrate_variant, sigi_play_addr)
+              // download_addr and sigi_download_addr are watermarked — exclude them
+              if (entry.source !== 'download_addr' && entry.source !== 'sigi_download_addr') {
+                combined.add(entry.url);
+              }
             }
           }
         } catch {
