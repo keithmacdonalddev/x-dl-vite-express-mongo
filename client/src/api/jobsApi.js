@@ -1,6 +1,7 @@
 const JOBS_API_BASE = '/api/jobs'
 const CAPABILITIES_API = '/api/capabilities'
 const TELEMETRY_API = '/api/telemetry'
+const DISCOVERY_API = '/api/discovery'
 
 async function parseResponse(response) {
   const data = await response.json().catch(() => ({}))
@@ -139,6 +140,31 @@ export async function listTelemetry(params = {}) {
   }
 
   const response = await fetch(`${TELEMETRY_API}?${search.toString()}`)
+  return parseResponse(response)
+}
+
+export async function listDiscoveredPosts(accountSlug) {
+  const response = await fetch(`${DISCOVERY_API}/${encodeURIComponent(accountSlug)}`)
+  return parseResponse(response)
+}
+
+export async function downloadDiscoveredPost(discoveredPostId) {
+  const response = await fetch(`${DISCOVERY_API}/${discoveredPostId}/download`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+  return parseResponse(response)
+}
+
+export async function refreshDiscovery(accountSlug) {
+  const response = await fetch(`${DISCOVERY_API}/${encodeURIComponent(accountSlug)}/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
   return parseResponse(response)
 }
 

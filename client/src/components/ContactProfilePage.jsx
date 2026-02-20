@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { deleteContactProfile, updateContactProfile } from '../api/jobsApi'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  deleteContactProfile,
+  downloadDiscoveredPost,
+  listDiscoveredPosts,
+  refreshDiscovery,
+  updateContactProfile,
+} from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
 import {
   buildContacts,
@@ -12,6 +18,7 @@ import { useSelection } from '../features/dashboard/useSelection'
 import { useJobActions } from '../features/dashboard/useJobActions'
 import { JobEditForm } from '../features/dashboard/JobEditForm'
 import { ConfirmModal } from './ConfirmModal'
+import { DiscoveredGrid } from './DiscoveredGrid'
 import { OverflowMenu } from './OverflowMenu'
 
 function sortNewestFirst(left, right) {
@@ -24,6 +31,8 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   const { jobs, isLoading, error, refresh } = useJobsPolling({ intervalMs: 3000 })
   const [editContactName, setEditContactName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
+  const [discoveredPosts, setDiscoveredPosts] = useState([])
+  const [isDiscoveryDownloading, setIsDiscoveryDownloading] = useState(false)
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
@@ -49,6 +58,43 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   useEffect(() => {
     actions.cleanupHiddenIds(contactJobs.map((j) => j._id))
   }, [contactJobs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchDiscoveredPosts = useCallback(async () => {
+    if (!normalizedSlug) return
+    try {
+      const data = await listDiscoveredPosts(normalizedSlug)
+      if (Array.isArray(data.posts)) {
+        setDiscoveredPosts(data.posts)
+      }
+    } catch { /* best-effort */ }
+  }, [normalizedSlug])
+
+  useEffect(() => {
+    fetchDiscoveredPosts()
+  }, [fetchDiscoveredPosts])
+
+  async function handleDownloadDiscovered(discoveredPostId) {
+    setIsDiscoveryDownloading(true)
+    try {
+      await downloadDiscoveredPost(discoveredPostId)
+      await refresh()
+      await fetchDiscoveredPosts()
+    } catch (err) {
+      actions.setActionError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsDiscoveryDownloading(false)
+    }
+  }
+
+  async function handleRefreshDiscovery() {
+    try {
+      await refreshDiscovery(normalizedSlug)
+      // Poll for new results after a short delay
+      setTimeout(fetchDiscoveredPosts, 5000)
+    } catch (err) {
+      actions.setActionError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   function openSingleDelete(jobId) {
     setConfirmDelete({ isOpen: true, mode: 'single', jobId, count: 1 })
@@ -155,6 +201,11 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           <button type="button" className="refresh-btn" onClick={refresh}>
             Refresh now
           </button>
+          {contact?.platform === 'tiktok' && (
+            <button type="button" className="ghost-btn" onClick={handleRefreshDiscovery}>
+              Discover more videos
+            </button>
+          )}
           <button type="button" className="danger-btn" onClick={openContactDelete} disabled={actions.isMutating}>
             Delete contact permanently
           </button>
@@ -262,6 +313,14 @@ export function ContactProfilePage({ contactSlug, onBack }) {
             </ul>
           )}
         </section>
+
+        {discoveredPosts.length > 0 && (
+          <DiscoveredGrid
+            posts={discoveredPosts}
+            isDownloading={isDiscoveryDownloading}
+            onDownload={handleDownloadDiscovered}
+          />
+        )}
       </section>
 
       <ConfirmModal
