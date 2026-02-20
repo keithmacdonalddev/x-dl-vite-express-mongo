@@ -1,0 +1,1597 @@
+<!--
+  Media Vault Prototype
+  Round: delta-1
+  Concept: Radial Orbit — Intake at the center, jobs orbit outward in time-arc rings
+  Special Feature: Velocity-Aware Transitions — mouse movement speed modulates all transition durations globally; fast flicks snap, slow deliberate movements linger
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Velocity-Aware Transitions — mousemove velocity is measured continuously and mapped to a CSS custom property --motion-speed that scales every transition duration in the app; fast mouse = snappy UI, slow mouse = cinematic -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Radial Orbit</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  /* Motion */
+  --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-exit:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --spring-snap:  cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --motion-speed: 1; /* 0.3 to 2.0 — set by JS */
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+  --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+  /* Glass */
+  --glass-bg-1: rgba(255,255,255,0.07);
+  --glass-bg-2: rgba(255,255,255,0.04);
+  --glass-bg-3: rgba(255,255,255,0.02);
+  --glass-blur-1: blur(4px) saturate(160%);
+  --glass-blur-2: blur(12px) saturate(140%);
+  --glass-blur-3: blur(20px) saturate(120%);
+
+  /* Status colors — desaturated, atmospheric */
+  --status-completed: hsl(145, 45%, 52%);
+  --status-failed:    hsl(0,   48%, 52%);
+  --status-running:   hsl(210, 50%, 58%);
+  --status-queued:    hsl(30,  15%, 52%);
+  --status-canceled:  hsl(220, 20%, 45%);
+
+  /* Brand */
+  --accent:     hsl(210, 70%, 60%);
+  --accent-rgb: 82, 152, 218;
+  --accent-dim: hsl(210, 50%, 40%);
+
+  /* Colors */
+  --bg-deep:  #080c14;
+  --bg-mid:   #0d1422;
+  --bg-card:  #111827;
+  --text-primary:   #e8edf5;
+  --text-secondary: #8898b8;
+  --text-caption:   #a8b8cc;
+  --text-muted:     #6b7d99;
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Typography scale */
+.t-display   { font-size: clamp(3rem, 5vw, 5rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.0; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.t-heading   { font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.t-subhead   { font-size: clamp(0.875rem, 1.2vw, 1rem); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.t-body      { font-size: clamp(0.8125rem, 1vw, 0.875rem); font-weight: 400; letter-spacing: 0; line-height: 1.5; }
+.t-caption   { font-size: clamp(0.6875rem, 0.9vw, 0.75rem); font-weight: 400; letter-spacing: 0.02em; line-height: 1.4; }
+
+.numeric, [data-metric], .count, .timestamp {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ============================================================
+   VELOCITY-AWARE TRANSITION SYSTEM
+   ============================================================ */
+.vel-transition {
+  transition-duration: calc(200ms * var(--motion-speed));
+  transition-timing-function: var(--spring-exit);
+}
+
+/* ============================================================
+   BACKGROUND — Deep space with subtle nebula streaks
+   ============================================================ */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(30,50,100,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(20,40,80,0.08) 0%, transparent 60%),
+    linear-gradient(160deg, #080c14 0%, #0a1020 40%, #080c14 100%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   APP SHELL — Three-column layout
+   Left: contacts + settings | Center: radial orbit | Right: activity
+   ============================================================ */
+#app {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 260px 1fr 300px;
+  grid-template-rows: 100vh;
+  height: 100vh;
+  gap: 0;
+  opacity: 0;
+  animation: app-enter 0.6s var(--spring-exit) forwards;
+}
+
+@keyframes app-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ============================================================
+   LEFT PANEL — Contacts + Settings
+   ============================================================ */
+#left-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg-3);
+  backdrop-filter: var(--glass-blur-3);
+  border-right: 1px solid rgba(255,255,255,0.05);
+  overflow: hidden;
+  transform: translateX(-16px);
+  opacity: 0;
+  animation: slide-in-left 0.5s 0.32s var(--spring-exit) forwards;
+}
+
+@keyframes slide-in-left {
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.panel-header {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+
+.panel-header .t-caption {
+  color: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+/* Contacts list */
+#contacts-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transform: translateX(0);
+  transition:
+    background calc(160ms * var(--motion-speed)) var(--spring-exit),
+    transform calc(200ms * var(--motion-speed)) var(--spring-exit);
+  animation: stagger-in 0.4s var(--spring-exit) both;
+}
+
+.contact-item:nth-child(1) { animation-delay: calc(80ms + 0ms); }
+.contact-item:nth-child(2) { animation-delay: calc(80ms + 30ms); }
+.contact-item:nth-child(3) { animation-delay: calc(80ms + 55ms); }
+.contact-item:nth-child(4) { animation-delay: calc(80ms + 75ms); }
+
+@keyframes stagger-in {
+  from { transform: translateX(-8px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.contact-item:hover {
+  background: rgba(255,255,255,0.04);
+  transform: translateX(3px);
+}
+
+.contact-item.active {
+  background: rgba(82,152,218,0.08);
+}
+
+/* Contact avatar — monogram on desaturated gradient, NOT emoji on vibrant gradient */
+.contact-avatar {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, hsl(210,20%,28%) 0%, hsl(220,20%,22%) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700;
+  color: var(--text-caption);
+  flex-shrink: 0;
+  position: relative;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+}
+
+.contact-info { flex: 1; min-width: 0; }
+.contact-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-meta { font-size: 0.6875rem; color: var(--text-caption); font-variant-numeric: tabular-nums; }
+
+.contact-platform {
+  font-size: 0.6875rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.contact-platform.x       { background: rgba(255,255,255,0.06); color: var(--text-caption); }
+.contact-platform.tiktok  { background: rgba(255,80,100,0.12); color: hsl(0,48%,72%); }
+
+/* Divider */
+.panel-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.05);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Settings section */
+#settings-section {
+  padding: 14px 16px;
+  flex-shrink: 0;
+}
+
+.settings-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.platform-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--status-running);
+  flex-shrink: 0;
+}
+
+.toggle {
+  position: relative;
+  width: 36px; height: 20px;
+  cursor: pointer;
+}
+
+.toggle input { display: none; }
+
+.toggle-track {
+  position: absolute; inset: 0;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.1);
+  transition: background calc(180ms * var(--motion-speed)) var(--spring-snap);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+}
+
+.toggle input:checked + .toggle-track {
+  background: rgba(82,152,218,0.4);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition:
+    transform calc(200ms * var(--motion-speed)) var(--spring-snap),
+    background calc(180ms * var(--motion-speed)) var(--spring-snap);
+  box-shadow: var(--shadow-sm);
+}
+
+.toggle input:checked ~ .toggle-thumb {
+  transform: translateX(16px);
+  background: var(--accent);
+}
+
+/* ============================================================
+   CENTER — Radial Orbit Stage
+   ============================================================ */
+#orbit-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Faint orbit ring guides */
+.orbit-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.03);
+  pointer-events: none;
+}
+
+/* Central intake nucleus */
+#nucleus {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transform: translateY(0);
+  animation: nucleus-enter 0.5s 0.18s var(--spring-enter) both;
+}
+
+@keyframes nucleus-enter {
+  from { transform: scale(0.8) translateY(8px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.nucleus-hero {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.nucleus-hero .t-display {
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.nucleus-hero .t-caption {
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* Intake form — the focal hero element */
+#intake-form {
+  position: relative;
+  width: 380px;
+  animation: intake-breathe 4s ease-in-out infinite;
+  transition: transform calc(220ms * var(--motion-speed)) var(--spring-exit);
+}
+
+@keyframes intake-breathe {
+  0%, 100% { filter: drop-shadow(0 0 16px rgba(82,152,218,0.04)); }
+  50%       { filter: drop-shadow(0 0 28px rgba(82,152,218,0.09)); }
+}
+
+.intake-shell {
+  position: relative;
+  background: var(--glass-bg-1);
+  backdrop-filter: var(--glass-blur-1);
+  border-radius: var(--radius-lg);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  transition:
+    box-shadow calc(220ms * var(--motion-speed)) var(--spring-exit),
+    transform calc(180ms * var(--motion-speed)) var(--spring-exit);
+}
+
+.intake-shell::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.intake-shell:focus-within {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 40px rgba(82,152,218,0.12),
+    0 0 80px rgba(82,152,218,0.06),
+    var(--shadow-xl);
+}
+
+.intake-inner {
+  display: flex;
+  align-items: center;
+  padding: 4px 4px 4px 16px;
+  gap: 8px;
+}
+
+.intake-inner input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: clamp(14px, 1.45vw, 17px);
+  padding: 10px 0;
+  caret-color: var(--accent);
+}
+
+.intake-inner input::placeholder {
+  color: var(--text-muted);
+  font-weight: 450;
+}
+
+/* Platform chip — animated in on detect */
+.platform-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem; font-weight: 600;
+  letter-spacing: 0.04em;
+  background: rgba(82,152,218,0.12);
+  color: var(--status-running);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transform: scale(0.7);
+  opacity: 0;
+  transition:
+    transform calc(220ms * var(--motion-speed)) var(--spring-enter),
+    opacity calc(200ms * var(--motion-speed)) var(--spring-exit);
+  pointer-events: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.platform-chip.visible {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.platform-chip.tiktok {
+  background: rgba(255,80,100,0.1);
+  color: hsl(0,48%,72%);
+}
+
+.submit-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform calc(120ms * var(--motion-speed)) var(--spring-snap),
+    box-shadow calc(120ms * var(--motion-speed)) var(--spring-snap),
+    background calc(180ms * var(--motion-speed)) var(--spring-exit);
+  box-shadow: var(--shadow-md);
+}
+
+.submit-btn::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.2) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.submit-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 20px rgba(82,152,218,0.3); }
+.submit-btn:active { transform: scale(0.97) translateY(0px); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+.submit-btn.success { background: var(--status-completed); }
+
+/* Success flash overlay inside form */
+.intake-success-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: rgba(10,20,35,0.85);
+  backdrop-filter: blur(4px);
+  border-radius: var(--radius-lg);
+  color: var(--status-completed);
+  font-size: 0.875rem; font-weight: 600;
+  opacity: 0; pointer-events: none;
+  transition: opacity calc(180ms * var(--motion-speed)) var(--spring-exit);
+  z-index: 5;
+}
+
+.intake-success-overlay.visible { opacity: 1; pointer-events: auto; }
+
+/* Orbit job nodes */
+.orbit-node {
+  position: absolute;
+  width: 200px;
+  cursor: pointer;
+  transition:
+    transform calc(200ms * var(--motion-speed)) var(--spring-exit),
+    opacity calc(200ms * var(--motion-speed)) var(--spring-exit);
+}
+
+.orbit-node:hover { transform: scale(1.04) !important; z-index: 5; }
+
+.orbit-card {
+  background: var(--glass-bg-2);
+  backdrop-filter: var(--glass-blur-2);
+  border-radius: var(--radius-md);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+  transition:
+    box-shadow calc(200ms * var(--motion-speed)) var(--spring-exit);
+}
+
+.orbit-card::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.orbit-card:hover { box-shadow: var(--shadow-lg); }
+
+.orbit-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.orbit-platform {
+  font-size: 0.6875rem; font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.04em;
+}
+.orbit-platform.x       { background: rgba(255,255,255,0.07); color: var(--text-caption); }
+.orbit-platform.tiktok  { background: rgba(255,80,100,0.1);  color: hsl(0,48%,72%); }
+
+.orbit-status-pill {
+  font-size: 0.6875rem; font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.status-queued    { background: rgba(148,131,99,0.15);  color: var(--status-queued);    }
+.status-running   { background: rgba(82,152,218,0.15);  color: var(--status-running);   }
+.status-completed { background: rgba(80,168,120,0.15);  color: var(--status-completed); }
+.status-failed    { background: rgba(193,96,96,0.15);   color: var(--status-failed);    }
+.status-canceled  { background: rgba(100,110,135,0.15); color: var(--status-canceled);  }
+
+.orbit-title {
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.orbit-meta {
+  font-size: 0.6875rem;
+  color: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* Arc progress ring on running jobs */
+.orbit-progress {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px;
+}
+
+.progress-track {
+  flex: 1; height: 2px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--status-running);
+  border-radius: 1px;
+  transition: width 1s linear;
+}
+
+.progress-pct {
+  font-size: 0.6875rem;
+  color: var(--status-running);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px; text-align: right;
+}
+
+/* Pulse — only on first running job */
+.pulse-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--status-running);
+  flex-shrink: 0;
+  display: none;
+}
+
+.orbit-node.first-running .pulse-dot {
+  display: block;
+  animation: single-pulse 2s ease-in-out infinite;
+}
+
+@keyframes single-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.6); }
+}
+
+/* Job action buttons — always visible, not hover-reveal */
+.orbit-actions {
+  display: flex; gap: 6px; margin-top: 8px;
+}
+
+.orbit-btn {
+  flex: 1;
+  padding: 4px 0;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-caption);
+  font-size: 0.6875rem; font-weight: 600;
+  cursor: pointer;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  transition:
+    background calc(120ms * var(--motion-speed)) var(--spring-exit),
+    transform calc(100ms * var(--motion-speed)) var(--spring-snap),
+    color calc(120ms * var(--motion-speed)) var(--spring-exit);
+}
+
+.orbit-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); transform: translateY(-1px); }
+.orbit-btn:active { transform: scale(0.97); }
+.orbit-btn.danger:hover { background: rgba(193,96,96,0.15); color: var(--status-failed); }
+
+/* ============================================================
+   RIGHT PANEL — Activity / Telemetry
+   ============================================================ */
+#right-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg-3);
+  backdrop-filter: var(--glass-blur-3);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  overflow: hidden;
+  transform: translateX(16px);
+  opacity: 0;
+  animation: slide-in-right 0.5s 0.48s var(--spring-exit) forwards;
+}
+
+@keyframes slide-in-right {
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.activity-header {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.activity-live-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--status-running);
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--status-running);
+  animation: single-pulse 2s ease-in-out infinite;
+}
+
+#activity-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+.activity-event {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  animation: event-enter 0.3s var(--spring-exit) both;
+}
+
+@keyframes event-enter {
+  from { transform: translateX(8px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.event-line {
+  display: flex; align-items: flex-start; gap: 8px;
+}
+
+.event-icon {
+  width: 20px; height: 20px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.event-icon.info  { background: rgba(82,152,218,0.1);  color: var(--status-running);   }
+.event-icon.ok    { background: rgba(80,168,120,0.1);  color: var(--status-completed); }
+.event-icon.error { background: rgba(193,96,96,0.1);   color: var(--status-failed);    }
+.event-icon.warn  { background: rgba(148,131,99,0.1);  color: var(--status-queued);    }
+
+.event-content { flex: 1; min-width: 0; }
+.event-msg { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; }
+.event-meta { font-size: 0.6875rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+/* Stats bar at bottom of activity */
+.activity-stats {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.stat-cell {
+  text-align: center;
+  padding: 8px;
+  background: var(--glass-bg-2);
+  border-radius: var(--radius-sm);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.stat-value {
+  font-size: 1.25rem; font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  display: block;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.stat-label {
+  font-size: 0.6125rem; font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+/* ============================================================
+   DETAIL SHEET — slides up from bottom when job selected
+   ============================================================ */
+#detail-sheet {
+  position: fixed;
+  bottom: 0; left: 260px; right: 300px;
+  background: var(--glass-bg-1);
+  backdrop-filter: var(--glass-blur-1);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 20px 24px;
+  box-shadow: var(--shadow-xl);
+  z-index: 50;
+  transform: translateY(100%);
+  transition:
+    transform calc(340ms * var(--motion-speed)) var(--spring-enter);
+}
+
+#detail-sheet::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+#detail-sheet.open {
+  transform: translateY(0);
+}
+
+.sheet-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+}
+
+.sheet-close {
+  margin-left: auto;
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-caption);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition:
+    background calc(120ms * var(--motion-speed)) var(--spring-exit),
+    transform calc(100ms * var(--motion-speed)) var(--spring-snap);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.sheet-close:hover { background: rgba(255,255,255,0.1); transform: scale(1.08); }
+.sheet-close:active { transform: scale(0.95); }
+
+.sheet-url {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Courier New', monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+}
+
+.sheet-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+.sheet-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  font-size: 0.8125rem; font-weight: 600;
+  cursor: pointer;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transition:
+    background calc(120ms * var(--motion-speed)) var(--spring-exit),
+    transform calc(100ms * var(--motion-speed)) var(--spring-snap),
+    box-shadow calc(120ms * var(--motion-speed)) var(--spring-exit);
+}
+
+.sheet-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.sheet-btn:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.sheet-btn.accent { background: rgba(82,152,218,0.15); color: var(--status-running); }
+.sheet-btn.danger { background: rgba(193,96,96,0.1); color: var(--status-failed); }
+
+/* ============================================================
+   SCROLL OVERRIDE
+   ============================================================ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* Accessibility */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════
+       LEFT PANEL — Contacts + Settings
+       ═══════════════════════════════════════════════════ -->
+  <aside id="left-panel">
+    <div class="panel-header">
+      <div class="t-caption">Creators</div>
+      <div class="t-subhead" style="color:var(--text-primary)">Contacts</div>
+    </div>
+
+    <div id="contacts-list">
+      <div class="contact-item active" onclick="filterContact(null)">
+        <div class="contact-avatar" style="background:linear-gradient(135deg,hsl(220,20%,32%) 0%,hsl(230,20%,24%) 100%)">ALL</div>
+        <div class="contact-info">
+          <div class="contact-name">All Creators</div>
+          <div class="contact-meta numeric">6 jobs</div>
+        </div>
+      </div>
+      <div class="contact-item" onclick="filterContact('@neonwitch')">
+        <div class="contact-avatar">NW</div>
+        <div class="contact-info">
+          <div class="contact-name">@neonwitch</div>
+          <div class="contact-meta numeric">3 videos · 2.1 GB</div>
+        </div>
+        <span class="contact-platform x">X</span>
+      </div>
+      <div class="contact-item" onclick="filterContact('@pixelriot')">
+        <div class="contact-avatar" style="background:linear-gradient(135deg,hsl(0,15%,26%) 0%,hsl(10,15%,20%) 100%)">PR</div>
+        <div class="contact-info">
+          <div class="contact-name">@pixelriot</div>
+          <div class="contact-meta numeric">2 videos · 890 MB</div>
+        </div>
+        <span class="contact-platform tiktok">TK</span>
+      </div>
+      <div class="contact-item" onclick="filterContact('@driftsound')">
+        <div class="contact-avatar" style="background:linear-gradient(135deg,hsl(200,20%,26%) 0%,hsl(210,20%,20%) 100%)">DS</div>
+        <div class="contact-info">
+          <div class="contact-name">@driftsound</div>
+          <div class="contact-meta numeric">1 video · 420 MB</div>
+        </div>
+        <span class="contact-platform x">X</span>
+      </div>
+    </div>
+
+    <div class="panel-divider"></div>
+
+    <div id="settings-section">
+      <div class="settings-label">Platforms</div>
+
+      <div class="toggle-row">
+        <div class="toggle-label">
+          <span class="platform-dot" style="background: var(--text-secondary)"></span>
+          <span class="t-body" style="color:var(--text-secondary)">X (Twitter)</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="togglePlatform('x', this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-label">
+          <span class="platform-dot" style="background: hsl(0,48%,62%)"></span>
+          <span class="t-body" style="color:var(--text-secondary)">TikTok</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="togglePlatform('tiktok', this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.04)">
+        <div class="t-caption" style="color:var(--text-muted); margin-bottom:6px;">WORKER STATUS</div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--status-completed)">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--status-completed);display:inline-block;"></span>
+          Queue active · 1s poll
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════
+       CENTER — Radial Orbit Stage
+       ═══════════════════════════════════════════════════ -->
+  <main id="orbit-stage">
+
+    <!-- Faint orbit guide rings -->
+    <div class="orbit-ring" id="ring1"></div>
+    <div class="orbit-ring" id="ring2"></div>
+    <div class="orbit-ring" id="ring3"></div>
+
+    <!-- Central nucleus -->
+    <div id="nucleus">
+      <div class="nucleus-hero">
+        <div class="t-display numeric" id="hero-count">6</div>
+        <div class="t-caption">Total Downloads</div>
+      </div>
+
+      <!-- Intake form -->
+      <div id="intake-form" onmousemove="handleIntakeMouse(event)">
+        <div class="intake-shell">
+          <div class="intake-inner">
+            <input
+              type="url"
+              id="url-input"
+              placeholder="Paste X or TikTok URL to download…"
+              autocomplete="off"
+              spellcheck="false"
+              oninput="handleUrlInput(this.value)"
+              onkeydown="if(event.key==='Enter') submitJob()"
+            >
+            <div class="platform-chip" id="platform-chip"></div>
+            <button class="submit-btn" id="submit-btn" onclick="submitJob()" aria-label="Download">
+              ↓
+            </button>
+          </div>
+          <div class="intake-success-overlay" id="success-overlay">
+            <span>✓</span><span>Added to queue</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="t-caption" style="color:var(--text-muted);text-align:center;">
+        Jobs orbit by recency · click any card for details
+      </div>
+    </div>
+
+    <!-- Job nodes — positioned by JS -->
+    <div id="orbit-nodes"></div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════
+       RIGHT PANEL — Activity Feed
+       ═══════════════════════════════════════════════════ -->
+  <aside id="right-panel">
+    <div class="activity-header">
+      <div>
+        <div class="t-caption" style="color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Live Feed</div>
+        <div class="t-subhead" style="color:var(--text-primary)">Activity</div>
+      </div>
+      <div class="activity-live-badge">
+        <span class="live-dot"></span>
+        LIVE
+      </div>
+    </div>
+
+    <div id="activity-feed"></div>
+
+    <div class="activity-stats">
+      <div class="stat-cell">
+        <span class="stat-value numeric" id="stat-completed">4</span>
+        <div class="stat-label">Completed</div>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-value numeric" id="stat-failed">1</span>
+        <div class="stat-label">Failed</div>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-value numeric" id="stat-running">1</span>
+        <div class="stat-label">Running</div>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-value numeric" id="stat-queued">0</span>
+        <div class="stat-label">Queued</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Detail sheet -->
+<div id="detail-sheet">
+  <div class="sheet-header">
+    <div class="orbit-status-pill" id="sheet-status"></div>
+    <div class="t-subhead" id="sheet-title" style="color:var(--text-primary)"></div>
+    <button class="sheet-close" onclick="closeSheet()" aria-label="Close">✕</button>
+  </div>
+  <div class="sheet-url" id="sheet-url"></div>
+  <div class="sheet-actions" id="sheet-actions" style="margin-top:14px"></div>
+</div>
+
+<script>
+/* ============================================================
+   VELOCITY-AWARE TRANSITION SYSTEM
+   ============================================================ */
+{
+  let lastX = 0, lastY = 0, lastT = 0;
+  let smoothSpeed = 1;
+
+  document.addEventListener('mousemove', e => {
+    const now = performance.now();
+    const dt = now - lastT;
+    if (dt < 16) return; // throttle to ~60fps
+
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const speed = dist / dt; // px/ms
+
+    // Map speed: 0px/ms → 2.0x (slow/cinematic), 3px/ms → 0.3x (fast/snap)
+    const targetSpeed = Math.max(0.3, Math.min(2.0, 2.0 - (speed / 1.75)));
+    smoothSpeed = smoothSpeed * 0.85 + targetSpeed * 0.15; // exponential smoothing
+
+    document.documentElement.style.setProperty('--motion-speed', smoothSpeed.toFixed(2));
+
+    lastX = e.clientX; lastY = e.clientY; lastT = now;
+  });
+}
+
+/* ============================================================
+   JOB DATA
+   ============================================================ */
+const JOBS = [
+  {
+    id: 'j1', platform: 'x',
+    creator: '@neonwitch', title: 'Neon witch demo — live set',
+    url: 'https://x.com/neonwitch/status/1234567890',
+    status: 'completed', progress: 100,
+    size: '842 MB', duration: '4:17', age: 1
+  },
+  {
+    id: 'j2', platform: 'tiktok',
+    creator: '@pixelriot', title: 'Pixel riot — glitch sequence',
+    url: 'https://tiktok.com/@pixelriot/video/123456',
+    status: 'running', progress: 62,
+    size: '—', duration: '2:33', age: 2
+  },
+  {
+    id: 'j3', platform: 'x',
+    creator: '@neonwitch', title: 'Ambient textures vol.3',
+    url: 'https://x.com/neonwitch/status/2345678901',
+    status: 'completed', progress: 100,
+    size: '1.2 GB', duration: '8:44', age: 3
+  },
+  {
+    id: 'j4', platform: 'tiktok',
+    creator: '@pixelriot', title: 'Micro-sample pack preview',
+    url: 'https://tiktok.com/@pixelriot/video/234567',
+    status: 'failed', progress: 0,
+    size: '—', duration: '—', age: 4, error: '403 Forbidden'
+  },
+  {
+    id: 'j5', platform: 'x',
+    creator: '@neonwitch', title: 'Modular synth patch #7',
+    url: 'https://x.com/neonwitch/status/3456789012',
+    status: 'queued', progress: 0,
+    size: '—', duration: '—', age: 5
+  },
+  {
+    id: 'j6', platform: 'x',
+    creator: '@driftsound', title: 'Driftsound — ocean session',
+    url: 'https://x.com/driftsound/status/4567890123',
+    status: 'completed', progress: 100,
+    size: '420 MB', duration: '3:02', age: 6
+  }
+];
+
+/* ============================================================
+   ORBIT LAYOUT
+   ============================================================ */
+function getOrbitPosition(index, total, stageW, stageH) {
+  // Two orbital rings — inner (jobs 0-2) and outer (jobs 3-5)
+  const ring = index < 3 ? 0 : 1;
+  const posInRing = ring === 0 ? index : index - 3;
+  const countInRing = ring === 0 ? Math.min(3, total) : Math.max(0, total - 3);
+
+  const radii = [200, 310]; // px
+  const baseRadius = radii[ring];
+
+  // Angle: spread evenly, offset by ring to avoid alignment
+  const angleOffset = ring === 0 ? -90 : -60;
+  const angle = (posInRing / countInRing) * 360 + angleOffset;
+  const rad = (angle * Math.PI) / 180;
+
+  const cx = stageW / 2;
+  const cy = stageH / 2;
+
+  return {
+    x: cx + baseRadius * Math.cos(rad),
+    y: cy + baseRadius * Math.sin(rad),
+  };
+}
+
+function buildOrbitRings() {
+  const stage = document.getElementById('orbit-stage');
+  const { offsetWidth: w, offsetHeight: h } = stage;
+  const cx = w / 2, cy = h / 2;
+
+  const sizes = [200, 310];
+  ['ring1','ring2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    const r = sizes[i];
+    el.style.cssText = `
+      width:${r*2}px; height:${r*2}px;
+      top:${cy-r}px; left:${cx-r}px;
+    `;
+  });
+}
+
+let selectedJobId = null;
+let firstRunningAssigned = false;
+
+function renderOrbitNodes(jobs) {
+  const container = document.getElementById('orbit-nodes');
+  container.innerHTML = '';
+
+  const stage = document.getElementById('orbit-stage');
+  const stageW = stage.offsetWidth;
+  const stageH = stage.offsetHeight;
+
+  firstRunningAssigned = false;
+
+  jobs.forEach((job, i) => {
+    const pos = getOrbitPosition(i, jobs.length, stageW, stageH);
+    const node = document.createElement('div');
+    node.className = 'orbit-node';
+    node.id = `node-${job.id}`;
+    node.style.cssText = `
+      left: ${pos.x - 100}px;
+      top: ${pos.y - 60}px;
+      transform: scale(0.8);
+      opacity: 0;
+      animation: node-appear 0.4s ${Math.max(0, 120 - i * 20)}ms var(--spring-enter) forwards;
+    `;
+
+    const isFirstRunning = job.status === 'running' && !firstRunningAssigned;
+    if (isFirstRunning) {
+      firstRunningAssigned = true;
+      node.classList.add('first-running');
+    }
+
+    node.innerHTML = buildNodeHTML(job, isFirstRunning);
+    node.addEventListener('click', () => openSheet(job));
+    container.appendChild(node);
+  });
+
+  // Inject keyframe for node-appear
+  if (!document.getElementById('orbit-kf')) {
+    const style = document.createElement('style');
+    style.id = 'orbit-kf';
+    style.textContent = `
+      @keyframes node-appear {
+        from { transform: scale(0.8); opacity: 0; }
+        to   { transform: scale(1); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+function buildNodeHTML(job, isFirstRunning) {
+  const statusClass = `status-${job.status}`;
+  const platformClass = job.platform;
+
+  let progressHTML = '';
+  if (job.status === 'running') {
+    progressHTML = `
+      <div class="orbit-progress">
+        <div class="pulse-dot"></div>
+        <div class="progress-track">
+          <div class="progress-fill" id="prog-${job.id}" style="width:${job.progress}%"></div>
+        </div>
+        <span class="progress-pct numeric" id="pct-${job.id}">${job.progress}%</span>
+      </div>
+    `;
+  }
+
+  const actions = job.status === 'failed'
+    ? `<button class="orbit-btn" onclick="retryJob('${job.id}', event)">Retry</button><button class="orbit-btn danger" onclick="deleteJob('${job.id}', event)">Delete</button>`
+    : job.status === 'completed'
+    ? `<button class="orbit-btn accent" onclick="openSheet(getJob('${job.id}'))">Open</button><button class="orbit-btn danger" onclick="deleteJob('${job.id}', event)">Delete</button>`
+    : `<button class="orbit-btn danger" onclick="deleteJob('${job.id}', event)">Cancel</button>`;
+
+  return `
+    <div class="orbit-card" style="position:relative; overflow:hidden;">
+      <div class="orbit-card-header">
+        <span class="orbit-platform ${platformClass}">${job.platform === 'x' ? 'X' : 'TikTok'}</span>
+        <span class="orbit-status-pill ${statusClass}">${job.status}</span>
+      </div>
+      <div class="orbit-title">${job.title}</div>
+      <div class="orbit-meta">
+        <span class="t-caption" style="color:var(--text-muted)">${job.creator}</span>
+        ${job.size !== '—' ? `<span class="t-caption numeric">${job.size}</span>` : ''}
+        ${job.duration !== '—' ? `<span class="t-caption">${job.duration}</span>` : ''}
+      </div>
+      ${progressHTML}
+      <div class="orbit-actions">${actions}</div>
+    </div>
+  `;
+}
+
+function getJob(id) { return JOBS.find(j => j.id === id); }
+
+/* ============================================================
+   DETAIL SHEET
+   ============================================================ */
+function openSheet(job) {
+  const sheet = document.getElementById('detail-sheet');
+  document.getElementById('sheet-title').textContent = job.title;
+  document.getElementById('sheet-url').textContent = job.url;
+
+  const statusEl = document.getElementById('sheet-status');
+  statusEl.textContent = job.status;
+  statusEl.className = `orbit-status-pill status-${job.status}`;
+
+  const actionsEl = document.getElementById('sheet-actions');
+  if (job.status === 'failed') {
+    actionsEl.innerHTML = `
+      <button class="sheet-btn accent" onclick="retryJob('${job.id}', event)">Retry Download</button>
+      <button class="sheet-btn danger" onclick="deleteJobFromSheet('${job.id}')">Delete Job</button>
+      <button class="sheet-btn" onclick="closeSheet()">Cancel</button>
+    `;
+  } else if (job.status === 'completed') {
+    actionsEl.innerHTML = `
+      <button class="sheet-btn accent">Open File</button>
+      <button class="sheet-btn danger" onclick="deleteJobFromSheet('${job.id}')">Delete</button>
+      <button class="sheet-btn" onclick="closeSheet()">Close</button>
+    `;
+  } else {
+    actionsEl.innerHTML = `
+      <button class="sheet-btn danger" onclick="deleteJobFromSheet('${job.id}')">Cancel Job</button>
+      <button class="sheet-btn" onclick="closeSheet()">Close</button>
+    `;
+  }
+
+  selectedJobId = job.id;
+  sheet.classList.add('open');
+}
+
+function closeSheet() {
+  document.getElementById('detail-sheet').classList.remove('open');
+  selectedJobId = null;
+}
+
+function deleteJobFromSheet(id) {
+  closeSheet();
+  const idx = JOBS.findIndex(j => j.id === id);
+  if (idx !== -1) JOBS.splice(idx, 1);
+  renderOrbitNodes(JOBS);
+  updateStats();
+  pushActivity('info', `Job canceled/deleted`, id);
+}
+
+/* ============================================================
+   INTAKE FORM
+   ============================================================ */
+function handleUrlInput(val) {
+  const chip = document.getElementById('platform-chip');
+  if (val.includes('x.com') || val.includes('twitter.com')) {
+    chip.textContent = '𝕏  Twitter';
+    chip.className = 'platform-chip visible';
+  } else if (val.includes('tiktok.com')) {
+    chip.textContent = '♪  TikTok';
+    chip.className = 'platform-chip tiktok visible';
+  } else {
+    chip.className = 'platform-chip';
+  }
+}
+
+function handleIntakeMouse(e) {
+  const form = document.getElementById('intake-form');
+  const rect = form.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = (e.clientX - cx) / rect.width;
+  const dy = (e.clientY - cy) / rect.height;
+  form.style.transform = `translate(${dx * 3}px, ${dy * 3}px)`;
+}
+
+document.getElementById('orbit-stage').addEventListener('mouseleave', () => {
+  document.getElementById('intake-form').style.transform = '';
+});
+
+let jobCounter = 7;
+
+function submitJob() {
+  const input = document.getElementById('url-input');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const platform = val.includes('tiktok.com') ? 'tiktok' : 'x';
+  const btn = document.getElementById('submit-btn');
+  const overlay = document.getElementById('success-overlay');
+
+  // Success flash
+  btn.classList.add('success');
+  overlay.classList.add('visible');
+
+  const newJob = {
+    id: `j${jobCounter++}`,
+    platform,
+    creator: '@newcreator',
+    title: `New download ${jobCounter}`,
+    url: val,
+    status: 'queued',
+    progress: 0,
+    size: '—', duration: '—', age: 0
+  };
+
+  setTimeout(() => {
+    btn.classList.remove('success');
+    overlay.classList.remove('visible');
+    input.value = '';
+    document.getElementById('platform-chip').className = 'platform-chip';
+
+    JOBS.unshift(newJob);
+    renderOrbitNodes(JOBS);
+    updateStats();
+    pushActivity('info', `Queued new job: ${newJob.url.slice(0, 40)}…`, newJob.id);
+  }, 800);
+}
+
+/* ============================================================
+   LIVE SIMULATION
+   ============================================================ */
+// Progress simulation
+setInterval(() => {
+  JOBS.forEach(job => {
+    if (job.status === 'running') {
+      job.progress = Math.min(100, job.progress + Math.random() * 4 + 1);
+      const fill = document.getElementById(`prog-${job.id}`);
+      const pct = document.getElementById(`pct-${job.id}`);
+      if (fill) fill.style.width = `${job.progress}%`;
+      if (pct) pct.textContent = `${Math.round(job.progress)}%`;
+
+      if (job.progress >= 100) {
+        job.status = 'completed';
+        job.size = `${(Math.random() * 900 + 200).toFixed(0)} MB`;
+        renderOrbitNodes(JOBS);
+        updateStats();
+        pushActivity('ok', `Download complete: ${job.title}`, job.id);
+      }
+    }
+  });
+}, 800);
+
+// Advance queued → running
+setInterval(() => {
+  const queued = JOBS.filter(j => j.status === 'queued');
+  const running = JOBS.filter(j => j.status === 'running');
+  if (queued.length > 0 && running.length === 0) {
+    const job = queued[0];
+    job.status = 'running';
+    job.progress = 0;
+    renderOrbitNodes(JOBS);
+    updateStats();
+    pushActivity('info', `Extraction started: ${job.title}`, job.id);
+  }
+}, 5000);
+
+/* ============================================================
+   ACTIVITY FEED
+   ============================================================ */
+const ACTIVITY_MSGS = [
+  ['info',  'Worker poll cycle — 1 job claimed'],
+  ['info',  'Playwright context ready'],
+  ['ok',    'Network intercept captured media URL'],
+  ['info',  'HLS stream detected — invoking ffmpeg'],
+  ['warn',  'Retry attempt 1 after 403 response'],
+  ['ok',    'Download complete — 842 MB written'],
+  ['info',  'Thumbnail extracted via ffprobe'],
+  ['error', 'Extraction timed out after 180s'],
+  ['info',  'Atlas heartbeat OK · 12ms latency'],
+  ['ok',    'Job state → completed'],
+];
+
+let activityIdx = 0;
+
+function pushActivity(level, msg, jobId) {
+  const feed = document.getElementById('activity-feed');
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const icons = { info: 'ℹ', ok: '✓', error: '!', warn: '⚠' };
+
+  const el = document.createElement('div');
+  el.className = 'activity-event';
+  el.innerHTML = `
+    <div class="event-line">
+      <div class="event-icon ${level}">${icons[level]}</div>
+      <div class="event-content">
+        <div class="event-msg t-body">${msg}</div>
+        <div class="event-meta timestamp">${ts}${jobId ? ` · ${jobId}` : ''}</div>
+      </div>
+    </div>
+  `;
+
+  feed.insertBefore(el, feed.firstChild);
+
+  // Keep max 40 entries
+  while (feed.children.length > 40) feed.removeChild(feed.lastChild);
+}
+
+function autoActivity() {
+  const [level, msg] = ACTIVITY_MSGS[activityIdx % ACTIVITY_MSGS.length];
+  pushActivity(level, msg, null);
+  activityIdx++;
+}
+
+// Seed initial events
+const seedEvents = [
+  ['ok',   'Server started — MongoDB connected'],
+  ['info', 'Worker queue started — 1s poll interval'],
+  ['info', 'Playwright browser context initialized'],
+  ['ok',   'Job j1 completed — ocean session · 420 MB'],
+  ['ok',   'Job j3 completed — ambient textures · 1.2 GB'],
+  ['info', 'Job j2 extraction in progress…'],
+];
+seedEvents.forEach(([l, m]) => pushActivity(l, m, null));
+
+setInterval(autoActivity, 2800);
+
+/* ============================================================
+   STATS
+   ============================================================ */
+function updateStats() {
+  const counts = { completed: 0, failed: 0, running: 0, queued: 0 };
+  JOBS.forEach(j => counts[j.status] = (counts[j.status] || 0) + 1);
+  document.getElementById('stat-completed').textContent = counts.completed || 0;
+  document.getElementById('stat-failed').textContent = counts.failed || 0;
+  document.getElementById('stat-running').textContent = counts.running || 0;
+  document.getElementById('stat-queued').textContent = counts.queued || 0;
+  document.getElementById('hero-count').textContent = JOBS.length;
+}
+
+/* ============================================================
+   CONTACT FILTER
+   ============================================================ */
+function filterContact(creator) {
+  document.querySelectorAll('.contact-item').forEach(el => el.classList.remove('active'));
+  event && event.currentTarget && event.currentTarget.classList.add('active');
+
+  const filtered = creator ? JOBS.filter(j => j.creator === creator) : JOBS;
+  renderOrbitNodes(filtered);
+}
+
+/* ============================================================
+   PLATFORM TOGGLES
+   ============================================================ */
+function togglePlatform(p, enabled) {
+  pushActivity('info', `Platform ${p} ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+/* ============================================================
+   JOB ACTIONS
+   ============================================================ */
+function retryJob(id, e) {
+  if (e) e.stopPropagation();
+  const job = getJob(id);
+  if (!job) return;
+  job.status = 'queued';
+  job.progress = 0;
+  renderOrbitNodes(JOBS);
+  updateStats();
+  pushActivity('info', `Retrying job: ${job.title}`, id);
+  closeSheet();
+}
+
+function deleteJob(id, e) {
+  if (e) e.stopPropagation();
+  const idx = JOBS.findIndex(j => j.id === id);
+  if (idx !== -1) JOBS.splice(idx, 1);
+  renderOrbitNodes(JOBS);
+  updateStats();
+  pushActivity('info', `Job deleted`, id);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('resize', () => {
+  buildOrbitRings();
+  renderOrbitNodes(JOBS);
+});
+
+buildOrbitRings();
+renderOrbitNodes(JOBS);
+updateStats();
+</script>
+
+</body>
+</html>

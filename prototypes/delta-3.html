@@ -1,0 +1,1492 @@
+<!--
+  Media Vault Prototype
+  Round: delta-3
+  Concept: Player — Jobs as tracks, contacts as artists, queue as playlist; music player spatial metaphor
+  Special Feature: Sound Design — opt-in Web Audio API tones on job state changes (queue add: soft chime, completion: ascending arpeggio, failure: descending dissonant tone) using pure oscillators; no external files, toggle in settings
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Sound Design — Web Audio API synthesis; queue adds play a soft triangle-wave chime, completions play a 3-note ascending arpeggio, failures play a descending minor-third; all sounds are opt-in via a clearly labeled toggle; pure oscillator synthesis, zero external dependencies -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Player</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  /* Spring physics */
+  --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-exit:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --spring-snap:  cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Radius system */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Shadow elevation */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+  --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+  /* Status — desaturated, atmospheric */
+  --status-completed: hsl(145, 45%, 52%);
+  --status-failed:    hsl(0,   48%, 52%);
+  --status-running:   hsl(210, 50%, 58%);
+  --status-queued:    hsl(30,  15%, 52%);
+  --status-canceled:  hsl(220, 20%, 45%);
+
+  /* Brand */
+  --accent:     hsl(210, 70%, 60%);
+  --accent-rgb: 82, 152, 218;
+
+  /* Colors */
+  --bg-deep:  #07090f;
+  --text-primary:   #e8edf5;
+  --text-secondary: #8898b8;
+  --text-caption:   #a8b8cc;
+  --text-muted:     #6b7d99;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Typography */
+.t-display  { font-size: clamp(3rem, 5vw, 5rem);       font-weight: 800; letter-spacing: -0.04em; line-height: 1.0; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.t-heading  { font-size: clamp(1.25rem, 2vw, 1.5rem);  font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.t-subhead  { font-size: clamp(0.875rem, 1.2vw, 1rem); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.t-body     { font-size: clamp(0.8125rem, 1vw, 0.875rem); font-weight: 400; letter-spacing: 0; line-height: 1.5; }
+.t-caption  { font-size: clamp(0.6875rem, 0.9vw, 0.75rem); font-weight: 400; letter-spacing: 0.02em; line-height: 1.4; }
+
+.numeric, [data-metric], .count, .timestamp {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Background — deep with subtle light streak */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(25,45,90,0.18) 0%, transparent 60%),
+    linear-gradient(180deg, #09111f 0%, #07090f 40%, #070a0f 100%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   APP SHELL — Player layout
+   Left sidebar: artist panel | Center: tracklist + player | Right: activity
+   ============================================================ */
+#app {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  grid-template-rows: 100vh;
+  height: 100vh;
+  opacity: 0;
+  animation: app-reveal 0.5s var(--spring-exit) forwards;
+}
+
+@keyframes app-reveal { to { opacity: 1; } }
+
+/* ============================================================
+   GLASS LAYER SYSTEM
+   ============================================================ */
+/* Tier 1 — Foreground (active card, intake, now playing) */
+.g1 {
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(4px) saturate(160%);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+}
+
+/* Tier 2 — Mid (sidebar, section containers) */
+.g2 {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px) saturate(140%);
+  border-top: 1px solid rgba(255,255,255,0.09);
+  border-left: 1px solid rgba(255,255,255,0.06);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid rgba(0,0,0,0.09);
+}
+
+/* Tier 3 — Far background */
+.g3 {
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+/* Light refraction on every glass surface */
+.g1::before, .g2::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ============================================================
+   LEFT SIDEBAR — Artists / Contacts + Settings
+   ============================================================ */
+#sidebar {
+  display: flex; flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid rgba(255,255,255,0.04);
+  transform: translateX(-14px); opacity: 0;
+  animation: slide-left 0.45s 0.08s var(--spring-exit) forwards;
+}
+
+@keyframes slide-left { to { transform: translateX(0); opacity: 1; } }
+
+.sidebar-bg { position: absolute; inset: 0; background: rgba(255,255,255,0.02); backdrop-filter: blur(20px) saturate(120%); }
+
+.sidebar-top {
+  position: relative; z-index: 1;
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+}
+
+.wordmark {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 1.05rem; font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.wordmark-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, hsl(210,55%,32%) 0%, hsl(225,50%,24%) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-left: 1px solid rgba(255,255,255,0.12);
+  border-right: 1px solid rgba(0,0,0,0.1);
+  border-bottom: 1px solid rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  position: relative; z-index: 1;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 160ms var(--spring-exit);
+  position: relative;
+}
+
+.nav-item:hover { background: rgba(255,255,255,0.03); }
+
+.nav-item.active {
+  background: rgba(82,152,218,0.08);
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon {
+  width: 20px; height: 20px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; flex-shrink: 0;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.05);
+}
+
+.nav-item.active .nav-icon { background: rgba(82,152,218,0.12); color: var(--status-running); }
+
+.nav-label {
+  font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.nav-item.active .nav-label { color: var(--text-primary); font-weight: 600; }
+
+.nav-badge {
+  margin-left: auto;
+  font-size: 0.6125rem; font-weight: 700;
+  padding: 1px 6px; border-radius: var(--radius-xs);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-badge.live { background: rgba(82,152,218,0.14); color: var(--status-running); }
+
+.panel-divider { height: 1px; background: rgba(255,255,255,0.04); flex-shrink: 0; }
+
+/* Artist list */
+.artists-section {
+  position: relative; z-index: 1;
+  flex: 1; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.07) transparent;
+}
+
+.artists-label {
+  padding: 10px 16px 5px;
+  font-size: 0.6125rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.artist-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 160ms var(--spring-exit);
+  animation: stagger-in 0.4s var(--spring-exit) both;
+}
+
+.artist-item:nth-child(1) { animation-delay: 80ms; }
+.artist-item:nth-child(2) { animation-delay: 110ms; }
+.artist-item:nth-child(3) { animation-delay: 135ms; }
+
+@keyframes stagger-in {
+  from { transform: translateX(-6px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.artist-item:hover { background: rgba(255,255,255,0.03); }
+
+.artist-album-art {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, hsl(210,20%,26%) 0%, hsl(220,20%,20%) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6875rem; font-weight: 700;
+  color: var(--text-caption);
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+}
+
+.artist-info { flex: 1; min-width: 0; }
+.artist-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.artist-tracks { font-size: 0.6875rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.artist-platform {
+  font-size: 0.5625rem; font-weight: 700;
+  padding: 2px 5px; border-radius: var(--radius-xs);
+  flex-shrink: 0; letter-spacing: 0.04em;
+}
+.artist-platform.x      { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+.artist-platform.tiktok { background: rgba(255,80,100,0.1); color: hsl(0,48%,72%); }
+
+/* Settings in sidebar footer */
+.sidebar-settings {
+  position: relative; z-index: 1;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+}
+
+.settings-group-label {
+  font-size: 0.6125rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0;
+}
+
+.setting-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.75rem; color: var(--text-secondary);
+}
+
+.toggle {
+  position: relative; width: 34px; height: 18px; cursor: pointer;
+}
+.toggle input { display: none; }
+.toggle-track {
+  position: absolute; inset: 0; border-radius: 9px;
+  background: rgba(255,255,255,0.08);
+  transition: background 180ms var(--spring-snap);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+.toggle input:checked + .toggle-track { background: rgba(82,152,218,0.35); }
+.toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text-secondary);
+  transition: transform 200ms var(--spring-snap), background 180ms;
+  box-shadow: var(--shadow-sm);
+}
+.toggle input:checked ~ .toggle-thumb { transform: translateX(16px); background: var(--accent); }
+
+/* Sound indicator */
+.sound-status {
+  font-size: 0.6125rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  transition: color 300ms;
+}
+.sound-status.on { color: var(--status-completed); }
+
+/* ============================================================
+   CENTER — Track List + Now Playing + Intake
+   ============================================================ */
+#center {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transform: translateY(10px); opacity: 0;
+  animation: slide-up 0.45s 0.18s var(--spring-exit) forwards;
+}
+
+@keyframes slide-up { to { transform: translateY(0); opacity: 1; } }
+
+/* Now Playing bar at top */
+#now-playing {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: center; gap: 14px;
+  position: relative; overflow: hidden;
+}
+
+.now-playing-bg {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(4px) saturate(160%);
+}
+
+.now-playing-bg::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.np-album {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+  background: linear-gradient(135deg, hsl(210,35%,28%) 0%, hsl(225,30%,20%) 100%);
+  display: flex; align-items: center; justify-content: center;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-md);
+}
+
+.np-album-inner {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: 3px solid rgba(255,255,255,0.06);
+  position: relative;
+}
+
+.np-album-inner::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.2), transparent 60%);
+}
+
+/* Spin animation for running job */
+.np-album.playing .np-album-inner {
+  animation: disc-spin 4s linear infinite;
+}
+
+@keyframes disc-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.np-info { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.np-title { font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.np-artist { font-size: 0.75rem; color: var(--text-secondary); }
+
+.np-status {
+  position: relative; z-index: 1;
+}
+
+.np-stat {
+  font-size: 3.5rem; font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.np-stat-label {
+  font-size: 0.6125rem; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.1em; text-align: right;
+  margin-top: 2px;
+}
+
+/* Progress waveform track */
+.np-progress-section {
+  position: relative; z-index: 1;
+  flex-basis: 160px; flex-shrink: 0;
+}
+
+.np-progress-track {
+  height: 4px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px; overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.np-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--status-running), hsl(210,60%,72%));
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.np-pct {
+  font-size: 0.6875rem; font-weight: 600;
+  color: var(--status-running);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ============================================================
+   TRACKLIST
+   ============================================================ */
+#tracklist-section {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.tracklist-header {
+  padding: 12px 20px 8px;
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.tracklist-title {
+  font-size: 0.9375rem; font-weight: 700;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.tracklist-count {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Column headers */
+.track-col-headers {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px 70px 70px;
+  gap: 10px;
+  padding: 6px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  flex-shrink: 0;
+}
+
+.col-hdr {
+  font-size: 0.6125rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+#track-list {
+  flex: 1; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.07) transparent;
+}
+
+/* Track row */
+.track-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px 70px 70px;
+  gap: 10px;
+  padding: 9px 20px;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  transition:
+    background 140ms var(--spring-exit),
+    transform 120ms var(--spring-exit);
+  animation: track-enter 0.35s var(--spring-exit) both;
+}
+
+@keyframes track-enter {
+  from { transform: translateY(4px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.track-row::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.03) 0%, transparent 60%);
+  pointer-events: none; opacity: 0;
+  transition: opacity 140ms;
+}
+
+.track-row:hover { background: rgba(255,255,255,0.04); transform: translateX(2px); }
+.track-row:hover::before { opacity: 1; }
+
+.track-row.active {
+  background: rgba(82,152,218,0.07);
+}
+
+.track-row.active::after {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px; background: var(--accent);
+}
+
+.track-num {
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.track-row.active .track-num { color: var(--status-running); }
+
+/* Pulse on first running — the one indicator */
+.track-row.first-running .track-num {
+  position: relative;
+}
+
+.track-row.first-running .track-num::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid var(--status-running);
+  animation: track-pulse 2s ease-in-out infinite;
+  opacity: 0;
+}
+
+@keyframes track-pulse {
+  0%, 100% { opacity: 0; transform: scale(0.8); }
+  50%       { opacity: 0.5; transform: scale(1.3); }
+}
+
+.track-info { min-width: 0; }
+.track-title { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-artist { font-size: 0.6875rem; color: var(--text-muted); }
+
+.track-row.active .track-title { color: var(--accent); }
+
+.track-platform {
+  font-size: 0.6125rem; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--radius-xs);
+  letter-spacing: 0.04em; text-align: center;
+}
+
+.track-platform.x      { background: rgba(255,255,255,0.06); color: var(--text-caption); }
+.track-platform.tiktok { background: rgba(255,80,100,0.1); color: hsl(0,48%,72%); }
+
+.track-status {
+  font-size: 0.6125rem; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--radius-xs);
+  text-align: center; white-space: nowrap;
+}
+
+.status-queued    { background: rgba(148,131,99,0.14); color: var(--status-queued);    }
+.status-running   { background: rgba(82,152,218,0.14); color: var(--status-running);   }
+.status-completed { background: rgba(80,168,120,0.14); color: var(--status-completed); }
+.status-failed    { background: rgba(193,96,96,0.14);  color: var(--status-failed);    }
+.status-canceled  { background: rgba(100,110,135,0.14);color: var(--status-canceled);  }
+
+.track-actions {
+  display: flex; gap: 4px; justify-content: flex-end;
+}
+
+.track-btn {
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  border: none;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-muted);
+  font-size: 0.5625rem; font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  transition: background 120ms var(--spring-exit), transform 100ms var(--spring-snap), color 120ms;
+}
+
+.track-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); transform: translateY(-1px); }
+.track-btn:active { transform: scale(0.95); }
+.track-btn.danger:hover { background: rgba(193,96,96,0.15); color: var(--status-failed); }
+.track-btn.success:hover { background: rgba(80,168,120,0.15); color: var(--status-completed); }
+
+/* ============================================================
+   INTAKE — ADD TO QUEUE
+   ============================================================ */
+#intake-area {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  animation: intake-breathe 4s ease-in-out infinite;
+}
+
+@keyframes intake-breathe {
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(82,152,218,0.03)); }
+  50%       { filter: drop-shadow(0 0 24px rgba(82,152,218,0.08)); }
+}
+
+.intake-shell {
+  position: relative;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(4px) saturate(160%);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+  overflow: hidden;
+  transition: box-shadow 220ms var(--spring-exit);
+}
+
+.intake-shell::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.intake-shell:focus-within {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 40px rgba(82,152,218,0.12),
+    0 0 80px rgba(82,152,218,0.06),
+    var(--shadow-xl);
+}
+
+.intake-inner {
+  display: flex; align-items: center;
+  padding: 4px 4px 4px 14px; gap: 8px;
+}
+
+.intake-inner input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--text-primary);
+  font-family: inherit; font-size: clamp(13px, 1.4vw, 15px);
+  padding: 9px 0; caret-color: var(--accent);
+}
+
+.intake-inner input::placeholder { color: var(--text-muted); font-weight: 450; }
+
+.platform-chip {
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 0.6125rem; font-weight: 600;
+  background: rgba(82,152,218,0.12); color: var(--status-running);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transform: scale(0.7); opacity: 0;
+  transition: transform 220ms var(--spring-enter), opacity 200ms;
+  pointer-events: none; flex-shrink: 0;
+}
+.platform-chip.visible { transform: scale(1); opacity: 1; }
+.platform-chip.tiktok { background: rgba(255,80,100,0.1); color: hsl(0,48%,72%); }
+
+.add-btn {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: #fff; font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative; overflow: hidden;
+  transition: transform 120ms var(--spring-snap), box-shadow 120ms, background 180ms;
+  box-shadow: var(--shadow-md);
+}
+
+.add-btn::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.25) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.add-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 20px rgba(82,152,218,0.3); }
+.add-btn:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.add-btn.success { background: var(--status-completed); }
+
+.intake-success-overlay {
+  position: absolute; inset: 0; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: rgba(7,9,15,0.88); backdrop-filter: blur(4px);
+  color: var(--status-completed);
+  font-size: 0.875rem; font-weight: 600;
+  opacity: 0; pointer-events: none;
+  transition: opacity 180ms var(--spring-exit);
+  z-index: 5;
+}
+.intake-success-overlay.visible { opacity: 1; pointer-events: auto; }
+
+/* ============================================================
+   RIGHT PANEL — Activity
+   ============================================================ */
+#activity-panel {
+  display: flex; flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-left: 1px solid rgba(255,255,255,0.04);
+  transform: translateX(14px); opacity: 0;
+  animation: slide-right 0.45s 0.32s var(--spring-exit) forwards;
+}
+
+@keyframes slide-right { to { transform: translateX(0); opacity: 1; } }
+
+.activity-bg { position: absolute; inset: 0; background: rgba(255,255,255,0.02); backdrop-filter: blur(20px) saturate(120%); }
+
+.activity-top {
+  position: relative; z-index: 1;
+  padding: 20px 14px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.activity-title {
+  font-size: 0.9375rem; font-weight: 700;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.live-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.6125rem; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--status-running); text-transform: uppercase;
+}
+
+.live-pulse {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--status-running);
+  animation: live-blink 2s ease-in-out infinite;
+}
+
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+#activity-feed {
+  position: relative; z-index: 1;
+  flex: 1; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.07) transparent;
+}
+
+.event-row {
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.025);
+  animation: event-slide 0.28s var(--spring-exit) both;
+}
+
+@keyframes event-slide {
+  from { transform: translateX(6px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.event-line { display: flex; align-items: flex-start; gap: 8px; }
+
+.event-icon {
+  width: 18px; height: 18px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; flex-shrink: 0; margin-top: 1px;
+}
+
+.event-icon.info  { background: rgba(82,152,218,0.1);  color: var(--status-running); }
+.event-icon.ok    { background: rgba(80,168,120,0.1);  color: var(--status-completed); }
+.event-icon.error { background: rgba(193,96,96,0.1);   color: var(--status-failed); }
+.event-icon.warn  { background: rgba(148,131,99,0.1);  color: var(--status-queued); }
+
+.event-body { flex: 1; min-width: 0; }
+.event-msg { font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.4; }
+.event-ts  { font-size: 0.6125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+/* Stats grid */
+.activity-stats {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+}
+
+.stat-box {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.stat-val {
+  font-size: 1.25rem; font-weight: 700;
+  color: var(--text-primary); font-variant-numeric: tabular-nums;
+  display: block; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.stat-lbl {
+  font-size: 0.5625rem; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.09em; margin-top: 1px;
+}
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════
+       LEFT — Artists / Contacts + Settings
+       ═══════════════════════════════════════════════════ -->
+  <aside id="sidebar">
+    <div class="sidebar-bg"></div>
+
+    <div class="sidebar-top">
+      <div class="wordmark">
+        <div class="wordmark-icon">⬇</div>
+        Media Vault
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="setView('queue', this)">
+        <div class="nav-icon">▣</div>
+        <span class="nav-label">Queue</span>
+        <span class="nav-badge live" id="nav-running">1</span>
+      </div>
+      <div class="nav-item" onclick="setView('all', this)">
+        <div class="nav-icon">☰</div>
+        <span class="nav-label">All Downloads</span>
+        <span class="nav-badge" id="nav-all">6</span>
+      </div>
+      <div class="nav-item" onclick="setView('completed', this)">
+        <div class="nav-icon">✓</div>
+        <span class="nav-label">Completed</span>
+        <span class="nav-badge" id="nav-done">4</span>
+      </div>
+      <div class="nav-item" onclick="setView('failed', this)">
+        <div class="nav-icon">!</div>
+        <span class="nav-label">Failed</span>
+        <span class="nav-badge" id="nav-failed">1</span>
+      </div>
+    </nav>
+
+    <div class="panel-divider"></div>
+
+    <!-- Artists section -->
+    <div class="artists-section">
+      <div class="artists-label">Artists</div>
+
+      <div class="artist-item" onclick="setView('creator:@neonwitch', null)">
+        <div class="artist-album-art">NW</div>
+        <div class="artist-info">
+          <div class="artist-name">@neonwitch</div>
+          <div class="artist-tracks numeric">3 tracks</div>
+        </div>
+        <span class="artist-platform x">X</span>
+      </div>
+
+      <div class="artist-item" onclick="setView('creator:@pixelriot', null)">
+        <div class="artist-album-art" style="background:linear-gradient(135deg,hsl(0,15%,26%),hsl(10,15%,20%))">PR</div>
+        <div class="artist-info">
+          <div class="artist-name">@pixelriot</div>
+          <div class="artist-tracks numeric">2 tracks</div>
+        </div>
+        <span class="artist-platform tiktok">TK</span>
+      </div>
+
+      <div class="artist-item" onclick="setView('creator:@driftsound', null)">
+        <div class="artist-album-art" style="background:linear-gradient(135deg,hsl(200,20%,26%),hsl(210,20%,20%))">DS</div>
+        <div class="artist-info">
+          <div class="artist-name">@driftsound</div>
+          <div class="artist-tracks numeric">1 track</div>
+        </div>
+        <span class="artist-platform x">X</span>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="sidebar-settings">
+      <div class="settings-group-label">Platforms</div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <span style="width:5px;height:5px;border-radius:50%;background:var(--text-secondary);display:inline-block;"></span>
+          X (Twitter)
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="logToggle('x', this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <span style="width:5px;height:5px;border-radius:50%;background:hsl(0,48%,62%);display:inline-block;"></span>
+          TikTok
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="logToggle('tiktok', this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="setting-row" style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.04)">
+        <div class="setting-label">
+          <span style="width:5px;height:5px;border-radius:50%;background:var(--status-queued);display:inline-block;"></span>
+          Sound Effects
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="sound-toggle" onchange="setSoundEnabled(this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="sound-status" id="sound-status">Sound off (opt in above)</div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════
+       CENTER — Now Playing + Track List + Intake
+       ═══════════════════════════════════════════════════ -->
+  <main id="center">
+
+    <!-- Now Playing -->
+    <div id="now-playing">
+      <div class="now-playing-bg"></div>
+      <div class="np-album" id="np-album">
+        <div class="np-album-inner"></div>
+      </div>
+      <div class="np-info">
+        <div class="np-title" id="np-title">Ready to download</div>
+        <div class="np-artist" id="np-artist">—</div>
+      </div>
+      <div class="np-progress-section">
+        <div class="np-progress-track">
+          <div class="np-progress-fill" id="np-progress"></div>
+        </div>
+        <div class="np-pct" id="np-pct">—</div>
+      </div>
+      <div class="np-status">
+        <div class="np-stat numeric" id="np-stat">4</div>
+        <div class="np-stat-label">Completed</div>
+      </div>
+    </div>
+
+    <!-- Track list -->
+    <div id="tracklist-section">
+      <div class="tracklist-header">
+        <span class="tracklist-title" id="view-title">Queue</span>
+        <span class="tracklist-count" id="view-count">6 tracks</span>
+      </div>
+
+      <div class="track-col-headers">
+        <span class="col-hdr">#</span>
+        <span class="col-hdr">Track</span>
+        <span class="col-hdr">Platform</span>
+        <span class="col-hdr">Status</span>
+        <span class="col-hdr" style="text-align:right">Actions</span>
+      </div>
+
+      <div id="track-list"></div>
+    </div>
+
+    <!-- Intake / Add to Queue -->
+    <div id="intake-area" onmousemove="handleMagnet(event)">
+      <div class="intake-shell">
+        <div class="intake-inner">
+          <input
+            type="url" id="url-input"
+            placeholder="Add to queue — paste X or TikTok URL…"
+            autocomplete="off" spellcheck="false"
+            oninput="handleUrlInput(this.value)"
+            onkeydown="if(event.key==='Enter') submitJob()"
+          >
+          <div class="platform-chip" id="platform-chip"></div>
+          <button class="add-btn" id="add-btn" onclick="submitJob()" aria-label="Add to queue">+</button>
+        </div>
+        <div class="intake-success-overlay" id="success-overlay">
+          <span>✓</span><span>Added to queue</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════
+       RIGHT — Activity Feed
+       ═══════════════════════════════════════════════════ -->
+  <aside id="activity-panel">
+    <div class="activity-bg"></div>
+
+    <div class="activity-top">
+      <span class="activity-title">Activity</span>
+      <div class="live-badge">
+        <span class="live-pulse"></span>
+        Live
+      </div>
+    </div>
+
+    <div id="activity-feed"></div>
+
+    <div class="activity-stats">
+      <div class="stat-box">
+        <span class="stat-val" id="s-done">4</span>
+        <div class="stat-lbl">Done</div>
+      </div>
+      <div class="stat-box">
+        <span class="stat-val" id="s-running">1</span>
+        <div class="stat-lbl">Running</div>
+      </div>
+      <div class="stat-box">
+        <span class="stat-val" id="s-queued">0</span>
+        <div class="stat-lbl">Queued</div>
+      </div>
+      <div class="stat-box">
+        <span class="stat-val" id="s-failed">1</span>
+        <div class="stat-lbl">Failed</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ============================================================
+   WEB AUDIO API — SOUND DESIGN (Opt-in)
+   ============================================================ */
+let audioCtx = null;
+let soundEnabled = false;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, type, duration, gain, delay = 0) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const vol = ctx.createGain();
+    osc.connect(vol);
+    vol.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    vol.gain.setValueAtTime(0, ctx.currentTime + delay);
+    vol.gain.linearRampToValueAtTime(gain, ctx.currentTime + delay + 0.02);
+    vol.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration + 0.05);
+  } catch(e) {}
+}
+
+// Soft chime — queue add
+function soundQueueAdd() {
+  playTone(880, 'triangle', 0.35, 0.08, 0);
+  playTone(1108, 'triangle', 0.25, 0.05, 0.12);
+}
+
+// Ascending arpeggio — completion
+function soundComplete() {
+  playTone(523, 'sine', 0.2,  0.07, 0);
+  playTone(659, 'sine', 0.2,  0.07, 0.1);
+  playTone(784, 'sine', 0.25, 0.07, 0.2);
+}
+
+// Descending dissonant — failure
+function soundFail() {
+  playTone(440, 'sawtooth', 0.2,  0.05, 0);
+  playTone(370, 'sawtooth', 0.25, 0.05, 0.1);
+}
+
+function setSoundEnabled(val) {
+  soundEnabled = val;
+  const status = document.getElementById('sound-status');
+  status.textContent = val ? 'Sound on — auditory feedback active' : 'Sound off (opt in above)';
+  status.className = `sound-status ${val ? 'on' : ''}`;
+  if (val) {
+    // Unlock audio context
+    try { getAudioCtx().resume(); } catch(e) {}
+    soundQueueAdd(); // test tone on enable
+  }
+}
+
+/* ============================================================
+   DATA
+   ============================================================ */
+let JOBS = [
+  { id:'j1', platform:'x',       creator:'@neonwitch',  title:'Neon witch demo — live set',     url:'https://x.com/neonwitch/status/1234',    status:'completed', progress:100, size:'842 MB',  duration:'4:17' },
+  { id:'j2', platform:'tiktok',  creator:'@pixelriot',  title:'Pixel riot — glitch sequence',   url:'https://tiktok.com/@pixelriot/video/123', status:'running',   progress:62,  size:'—',       duration:'2:33' },
+  { id:'j3', platform:'x',       creator:'@neonwitch',  title:'Ambient textures vol.3',         url:'https://x.com/neonwitch/status/2345',    status:'completed', progress:100, size:'1.2 GB',  duration:'8:44' },
+  { id:'j4', platform:'tiktok',  creator:'@pixelriot',  title:'Micro-sample pack preview',      url:'https://tiktok.com/@pixelriot/video/234', status:'failed',    progress:0,   size:'—',       duration:'—',    error:'403 Forbidden' },
+  { id:'j5', platform:'x',       creator:'@neonwitch',  title:'Modular synth patch #7',         url:'https://x.com/neonwitch/status/3456',    status:'queued',    progress:0,   size:'—',       duration:'—' },
+  { id:'j6', platform:'x',       creator:'@driftsound', title:'Driftsound — ocean session',     url:'https://x.com/driftsound/status/4567',   status:'completed', progress:100, size:'420 MB',  duration:'3:02' },
+];
+
+let currentView = 'queue';
+let jobCounter = 7;
+
+/* ============================================================
+   VIEW SYSTEM
+   ============================================================ */
+function getVisibleJobs() {
+  if (currentView === 'queue') return JOBS; // show all, ordered running first
+  if (currentView === 'all') return JOBS;
+  if (currentView.startsWith('creator:')) return JOBS.filter(j => j.creator === currentView.slice(8));
+  return JOBS.filter(j => j.status === currentView);
+}
+
+function setView(view, el) {
+  currentView = view;
+
+  // Active nav item
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const titles = {
+    queue: 'Queue', all: 'All Downloads', completed: 'Completed', failed: 'Failed'
+  };
+  const t = view.startsWith('creator:') ? view.slice(8) : (titles[view] || view);
+  document.getElementById('view-title').textContent = t;
+
+  renderTracks();
+}
+
+/* ============================================================
+   TRACK LIST RENDER
+   ============================================================ */
+function renderTracks() {
+  const list = document.getElementById('track-list');
+  list.innerHTML = '';
+
+  const jobs = getVisibleJobs();
+  document.getElementById('view-count').textContent = `${jobs.length} track${jobs.length !== 1 ? 's' : ''}`;
+
+  let firstRunning = false;
+  const runningJob = jobs.find(j => j.status === 'running');
+
+  // Update now playing
+  if (runningJob) {
+    document.getElementById('np-title').textContent = runningJob.title;
+    document.getElementById('np-artist').textContent = runningJob.creator;
+    document.getElementById('np-progress').style.width = `${runningJob.progress}%`;
+    document.getElementById('np-pct').textContent = `${Math.round(runningJob.progress)}%`;
+    document.getElementById('np-album').classList.add('playing');
+  } else {
+    document.getElementById('np-album').classList.remove('playing');
+    document.getElementById('np-progress').style.width = '0%';
+    document.getElementById('np-pct').textContent = '—';
+    document.getElementById('np-title').textContent = 'No active download';
+    document.getElementById('np-artist').textContent = '—';
+  }
+
+  jobs.forEach((job, i) => {
+    const isFirstRunning = job.status === 'running' && !firstRunning;
+    if (isFirstRunning) firstRunning = true;
+
+    const row = document.createElement('div');
+    row.className = `track-row ${job.status === 'running' ? 'active' : ''} ${isFirstRunning ? 'first-running' : ''}`;
+    row.style.animationDelay = `${Math.max(0, 120 - i * 20)}ms`;
+
+    let actionHTML;
+    if (job.status === 'failed') {
+      actionHTML = `
+        <button class="track-btn success" onclick="retryJob('${job.id}', event)">Retry</button>
+        <button class="track-btn danger" onclick="deleteJob('${job.id}', event)">Del</button>
+      `;
+    } else if (job.status === 'completed') {
+      actionHTML = `
+        <button class="track-btn" onclick="event.stopPropagation()">Open</button>
+        <button class="track-btn danger" onclick="deleteJob('${job.id}', event)">Del</button>
+      `;
+    } else {
+      actionHTML = `
+        <button class="track-btn danger" onclick="deleteJob('${job.id}', event)">✕</button>
+      `;
+    }
+
+    row.innerHTML = `
+      <div class="track-num">${i + 1}</div>
+      <div class="track-info">
+        <div class="track-title">${job.title}</div>
+        <div class="track-artist">${job.creator}</div>
+      </div>
+      <span class="track-platform ${job.platform}">${job.platform === 'x' ? 'X' : 'TikTok'}</span>
+      <span class="track-status status-${job.status}">${job.status}</span>
+      <div class="track-actions">${actionHTML}</div>
+    `;
+
+    list.appendChild(row);
+  });
+
+  updateCounters();
+}
+
+/* ============================================================
+   COUNTERS + NOW PLAYING STAT
+   ============================================================ */
+function updateCounters() {
+  const counts = { completed: 0, failed: 0, running: 0, queued: 0 };
+  JOBS.forEach(j => counts[j.status] = (counts[j.status] || 0) + 1);
+
+  document.getElementById('nav-all').textContent = JOBS.length;
+  document.getElementById('nav-running').textContent = counts.running + counts.queued;
+  document.getElementById('nav-done').textContent = counts.completed;
+  document.getElementById('nav-failed').textContent = counts.failed;
+
+  document.getElementById('s-done').textContent = counts.completed;
+  document.getElementById('s-running').textContent = counts.running;
+  document.getElementById('s-queued').textContent = counts.queued;
+  document.getElementById('s-failed').textContent = counts.failed;
+
+  document.getElementById('np-stat').textContent = counts.completed;
+}
+
+/* ============================================================
+   INTAKE FORM
+   ============================================================ */
+function handleUrlInput(val) {
+  const chip = document.getElementById('platform-chip');
+  if (val.includes('x.com') || val.includes('twitter.com')) {
+    chip.textContent = '𝕏  X'; chip.className = 'platform-chip visible';
+  } else if (val.includes('tiktok.com')) {
+    chip.textContent = '♪  TikTok'; chip.className = 'platform-chip tiktok visible';
+  } else {
+    chip.className = 'platform-chip';
+  }
+}
+
+function handleMagnet(e) {
+  const el = document.getElementById('intake-area');
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = (e.clientX - cx) / rect.width;
+  const dy = (e.clientY - cy) / rect.height;
+  el.style.transform = `translate(${dx * 2.5}px, ${dy * 2.5}px)`;
+}
+
+document.getElementById('intake-area').addEventListener('mouseleave', () => {
+  document.getElementById('intake-area').style.transform = '';
+});
+
+function submitJob() {
+  const input = document.getElementById('url-input');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const platform = val.includes('tiktok.com') ? 'tiktok' : 'x';
+  const btn = document.getElementById('add-btn');
+  const overlay = document.getElementById('success-overlay');
+
+  btn.classList.add('success');
+  overlay.classList.add('visible');
+  soundQueueAdd();
+
+  const newJob = {
+    id: `j${jobCounter++}`,
+    platform,
+    creator: '@newcreator',
+    title: `Download ${jobCounter - 1}`,
+    url: val,
+    status: 'queued',
+    progress: 0,
+    size: '—', duration: '—'
+  };
+
+  setTimeout(() => {
+    btn.classList.remove('success');
+    overlay.classList.remove('visible');
+    input.value = '';
+    document.getElementById('platform-chip').className = 'platform-chip';
+    JOBS.unshift(newJob);
+    renderTracks();
+    pushEvent('info', `Queued: ${val.slice(0, 45)}…`, newJob.id);
+  }, 800);
+}
+
+/* ============================================================
+   JOB ACTIONS
+   ============================================================ */
+function retryJob(id, e) {
+  if (e) e.stopPropagation();
+  const job = JOBS.find(j => j.id === id);
+  if (!job) return;
+  job.status = 'queued'; job.progress = 0; job.error = null;
+  renderTracks();
+  pushEvent('info', `Retrying: ${job.title}`, id);
+}
+
+function deleteJob(id, e) {
+  if (e) e.stopPropagation();
+  const idx = JOBS.findIndex(j => j.id === id);
+  if (idx !== -1) JOBS.splice(idx, 1);
+  renderTracks();
+  pushEvent('info', `Job removed`, id);
+}
+
+function logToggle(p, enabled) {
+  pushEvent('info', `Platform ${p} ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+/* ============================================================
+   LIVE SIMULATION
+   ============================================================ */
+setInterval(() => {
+  let needsRender = false;
+  JOBS.forEach(job => {
+    if (job.status !== 'running') return;
+    job.progress = Math.min(100, job.progress + Math.random() * 4 + 1);
+
+    // Update now playing progress
+    const npProg = document.getElementById('np-progress');
+    const npPct = document.getElementById('np-pct');
+    if (npProg) npProg.style.width = `${job.progress}%`;
+    if (npPct) npPct.textContent = `${Math.round(job.progress)}%`;
+
+    // Update row status
+    const rows = document.querySelectorAll('.track-row.active .track-status');
+    rows.forEach(el => {
+      if (el.classList.contains('status-running')) {
+        el.textContent = `${Math.round(job.progress)}%`;
+      }
+    });
+
+    if (job.progress >= 100) {
+      job.status = 'completed';
+      job.size = `${(Math.random() * 900 + 200).toFixed(0)} MB`;
+      needsRender = true;
+      pushEvent('ok', `Download complete: ${job.title}`, job.id);
+      soundComplete();
+    }
+  });
+  if (needsRender) renderTracks();
+}, 900);
+
+// Advance queued → running
+setInterval(() => {
+  const running = JOBS.filter(j => j.status === 'running');
+  const queued = JOBS.filter(j => j.status === 'queued');
+  if (running.length === 0 && queued.length > 0) {
+    queued[0].status = 'running';
+    queued[0].progress = 0;
+    renderTracks();
+    pushEvent('info', `Extraction started: ${queued[0].title}`, queued[0].id);
+  }
+}, 5000);
+
+/* ============================================================
+   ACTIVITY FEED
+   ============================================================ */
+const EVENT_POOL = [
+  ['info',  'Worker poll — claim attempt'],
+  ['info',  'Playwright context ready'],
+  ['ok',    'Media URL captured via network intercept'],
+  ['info',  'ffmpeg HLS pipeline started'],
+  ['warn',  'Re-extracting after 403 response'],
+  ['ok',    'File written · checksum OK'],
+  ['info',  'Thumbnail generated'],
+  ['error', 'Extraction timed out (180s)'],
+  ['info',  'Atlas heartbeat · 11ms'],
+];
+
+let evIdx = 0;
+
+function pushEvent(level, msg, jobId) {
+  const feed = document.getElementById('activity-feed');
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const icons = { info: 'ℹ', ok: '✓', error: '!', warn: '⚠' };
+
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  row.innerHTML = `
+    <div class="event-line">
+      <div class="event-icon ${level}">${icons[level]}</div>
+      <div class="event-body">
+        <div class="event-msg">${msg}</div>
+        <div class="event-ts">${ts}${jobId ? ` · ${jobId}` : ''}</div>
+      </div>
+    </div>
+  `;
+
+  feed.insertBefore(row, feed.firstChild);
+  while (feed.children.length > 30) feed.removeChild(feed.lastChild);
+}
+
+[
+  ['ok',   'Server started · MongoDB connected'],
+  ['info', 'Worker queue active · 1s poll'],
+  ['ok',   'j1 completed · 842 MB'],
+  ['ok',   'j3 completed · 1.2 GB'],
+  ['info', 'j2 extraction in progress…'],
+].forEach(([l,m]) => pushEvent(l, m, null));
+
+setInterval(() => {
+  const [l, m] = EVENT_POOL[evIdx % EVENT_POOL.length];
+  pushEvent(l, m, null);
+  evIdx++;
+}, 2600);
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderTracks();
+</script>
+</body>
+</html>

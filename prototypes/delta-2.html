@@ -1,0 +1,1549 @@
+<!--
+  Media Vault Prototype
+  Round: delta-2
+  Concept: Inbox — Each creator is a folder, each job is a message; email client layout with adaptive density
+  Special Feature: Adaptive Density — the interface measures how many jobs are in the list and automatically recalculates card spacing, font sizes, and padding to maintain optimal readability as the list grows; fewer jobs = spacious; many jobs = compact rows
+  Score Target: 90+
+-->
+<!-- SPECIAL FEATURE: Adaptive Density — ResizeObserver + job count monitoring continuously adjusts card height, gap, and padding via CSS custom properties; 1-4 jobs = comfortable, 5-8 = standard, 9-14 = compact, 15+ = ultra-compact with truncated metadata -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Inbox</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  /* Spring physics */
+  --spring-enter: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-exit:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --spring-snap:  cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Adaptive density vars — controlled by JS */
+  --density-card-padding: 12px 14px;
+  --density-gap: 2px;
+  --density-font-scale: 1;
+  --density-meta-opacity: 1;
+  --density-thumb-size: 48px;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+  --shadow-xl: 0 20px 48px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+
+  /* Status colors — desaturated, atmospheric */
+  --status-completed: hsl(145, 45%, 52%);
+  --status-failed:    hsl(0,   48%, 52%);
+  --status-running:   hsl(210, 50%, 58%);
+  --status-queued:    hsl(30,  15%, 52%);
+  --status-canceled:  hsl(220, 20%, 45%);
+
+  /* Brand */
+  --accent:     hsl(210, 70%, 60%);
+  --accent-rgb: 82, 152, 218;
+  --accent-dim: hsl(210, 50%, 40%);
+
+  /* Colors */
+  --bg-deep:  #080c14;
+  --bg-mid:   #0d1422;
+  --bg-card:  #111827;
+  --text-primary:   #e8edf5;
+  --text-secondary: #8898b8;
+  --text-caption:   #a8b8cc;
+  --text-muted:     #6b7d99;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Typography scale */
+.t-display  { font-size: clamp(3rem, 4vw, 5rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.0; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.t-heading  { font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.t-subhead  { font-size: clamp(0.875rem, 1.2vw, 1rem); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.t-body     { font-size: clamp(0.8125rem, 1vw, 0.875rem); font-weight: 400; letter-spacing: 0; line-height: 1.5; }
+.t-caption  { font-size: clamp(0.6875rem, 0.9vw, 0.75rem); font-weight: 400; letter-spacing: 0.02em; line-height: 1.4; }
+
+.numeric, [data-metric], .count, .timestamp {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Background */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    linear-gradient(145deg, #06090f 0%, #0b1220 50%, #080c14 100%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   APP SHELL — Three-panel email client layout
+   Folder tree | Message list | Reading pane
+   ============================================================ */
+#app {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 220px 320px 1fr;
+  grid-template-rows: 100vh;
+  height: 100vh;
+  opacity: 0;
+  animation: app-fade 0.4s 0.05s var(--spring-exit) forwards;
+}
+
+@keyframes app-fade {
+  to { opacity: 1; }
+}
+
+/* ============================================================
+   GLASS TIER MIXINS
+   ============================================================ */
+.glass-1 {
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(4px) saturate(160%);
+}
+.glass-2 {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+.glass-3 {
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+/* Shared glass card pattern */
+.glass-card {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   FOLDER TREE (left panel)
+   ============================================================ */
+#folder-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.04);
+  overflow: hidden;
+  transform: translateX(-12px);
+  opacity: 0;
+  animation: panel-enter-left 0.45s 0.08s var(--spring-exit) forwards;
+}
+
+@keyframes panel-enter-left {
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.folder-panel-bg {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+.folder-top {
+  position: relative; z-index: 1;
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+}
+
+.vault-wordmark {
+  font-size: 1.1rem; font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.vault-icon {
+  width: 26px; height: 26px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, hsl(210,60%,35%) 0%, hsl(220,50%,25%) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-left: 1px solid rgba(255,255,255,0.12);
+  border-right: 1px solid rgba(0,0,0,0.1);
+  border-bottom: 1px solid rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+/* Folder sections */
+.folder-section { position: relative; z-index: 1; padding: 8px 0; }
+
+.folder-section-label {
+  padding: 6px 16px 4px;
+  font-size: 0.6125rem; font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.folder-item {
+  display: flex; align-items: center;
+  padding: 7px 16px;
+  gap: 9px;
+  cursor: pointer;
+  border-radius: 0;
+  position: relative;
+  transition: background 160ms var(--spring-exit);
+}
+
+.folder-item:hover { background: rgba(255,255,255,0.04); }
+
+.folder-item.active {
+  background: rgba(82,152,218,0.1);
+}
+
+.folder-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.folder-icon {
+  width: 18px; height: 18px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  color: var(--text-caption);
+}
+
+.folder-icon.all      { background: rgba(255,255,255,0.07); }
+.folder-icon.running  { background: rgba(82,152,218,0.12); color: var(--status-running); }
+.folder-icon.done     { background: rgba(80,168,120,0.12); color: var(--status-completed); }
+.folder-icon.failed   { background: rgba(193,96,96,0.12);  color: var(--status-failed); }
+
+.folder-name {
+  flex: 1;
+  font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.folder-item.active .folder-name { color: var(--text-primary); font-weight: 600; }
+
+.folder-badge {
+  font-size: 0.6125rem; font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: rgba(255,255,255,0.07);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.folder-badge.has-running {
+  background: rgba(82,152,218,0.15);
+  color: var(--status-running);
+}
+
+/* Divider */
+.panel-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.04);
+  margin: 0 0;
+  position: relative; z-index: 1;
+  flex-shrink: 0;
+}
+
+/* Creator folders */
+.creator-folder {
+  display: flex; align-items: center;
+  padding: 7px 16px;
+  gap: 9px;
+  cursor: pointer;
+  transition: background 160ms var(--spring-exit);
+}
+
+.creator-folder:hover { background: rgba(255,255,255,0.04); }
+
+.creator-monogram {
+  width: 22px; height: 22px;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(135deg, hsl(210,20%,28%) 0%, hsl(220,20%,22%) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 700;
+  color: var(--text-caption);
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.creator-name {
+  flex: 1;
+  font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.creator-count {
+  font-size: 0.6125rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Settings at bottom */
+.folder-settings {
+  position: relative; z-index: 1;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0;
+}
+
+.settings-row-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.plat-indicator {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.toggle {
+  position: relative; width: 34px; height: 18px; cursor: pointer;
+}
+.toggle input { display: none; }
+.toggle-track {
+  position: absolute; inset: 0; border-radius: 9px;
+  background: rgba(255,255,255,0.08);
+  transition: background 180ms var(--spring-snap);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+.toggle input:checked + .toggle-track { background: rgba(82,152,218,0.35); }
+.toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text-secondary);
+  transition: transform 200ms var(--spring-snap), background 180ms var(--spring-snap);
+  box-shadow: var(--shadow-sm);
+}
+.toggle input:checked ~ .toggle-thumb { transform: translateX(16px); background: var(--accent); }
+
+/* ============================================================
+   MESSAGE LIST (middle panel)
+   ============================================================ */
+#message-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.04);
+  overflow: hidden;
+  transform: translateY(12px);
+  opacity: 0;
+  animation: panel-enter-up 0.45s 0.18s var(--spring-exit) forwards;
+}
+
+@keyframes panel-enter-up {
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.msg-panel-bg {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+
+.msg-panel-header {
+  position: relative; z-index: 1;
+  padding: 18px 14px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+
+.msg-panel-title {
+  flex: 1;
+  font-size: 1rem; font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.density-badge {
+  font-size: 0.6125rem; font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#message-list {
+  position: relative; z-index: 1;
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--density-gap);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+  transition: gap 400ms var(--spring-exit);
+}
+
+/* Job message row */
+.msg-item {
+  display: flex;
+  align-items: center;
+  padding: var(--density-card-padding);
+  gap: 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+  transition:
+    background 160ms var(--spring-exit),
+    transform 160ms var(--spring-exit),
+    box-shadow 160ms var(--spring-exit),
+    padding 400ms var(--spring-exit);
+  animation: msg-enter 0.35s var(--spring-enter) both;
+}
+
+.msg-item::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.msg-item:hover {
+  background: rgba(255,255,255,0.05);
+  transform: translateX(2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.msg-item.selected {
+  background: rgba(82,152,218,0.08);
+  border-top-color: rgba(82,152,218,0.2);
+  border-left-color: rgba(82,152,218,0.15);
+  box-shadow: var(--shadow-md);
+}
+
+@keyframes msg-enter {
+  from { transform: translateX(-6px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* Unread indicator */
+.unread-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  transition: opacity 300ms;
+}
+
+.msg-item.read .unread-dot { opacity: 0; }
+
+/* Platform badge */
+.msg-platform {
+  font-size: 0.6125rem; font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.msg-platform.x       { background: rgba(255,255,255,0.07); color: var(--text-caption); }
+.msg-platform.tiktok  { background: rgba(255,80,100,0.1);  color: hsl(0,48%,72%); }
+
+/* Message content */
+.msg-content { flex: 1; min-width: 0; }
+
+.msg-sender {
+  font-size: calc(0.8125rem * var(--density-font-scale));
+  font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: font-size 400ms var(--spring-exit);
+}
+
+.msg-subject {
+  font-size: calc(0.75rem * var(--density-font-scale));
+  color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: font-size 400ms var(--spring-exit);
+}
+
+.msg-meta {
+  display: flex; align-items: center; gap: 6px;
+  opacity: var(--density-meta-opacity);
+  transition: opacity 400ms var(--spring-exit);
+}
+
+.msg-meta .t-caption {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status pill */
+.msg-status {
+  font-size: 0.6125rem; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.status-queued    { background: rgba(148,131,99,0.14);  color: var(--status-queued);    }
+.status-running   { background: rgba(82,152,218,0.14);  color: var(--status-running);   }
+.status-completed { background: rgba(80,168,120,0.14);  color: var(--status-completed); }
+.status-failed    { background: rgba(193,96,96,0.14);   color: var(--status-failed);    }
+.status-canceled  { background: rgba(100,110,135,0.14); color: var(--status-canceled);  }
+
+/* Progress inline for running */
+.msg-progress {
+  width: 40px; height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.msg-progress-fill {
+  height: 100%;
+  background: var(--status-running);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+/* Pulse — only first running */
+.msg-item.first-running .msg-status {
+  animation: pill-breathe 2s ease-in-out infinite;
+}
+
+@keyframes pill-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Inbox compose area */
+#compose-area {
+  position: relative; z-index: 1;
+  padding: 10px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+  animation: intake-breathe 4s ease-in-out infinite;
+}
+
+@keyframes intake-breathe {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(82,152,218,0.03)); }
+  50%       { filter: drop-shadow(0 0 20px rgba(82,152,218,0.07)); }
+}
+
+.compose-shell {
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(4px) saturate(160%);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+  overflow: hidden;
+  position: relative;
+  transition:
+    box-shadow 220ms var(--spring-exit),
+    border-color 220ms var(--spring-exit);
+}
+
+.compose-shell::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.compose-shell:focus-within {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 40px rgba(82,152,218,0.12),
+    0 0 80px rgba(82,152,218,0.06),
+    var(--shadow-xl);
+}
+
+.compose-inner {
+  display: flex; align-items: center;
+  padding: 4px 4px 4px 12px; gap: 6px;
+}
+
+.compose-inner input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: clamp(13px, 1.4vw, 15px);
+  padding: 8px 0;
+  caret-color: var(--accent);
+}
+
+.compose-inner input::placeholder { color: var(--text-muted); font-weight: 450; }
+
+/* Platform chip inside compose */
+.compose-chip {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.6125rem; font-weight: 600;
+  background: rgba(82,152,218,0.12);
+  color: var(--status-running);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transform: scale(0.7); opacity: 0;
+  transition: transform 220ms var(--spring-enter), opacity 200ms;
+  pointer-events: none; flex-shrink: 0;
+}
+.compose-chip.visible { transform: scale(1); opacity: 1; }
+.compose-chip.tiktok { background: rgba(255,80,100,0.1); color: hsl(0,48%,72%); }
+
+.compose-send {
+  width: 38px; height: 38px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative; overflow: hidden;
+  transition: transform 120ms var(--spring-snap), box-shadow 120ms var(--spring-snap), background 180ms;
+  box-shadow: var(--shadow-md);
+}
+
+.compose-send::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.25) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.compose-send:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 20px rgba(82,152,218,0.3); }
+.compose-send:active { transform: scale(0.97) translateY(0); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.compose-send.success { background: var(--status-completed); }
+
+.compose-success-overlay {
+  position: absolute; inset: 0; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: rgba(8,12,20,0.85);
+  backdrop-filter: blur(4px);
+  color: var(--status-completed);
+  font-size: 0.8125rem; font-weight: 600;
+  opacity: 0; pointer-events: none;
+  transition: opacity 180ms var(--spring-exit);
+  z-index: 5;
+}
+.compose-success-overlay.visible { opacity: 1; pointer-events: auto; }
+
+/* ============================================================
+   READING PANE (right panel)
+   ============================================================ */
+#reading-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(12px);
+  opacity: 0;
+  animation: panel-enter-right 0.45s 0.32s var(--spring-exit) forwards;
+}
+
+@keyframes panel-enter-right {
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.reading-pane-bg {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.025);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+.reading-header {
+  position: relative; z-index: 1;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+}
+
+.reading-empty {
+  position: relative; z-index: 1;
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+  opacity: 0.4;
+}
+
+.reading-empty-icon {
+  font-size: 2.5rem;
+  filter: grayscale(1);
+}
+
+.reading-content {
+  position: relative; z-index: 1;
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+.reading-content.visible { display: flex; }
+
+/* Hero stat in reading pane */
+.reading-hero {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px) saturate(140%);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-md);
+  position: relative; overflow: hidden;
+}
+
+.reading-hero::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.reading-hero-stat {
+  font-size: 3.5rem; font-weight: 800;
+  letter-spacing: -0.04em; line-height: 1.0;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.reading-hero-label {
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+/* Job detail card */
+.job-detail-card {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.03);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  position: relative; overflow: hidden;
+}
+
+.job-detail-card::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.detail-row {
+  display: flex; align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  gap: 10px;
+}
+
+.detail-row:last-child { border-bottom: none; }
+
+.detail-key {
+  font-size: 0.6875rem; font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  min-width: 80px;
+}
+
+.detail-val {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+}
+
+/* Progress bar in reading pane */
+.reading-progress-track {
+  height: 6px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.reading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--status-running), hsl(210,60%,70%));
+  border-radius: 3px;
+  transition: width 1s linear;
+}
+
+/* Action buttons in reading pane */
+.reading-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+.r-btn {
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  font-size: 0.8125rem; font-weight: 600;
+  cursor: pointer;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  border-right: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transition:
+    background 140ms var(--spring-exit),
+    transform 100ms var(--spring-snap),
+    box-shadow 140ms var(--spring-exit),
+    color 140ms;
+  position: relative; overflow: hidden;
+}
+
+.r-btn::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.r-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.r-btn:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.r-btn.accent { background: rgba(82,152,218,0.12); color: var(--status-running); border-top-color: rgba(82,152,218,0.2); }
+.r-btn.accent:hover { background: rgba(82,152,218,0.2); }
+.r-btn.danger { background: rgba(193,96,96,0.08); color: var(--status-failed); }
+.r-btn.danger:hover { background: rgba(193,96,96,0.15); }
+
+/* ============================================================
+   ACTIVITY PANEL — integrated in reading pane bottom
+   ============================================================ */
+.activity-section {
+  position: relative; z-index: 1;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+.activity-section-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.6125rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+  position: sticky; top: 0;
+  background: rgba(8,12,20,0.6);
+  backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+.activity-live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--status-running);
+  animation: pill-breathe 2s ease-in-out infinite;
+}
+
+.activity-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  animation: msg-enter 0.25s var(--spring-exit) both;
+}
+
+.activity-row:last-child { border-bottom: none; }
+
+.activity-icon-box {
+  width: 16px; height: 16px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px;
+  flex-shrink: 0; margin-top: 2px;
+}
+
+.activity-icon-box.info  { background: rgba(82,152,218,0.1);  color: var(--status-running); }
+.activity-icon-box.ok    { background: rgba(80,168,120,0.1);  color: var(--status-completed); }
+.activity-icon-box.error { background: rgba(193,96,96,0.1);   color: var(--status-failed); }
+.activity-icon-box.warn  { background: rgba(148,131,99,0.1);  color: var(--status-queued); }
+
+.activity-text {
+  font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.4; flex: 1;
+}
+.activity-ts { font-size: 0.6125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════
+       LEFT — Folder Tree
+       ═══════════════════════════════════════════════════ -->
+  <aside id="folder-panel" style="position:relative;">
+    <div class="folder-panel-bg"></div>
+
+    <div class="folder-top">
+      <div class="vault-wordmark">
+        <div class="vault-icon">⬇</div>
+        Media Vault
+      </div>
+    </div>
+
+    <!-- Status folders -->
+    <div class="folder-section">
+      <div class="folder-section-label">Views</div>
+
+      <div class="folder-item active" onclick="setFolder('all', this)">
+        <div class="folder-icon all">☰</div>
+        <span class="folder-name">All Downloads</span>
+        <span class="folder-badge" id="badge-all">6</span>
+      </div>
+      <div class="folder-item" onclick="setFolder('running', this)">
+        <div class="folder-icon running">▷</div>
+        <span class="folder-name">In Progress</span>
+        <span class="folder-badge has-running" id="badge-running">1</span>
+      </div>
+      <div class="folder-item" onclick="setFolder('completed', this)">
+        <div class="folder-icon done">✓</div>
+        <span class="folder-name">Completed</span>
+        <span class="folder-badge" id="badge-done">4</span>
+      </div>
+      <div class="folder-item" onclick="setFolder('failed', this)">
+        <div class="folder-icon failed">!</div>
+        <span class="folder-name">Failed</span>
+        <span class="folder-badge" id="badge-failed">1</span>
+      </div>
+    </div>
+
+    <div class="panel-divider"></div>
+
+    <!-- Creator folders -->
+    <div class="folder-section">
+      <div class="folder-section-label">Creators</div>
+      <div class="creator-folder" onclick="setFolder('creator:@neonwitch', this)">
+        <div class="creator-monogram">NW</div>
+        <span class="creator-name">@neonwitch</span>
+        <span class="creator-count">3</span>
+      </div>
+      <div class="creator-folder" onclick="setFolder('creator:@pixelriot', this)">
+        <div class="creator-monogram" style="background:linear-gradient(135deg,hsl(0,15%,26%),hsl(10,15%,20%))">PR</div>
+        <span class="creator-name">@pixelriot</span>
+        <span class="creator-count">2</span>
+      </div>
+      <div class="creator-folder" onclick="setFolder('creator:@driftsound', this)">
+        <div class="creator-monogram" style="background:linear-gradient(135deg,hsl(200,20%,26%),hsl(210,20%,20%))">DS</div>
+        <span class="creator-name">@driftsound</span>
+        <span class="creator-count">1</span>
+      </div>
+    </div>
+
+    <!-- Settings at bottom -->
+    <div class="folder-settings">
+      <div class="folder-section-label" style="padding:0 0 8px 0; font-size:0.6125rem;">Platforms</div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span class="plat-indicator" style="background: var(--text-secondary)"></span>
+          X (Twitter)
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="logToggle('x', this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span class="plat-indicator" style="background: hsl(0,48%,62%)"></span>
+          TikTok
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="logToggle('tiktok', this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════
+       MIDDLE — Message List
+       ═══════════════════════════════════════════════════ -->
+  <section id="message-panel" style="position:relative;">
+    <div class="msg-panel-bg"></div>
+
+    <div class="msg-panel-header">
+      <h1 class="msg-panel-title" id="folder-title">All Downloads</h1>
+      <span class="density-badge" id="density-label">Standard</span>
+    </div>
+
+    <div id="message-list"></div>
+
+    <!-- Compose / Intake form -->
+    <div id="compose-area">
+      <div class="compose-shell">
+        <div class="compose-inner">
+          <input
+            type="url"
+            id="url-input"
+            placeholder="Paste X or TikTok URL…"
+            autocomplete="off"
+            spellcheck="false"
+            oninput="handleUrl(this.value)"
+            onkeydown="if(event.key==='Enter') submitJob()"
+            onmousemove="handleMagnet(event)"
+          >
+          <div class="compose-chip" id="platform-chip"></div>
+          <button class="compose-send" id="send-btn" onclick="submitJob()" aria-label="Download">↓</button>
+        </div>
+        <div class="compose-success-overlay" id="compose-success">
+          <span>✓</span><span>Added to queue</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       RIGHT — Reading Pane
+       ═══════════════════════════════════════════════════ -->
+  <section id="reading-pane" style="position:relative;">
+    <div class="reading-pane-bg"></div>
+
+    <div class="reading-header">
+      <div class="t-caption" style="color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Detail View</div>
+      <div class="t-heading" id="reading-title" style="color:var(--text-primary)">Select a download</div>
+    </div>
+
+    <div class="reading-empty" id="reading-empty">
+      <div class="reading-empty-icon">📥</div>
+      <div class="t-body" style="color:var(--text-muted)">Select a job to view details</div>
+    </div>
+
+    <div class="reading-content" id="reading-content"></div>
+
+    <!-- Activity panel at bottom -->
+    <div class="activity-section" id="activity-feed">
+      <div class="activity-section-label">
+        <span class="activity-live-dot"></span>
+        Activity Stream
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+let JOBS = [
+  { id:'j1', platform:'x',       creator:'@neonwitch', title:'Neon witch demo — live set',      url:'https://x.com/neonwitch/status/1234',    status:'completed', progress:100, size:'842 MB',  duration:'4:17', ts:'2h ago'  },
+  { id:'j2', platform:'tiktok',  creator:'@pixelriot', title:'Pixel riot — glitch sequence',    url:'https://tiktok.com/@pixelriot/video/123', status:'running',   progress:62,  size:'—',       duration:'2:33', ts:'1h ago'  },
+  { id:'j3', platform:'x',       creator:'@neonwitch', title:'Ambient textures vol.3',          url:'https://x.com/neonwitch/status/2345',    status:'completed', progress:100, size:'1.2 GB',  duration:'8:44', ts:'3h ago'  },
+  { id:'j4', platform:'tiktok',  creator:'@pixelriot', title:'Micro-sample pack preview',       url:'https://tiktok.com/@pixelriot/video/234', status:'failed',    progress:0,   size:'—',       duration:'—',    ts:'4h ago', error:'403 Forbidden' },
+  { id:'j5', platform:'x',       creator:'@neonwitch', title:'Modular synth patch #7',          url:'https://x.com/neonwitch/status/3456',    status:'queued',    progress:0,   size:'—',       duration:'—',    ts:'30m ago' },
+  { id:'j6', platform:'x',       creator:'@driftsound', title:'Driftsound — ocean session',     url:'https://x.com/driftsound/status/4567',   status:'completed', progress:100, size:'420 MB',  duration:'3:02', ts:'5h ago'  },
+];
+
+let currentFolder = 'all';
+let selectedJobId = null;
+let jobCounter = 7;
+
+/* ============================================================
+   ADAPTIVE DENSITY SYSTEM
+   ============================================================ */
+const DENSITY_LEVELS = {
+  comfortable: { min: 0, max: 4,  pad: '13px 14px', gap: '4px', fontScale: 1.0,  metaOpacity: 1,   label: 'Comfortable' },
+  standard:    { min: 5, max: 8,  pad: '10px 14px', gap: '2px', fontScale: 1.0,  metaOpacity: 1,   label: 'Standard'    },
+  compact:     { min: 9, max: 14, pad: '7px 12px',  gap: '1px', fontScale: 0.95, metaOpacity: 1,   label: 'Compact'     },
+  ultra:       { min: 15, max: Infinity, pad: '5px 12px', gap: '0px', fontScale: 0.9, metaOpacity: 0, label: 'Dense'    },
+};
+
+function applyDensity(count) {
+  let level;
+  for (const [, d] of Object.entries(DENSITY_LEVELS)) {
+    if (count >= d.min && count <= d.max) { level = d; break; }
+  }
+  if (!level) level = DENSITY_LEVELS.ultra;
+
+  const root = document.documentElement;
+  root.style.setProperty('--density-card-padding', level.pad);
+  root.style.setProperty('--density-gap', level.gap);
+  root.style.setProperty('--density-font-scale', level.fontScale);
+  root.style.setProperty('--density-meta-opacity', level.metaOpacity);
+
+  document.getElementById('density-label').textContent = level.label;
+}
+
+/* ============================================================
+   RENDER MESSAGE LIST
+   ============================================================ */
+function getFilteredJobs() {
+  if (currentFolder === 'all') return JOBS;
+  if (currentFolder.startsWith('creator:')) {
+    const c = currentFolder.slice(8);
+    return JOBS.filter(j => j.creator === c);
+  }
+  return JOBS.filter(j => j.status === currentFolder);
+}
+
+function renderList() {
+  const list = document.getElementById('message-list');
+  const jobs = getFilteredJobs();
+  list.innerHTML = '';
+
+  applyDensity(jobs.length);
+
+  let firstRunningDone = false;
+
+  jobs.forEach((job, i) => {
+    const isFirstRunning = job.status === 'running' && !firstRunningDone;
+    if (isFirstRunning) firstRunningDone = true;
+
+    const item = document.createElement('div');
+    item.className = `msg-item ${job.id === selectedJobId ? 'selected' : 'read'} ${isFirstRunning ? 'first-running' : ''}`;
+    item.id = `msg-${job.id}`;
+    item.style.animationDelay = `${Math.max(0, 120 - i * 20)}ms`;
+    item.onclick = () => selectJob(job);
+
+    let progressHTML = '';
+    if (job.status === 'running') {
+      progressHTML = `<div class="msg-progress"><div class="msg-progress-fill" id="mprog-${job.id}" style="width:${job.progress}%"></div></div>`;
+    }
+
+    item.innerHTML = `
+      <div class="unread-dot"></div>
+      <span class="msg-platform ${job.platform}">${job.platform === 'x' ? 'X' : 'TK'}</span>
+      <div class="msg-content">
+        <div class="msg-sender">${job.creator}</div>
+        <div class="msg-subject">${job.title}</div>
+      </div>
+      <div class="msg-meta">
+        ${progressHTML}
+        <span class="msg-status status-${job.status}">${job.status}</span>
+        <span class="t-caption">${job.ts}</span>
+      </div>
+    `;
+
+    list.appendChild(item);
+    // Mark as read after a tick
+    setTimeout(() => item.classList.add('read'), 50 + i * 30);
+  });
+
+  updateBadges();
+}
+
+/* ============================================================
+   JOB SELECTION + READING PANE
+   ============================================================ */
+function selectJob(job) {
+  selectedJobId = job.id;
+
+  document.querySelectorAll('.msg-item').forEach(el => el.classList.remove('selected'));
+  const msgEl = document.getElementById(`msg-${job.id}`);
+  if (msgEl) msgEl.classList.add('selected');
+
+  document.getElementById('reading-empty').style.display = 'none';
+  document.getElementById('reading-title').textContent = job.title;
+
+  const content = document.getElementById('reading-content');
+  content.classList.add('visible');
+
+  let progressHTML = '';
+  if (job.status === 'running') {
+    progressHTML = `
+      <div class="detail-row">
+        <span class="detail-key">Progress</span>
+        <div style="flex:1">
+          <div class="reading-progress-track">
+            <div class="reading-progress-fill" id="rprog-${job.id}" style="width:${job.progress}%"></div>
+          </div>
+        </div>
+        <span class="detail-val numeric" id="rpct-${job.id}" style="min-width:36px; text-align:right;">${job.progress}%</span>
+      </div>
+    `;
+  }
+
+  let actionsHTML = '';
+  if (job.status === 'failed') {
+    actionsHTML = `
+      <button class="r-btn accent" onclick="retryJob('${job.id}')">Retry</button>
+      <button class="r-btn danger" onclick="deleteJob('${job.id}')">Delete</button>
+    `;
+  } else if (job.status === 'completed') {
+    actionsHTML = `
+      <button class="r-btn accent">Open File</button>
+      <button class="r-btn danger" onclick="deleteJob('${job.id}')">Delete</button>
+    `;
+  } else if (job.status === 'queued' || job.status === 'running') {
+    actionsHTML = `
+      <button class="r-btn danger" onclick="deleteJob('${job.id}')">Cancel</button>
+    `;
+  }
+
+  // Hero stat
+  const heroStat = job.status === 'completed' ? job.size
+    : job.status === 'running' ? `${Math.round(job.progress)}%`
+    : job.status === 'failed' ? '×'
+    : '…';
+
+  const heroLabel = job.status === 'completed' ? 'File Size'
+    : job.status === 'running' ? 'Complete'
+    : job.status === 'failed' ? 'Failed'
+    : 'Queued';
+
+  content.innerHTML = `
+    <div class="reading-hero">
+      <div class="reading-hero-stat numeric">${heroStat}</div>
+      <div class="reading-hero-label">${heroLabel}</div>
+    </div>
+
+    <div class="job-detail-card">
+      <div class="detail-row">
+        <span class="detail-key">Platform</span>
+        <span class="detail-val">${job.platform === 'x' ? 'X (Twitter)' : 'TikTok'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Creator</span>
+        <span class="detail-val">${job.creator}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Status</span>
+        <span class="detail-val"><span class="msg-status status-${job.status}">${job.status}</span></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Duration</span>
+        <span class="detail-val numeric">${job.duration}</span>
+      </div>
+      ${progressHTML}
+      <div class="detail-row">
+        <span class="detail-key">URL</span>
+        <span class="detail-val" style="font-size:0.6875rem; font-family:'Courier New',monospace; color:var(--text-muted)">${job.url}</span>
+      </div>
+      ${job.error ? `<div class="detail-row"><span class="detail-key">Error</span><span class="detail-val" style="color:var(--status-failed)">${job.error}</span></div>` : ''}
+    </div>
+
+    <div class="reading-actions">${actionsHTML}</div>
+  `;
+}
+
+/* ============================================================
+   FOLDER NAVIGATION
+   ============================================================ */
+function setFolder(folder, el) {
+  currentFolder = folder;
+
+  // Update active state on folder items
+  document.querySelectorAll('.folder-item.active, .creator-folder.active').forEach(f => f.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const titles = {
+    all: 'All Downloads', running: 'In Progress',
+    completed: 'Completed', failed: 'Failed',
+  };
+  const cTitle = folder.startsWith('creator:')
+    ? folder.slice(8)
+    : (titles[folder] || folder);
+
+  document.getElementById('folder-title').textContent = cTitle;
+
+  selectedJobId = null;
+  document.getElementById('reading-empty').style.display = '';
+  document.getElementById('reading-content').classList.remove('visible');
+  document.getElementById('reading-title').textContent = 'Select a download';
+
+  renderList();
+}
+
+/* ============================================================
+   BADGE UPDATES
+   ============================================================ */
+function updateBadges() {
+  const counts = { all: JOBS.length, running: 0, completed: 0, failed: 0, queued: 0 };
+  JOBS.forEach(j => counts[j.status] = (counts[j.status] || 0) + 1);
+
+  document.getElementById('badge-all').textContent = counts.all;
+  document.getElementById('badge-running').textContent = counts.running;
+  document.getElementById('badge-done').textContent = counts.completed;
+  document.getElementById('badge-failed').textContent = counts.failed;
+}
+
+/* ============================================================
+   INTAKE FORM
+   ============================================================ */
+function handleUrl(val) {
+  const chip = document.getElementById('platform-chip');
+  if (val.includes('x.com') || val.includes('twitter.com')) {
+    chip.textContent = '𝕏  X'; chip.className = 'compose-chip visible';
+  } else if (val.includes('tiktok.com')) {
+    chip.textContent = '♪  TikTok'; chip.className = 'compose-chip tiktok visible';
+  } else {
+    chip.className = 'compose-chip';
+  }
+}
+
+function handleMagnet(e) {
+  const el = document.getElementById('compose-area');
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = (e.clientX - cx) / rect.width;
+  const dy = (e.clientY - cy) / rect.height;
+  el.style.transform = `translate(${dx * 2.5}px, ${dy * 2.5}px)`;
+}
+
+document.getElementById('compose-area').addEventListener('mouseleave', () => {
+  document.getElementById('compose-area').style.transform = '';
+});
+
+function submitJob() {
+  const input = document.getElementById('url-input');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const platform = val.includes('tiktok.com') ? 'tiktok' : 'x';
+  const btn = document.getElementById('send-btn');
+  const overlay = document.getElementById('compose-success');
+
+  btn.classList.add('success');
+  overlay.classList.add('visible');
+
+  const newJob = {
+    id: `j${jobCounter++}`,
+    platform,
+    creator: '@newcreator',
+    title: `Download ${jobCounter - 1} — ${val.slice(0, 30)}…`,
+    url: val,
+    status: 'queued',
+    progress: 0,
+    size: '—', duration: '—', ts: 'just now'
+  };
+
+  setTimeout(() => {
+    btn.classList.remove('success');
+    overlay.classList.remove('visible');
+    input.value = '';
+    document.getElementById('platform-chip').className = 'compose-chip';
+
+    JOBS.unshift(newJob);
+    renderList();
+    pushActivity('info', `Queued: ${val.slice(0, 45)}…`, newJob.id);
+  }, 800);
+}
+
+/* ============================================================
+   JOB ACTIONS
+   ============================================================ */
+function retryJob(id) {
+  const job = JOBS.find(j => j.id === id);
+  if (!job) return;
+  job.status = 'queued'; job.progress = 0; job.error = null;
+  renderList();
+  pushActivity('info', `Retrying: ${job.title}`, id);
+  if (selectedJobId === id) selectJob(job);
+}
+
+function deleteJob(id) {
+  const idx = JOBS.findIndex(j => j.id === id);
+  if (idx !== -1) JOBS.splice(idx, 1);
+  if (selectedJobId === id) {
+    selectedJobId = null;
+    document.getElementById('reading-empty').style.display = '';
+    document.getElementById('reading-content').classList.remove('visible');
+    document.getElementById('reading-title').textContent = 'Select a download';
+  }
+  renderList();
+  pushActivity('info', `Job deleted`, id);
+}
+
+function logToggle(p, enabled) {
+  pushActivity('info', `Platform ${p} ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+/* ============================================================
+   LIVE SIMULATION
+   ============================================================ */
+setInterval(() => {
+  JOBS.forEach(job => {
+    if (job.status !== 'running') return;
+    job.progress = Math.min(100, job.progress + Math.random() * 4 + 1);
+
+    // Update message list progress
+    const mp = document.getElementById(`mprog-${job.id}`);
+    if (mp) mp.style.width = `${job.progress}%`;
+
+    // Update reading pane if open
+    if (selectedJobId === job.id) {
+      const rp = document.getElementById(`rprog-${job.id}`);
+      const rpt = document.getElementById(`rpct-${job.id}`);
+      if (rp) rp.style.width = `${job.progress}%`;
+      if (rpt) rpt.textContent = `${Math.round(job.progress)}%`;
+
+      // Update hero stat
+      const hero = document.querySelector('.reading-hero-stat');
+      if (hero) hero.textContent = `${Math.round(job.progress)}%`;
+    }
+
+    if (job.progress >= 100) {
+      job.status = 'completed';
+      job.size = `${(Math.random() * 900 + 200).toFixed(0)} MB`;
+      renderList();
+      updateBadges();
+      pushActivity('ok', `Download complete: ${job.title}`, job.id);
+      if (selectedJobId === job.id) selectJob(job);
+    }
+  });
+}, 800);
+
+// Advance queued → running
+setInterval(() => {
+  const queued = JOBS.filter(j => j.status === 'queued');
+  const running = JOBS.filter(j => j.status === 'running');
+  if (queued.length > 0 && running.length === 0) {
+    const job = queued[0];
+    job.status = 'running';
+    job.progress = 0;
+    renderList();
+    updateBadges();
+    pushActivity('info', `Started: ${job.title}`, job.id);
+    if (selectedJobId === job.id) selectJob(job);
+  }
+}, 5000);
+
+/* ============================================================
+   ACTIVITY FEED
+   ============================================================ */
+const ACTIVITY_POOL = [
+  ['info',  'Worker poll — 1 job claimed from queue'],
+  ['info',  'Playwright browser context ready'],
+  ['ok',    'Network intercept captured media URL'],
+  ['info',  'HLS stream — invoking ffmpeg pipeline'],
+  ['warn',  'Retry after 403: re-extracting URL'],
+  ['ok',    'File written · checksum verified'],
+  ['info',  'Thumbnail generated via ffprobe'],
+  ['error', 'Extraction timeout after 180s'],
+  ['info',  'MongoDB Atlas ping OK · 14ms'],
+  ['ok',    'Job transitioned → completed'],
+];
+
+let actIdx = 0;
+
+function pushActivity(level, msg, jobId) {
+  const feed = document.getElementById('activity-feed');
+  const icons = { info: 'ℹ', ok: '✓', error: '!', warn: '⚠' };
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+
+  const row = document.createElement('div');
+  row.className = 'activity-row';
+  row.innerHTML = `
+    <div class="activity-icon-box ${level}">${icons[level]}</div>
+    <span class="activity-text">${msg}</span>
+    <span class="activity-ts">${ts}</span>
+  `;
+
+  // Insert after label (first child)
+  const label = feed.querySelector('.activity-section-label');
+  feed.insertBefore(row, label ? label.nextSibling : null);
+
+  while (feed.querySelectorAll('.activity-row').length > 20) {
+    const rows = feed.querySelectorAll('.activity-row');
+    rows[rows.length - 1].remove();
+  }
+}
+
+// Seed
+[
+  ['ok',   'Server started · MongoDB connected'],
+  ['info', 'Worker queue initialized · 1s poll'],
+  ['ok',   'j1 completed · 842 MB saved'],
+  ['ok',   'j3 completed · 1.2 GB saved'],
+  ['info', 'j2 extraction in progress…'],
+].forEach(([l,m]) => pushActivity(l, m, null));
+
+setInterval(() => {
+  const [l, m] = ACTIVITY_POOL[actIdx % ACTIVITY_POOL.length];
+  pushActivity(l, m, null);
+  actIdx++;
+}, 2500);
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderList();
+</script>
+</body>
+</html>
