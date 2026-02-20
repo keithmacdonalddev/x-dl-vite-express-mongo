@@ -48,3 +48,12 @@ Automated verification gate passed with the following commands:
 Manual split smoke test status:
 
 - Not yet recorded in this file. Run API + worker + client in split mode and verify worker health + telemetry stream behavior end-to-end.
+
+## Regression IDs
+
+| ID | Description | Test File | Frequency |
+|----|-------------|-----------|-----------|
+| REG-UI-001 | Contact chip without thumbnail does not overlap text | `client/src/lib/contactChipPresentation.test.js` | Pre-merge + CI |
+| REG-UI-002 | Failed job row shows failure reason/fallback failed text | `client/src/features/dashboard/jobPresentation.test.js` | Pre-merge + CI |
+| REG-SRV-001 | Extractor rejects placeholder playback media and emits unavailable/no-media failure codes | `server/test/services/extractor-quality-selection.test.js`, `server/test/services/extractor-failure-classification.test.js` | Pre-merge + CI |
+| REG-SRV-002 | Worker persists typed extractor failure outcomes to job metadata | `server/test/worker/process-job-failure-outcome.test.js` | Pre-merge + CI |
