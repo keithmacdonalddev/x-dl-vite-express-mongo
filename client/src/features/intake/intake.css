@@ -287,6 +287,81 @@ button.vault-chip:hover:not(:disabled) {
   50% { transform: translateX(2px); }
 }
 
+/* Auth status chip — sits below the enable/disable chip within a platform group */
+.vault-platform-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.vault-auth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid #b7ccdc;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4d6573;
+  background: linear-gradient(180deg, #f8fcff 0%, #f0f5f9 100%);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 180ms ease, transform 140ms ease;
+}
+
+.vault-auth-chip:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.vault-auth-chip.is-connected {
+  border-color: #6cb98a;
+  color: #216846;
+  background: linear-gradient(180deg, #f3fbf6 0%, #e4f4ea 100%);
+}
+
+.vault-auth-chip.is-disconnected {
+  border-color: #c4d0d8;
+  color: #4d6573;
+}
+
+.vault-auth-chip.is-connecting {
+  border-color: #a3c1de;
+  color: #0b6bcb;
+}
+
+.vault-auth-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Green/gray dot indicator */
+.auth-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b6c7d3;
+  flex-shrink: 0;
+}
+
+.auth-dot.is-active {
+  background: #41a466;
+  box-shadow: 0 0 4px rgba(65, 164, 102, 0.4);
+}
+
+/* Connecting animation */
+.vault-auth-chip.is-connecting .auth-dot {
+  background: var(--accent);
+  animation: auth-dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes auth-dot-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vault-experience::before,
   .vault-experience.is-pulsing,
@@ -297,6 +372,14 @@ button.vault-chip:hover:not(:disabled) {
   .vault-input-shell,
   .vault-paste-btn,
   .vault-chip {
+    transition: none !important;
+  }
+
+  .vault-auth-chip.is-connecting .auth-dot {
+    animation: none !important;
+  }
+
+  .vault-auth-chip {
     transition: none !important;
   }
 }

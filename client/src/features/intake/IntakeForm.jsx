@@ -1,6 +1,7 @@
 // eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useIntake } from './useIntake'
+import { useAuthStatus } from '../../hooks/useAuthStatus'
 import { PLATFORMS } from '../../platforms/index'
 import './intake.css'
 
@@ -24,6 +25,14 @@ export function IntakeForm({ onCreated, onDuplicate, isBusy }) {
     duplicateActiveJob,
     handleViewExistingJob,
   } = useIntake({ onCreated, onDuplicate })
+
+  const {
+    authStatus,
+    isConnecting,
+    authError,
+    connectPlatform,
+    disconnectPlatform,
+  } = useAuthStatus()
 
   return (
     <motion.section
@@ -99,20 +108,49 @@ export function IntakeForm({ onCreated, onDuplicate, isBusy }) {
         <div className="vault-chip-row" aria-label="Source availability">
           {PLATFORMS.map((platform) => {
             const enabled = platformCapabilities[platform.id] === true
+            const auth = authStatus[platform.id] || {}
+            const isThisConnecting = isConnecting === platform.id
+
             return (
-              <motion.button
-                key={platform.id}
-                type="button"
-                className={`vault-chip ${enabled ? 'is-enabled' : 'is-disabled'}`}
-                title={enabled ? `${platform.label} downloads enabled. Click to disable.` : `${platform.label} downloads disabled. Click to enable.`}
-                onClick={() => handleTogglePlatform(platform.id)}
-                disabled={isUpdatingCapabilities || isSubmitting || isBusy}
-                whileHover={prefersReducedMotion ? undefined : { y: -1 }}
-                whileTap={prefersReducedMotion ? undefined : { y: 0.5, scale: 0.99 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 26, mass: 0.72 }}
-              >
-                {enabled ? `${platform.label} enabled` : `${platform.label} disabled`}
-              </motion.button>
+              <div key={platform.id} className="vault-platform-group">
+                <motion.button
+                  type="button"
+                  className={`vault-chip ${enabled ? 'is-enabled' : 'is-disabled'}`}
+                  title={enabled ? `${platform.label} downloads enabled. Click to disable.` : `${platform.label} downloads disabled. Click to enable.`}
+                  onClick={() => handleTogglePlatform(platform.id)}
+                  disabled={isUpdatingCapabilities || isSubmitting || isBusy}
+                  whileHover={prefersReducedMotion ? undefined : { y: -1 }}
+                  whileTap={prefersReducedMotion ? undefined : { y: 0.5, scale: 0.99 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 26, mass: 0.72 }}
+                >
+                  {enabled ? `${platform.label} enabled` : `${platform.label} disabled`}
+                </motion.button>
+
+                {enabled && (
+                  <button
+                    type="button"
+                    className={`vault-auth-chip ${auth.connected ? 'is-connected' : 'is-disconnected'}${isThisConnecting ? ' is-connecting' : ''}`}
+                    onClick={() => auth.connected ? disconnectPlatform(platform.id) : connectPlatform(platform.id)}
+                    disabled={isThisConnecting || isSubmitting || isBusy}
+                    title={
+                      auth.connected
+                        ? `${platform.label} session active. Click to disconnect.`
+                        : isThisConnecting
+                        ? `Waiting for ${platform.label} login...`
+                        : `Connect ${platform.label} account`
+                    }
+                  >
+                    <span className={`auth-dot ${auth.connected ? 'is-active' : ''}`} aria-hidden="true" />
+                    <span>
+                      {auth.connected
+                        ? 'Connected'
+                        : isThisConnecting
+                        ? 'Waiting for login...'
+                        : 'Connect'}
+                    </span>
+                  </button>
+                )}
+              </div>
             )
           })}
           <span className="vault-chip is-neutral" title="Clipboard paste available">
@@ -135,9 +173,10 @@ export function IntakeForm({ onCreated, onDuplicate, isBusy }) {
           )}
         </AnimatePresence>
 
-        {submitError && (
+        {(submitError || authError) && (
           <div className="vault-submit-feedback">
-            <p className="error">{submitError}</p>
+            {submitError && <p className="error">{submitError}</p>}
+            {authError && <p className="error">{authError}</p>}
             {duplicateActiveJob && (
               <button
                 type="button"

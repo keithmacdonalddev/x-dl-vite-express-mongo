@@ -2,6 +2,7 @@ const JOBS_API_BASE = '/api/jobs'
 const CAPABILITIES_API = '/api/capabilities'
 const TELEMETRY_API = '/api/telemetry'
 const DISCOVERY_API = '/api/discovery'
+const AUTH_API = '/api/auth'
 
 async function parseResponse(response) {
   const data = await response.json().catch(() => ({}))
@@ -164,6 +165,25 @@ export async function refreshDiscovery(accountSlug) {
     headers: {
       'Content-Type': 'application/json',
     },
+  })
+  return parseResponse(response)
+}
+
+export async function getAuthStatus() {
+  const response = await fetch(`${AUTH_API}/status`)
+  return parseResponse(response)
+}
+
+export async function connectPlatformApi(platformId) {
+  const response = await fetch(`${AUTH_API}/connect/${encodeURIComponent(platformId)}`, {
+    method: 'POST',
+  })
+  return parseResponse(response)
+}
+
+export async function disconnectPlatformApi(platformId) {
+  const response = await fetch(`${AUTH_API}/disconnect/${encodeURIComponent(platformId)}`, {
+    method: 'POST',
   })
   return parseResponse(response)
 }
