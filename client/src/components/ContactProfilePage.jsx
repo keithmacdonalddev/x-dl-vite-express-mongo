@@ -27,7 +27,7 @@ function sortNewestFirst(left, right) {
 }
 
 const DISCOVERY_POLL_INTERVAL_MS = 2500
-const DISCOVERY_POLL_MAX_ATTEMPTS = 24
+const DISCOVERY_POLL_MAX_ATTEMPTS = 48
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -154,7 +154,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
 
       setDiscoveryRefreshStatus({
         tone: 'info',
-        text: 'Discovery complete. No new videos found.',
+        text: 'Discovery is still running or no new videos found yet. Check back shortly.',
       })
     } catch (err) {
       if (!isCurrentRun()) return
@@ -314,9 +314,11 @@ export function ContactProfilePage({ contactSlug, onBack }) {
             <button type="button" className="ghost-btn" onClick={selection.toggleAllSelection} disabled={visibleContactJobs.length === 0}>
               {selection.selectedCount === visibleContactJobs.length && visibleContactJobs.length > 0 ? 'Clear all' : 'Select all'}
             </button>
-            <button type="button" className="danger-btn" onClick={openBulkDelete} disabled={selection.selectedCount === 0 || actions.isMutating}>
-              Delete selected ({selection.selectedCount})
-            </button>
+            {selection.selectedCount > 0 && (
+              <button type="button" className="danger-btn" onClick={openBulkDelete} disabled={actions.isMutating}>
+                Delete selected ({selection.selectedCount})
+              </button>
+            )}
           </div>
 
           {isLoading && <p>Loading profile...</p>}

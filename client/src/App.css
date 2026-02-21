@@ -375,7 +375,7 @@ h1 {
 /* Discovered Grid */
 
 .discovered-section {
-  grid-column: 1 / -1;
+  grid-column: 2;
   margin-top: 8px;
 }
 
@@ -570,6 +570,10 @@ h1 {
 
   .profile-summary {
     position: static;
+  }
+
+  .discovered-section {
+    grid-column: 1;
   }
 
   .modal-actions {
