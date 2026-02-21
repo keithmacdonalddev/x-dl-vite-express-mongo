@@ -10,7 +10,7 @@
     "start": "node src/core/runtime/entrypoints/index.js",
     "start:api": "node src/core/runtime/entrypoints/start-api.js",
     "start:worker": "node src/core/runtime/entrypoints/start-worker.js",
-    "test": "node --test test/services/extractor-quality-selection.test.js test/services/extractor-failure-classification.test.js test/worker/process-job-failure-outcome.test.js test/worker/process-job-failure-identity.test.js",
+    "test": "node --test",
     "auth:bootstrap": "node scripts/auth-bootstrap.js",
     "auth:x": "node scripts/auth-bootstrap.js x",
     "auth:tiktok": "node scripts/auth-bootstrap.js tiktok"

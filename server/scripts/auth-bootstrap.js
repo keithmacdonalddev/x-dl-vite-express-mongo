@@ -1,10 +1,14 @@
+const path = require('node:path');
 const readline = require('node:readline/promises');
 const process = require('node:process');
+const dotenv = require('dotenv');
 const { getPersistentContext, closePersistentContext, getAdapterConfig } = require('../src/services/playwright-adapter');
 const { PLATFORMS } = require('../src/core/platforms/registry');
 const { AUTH_CONFIG } = require('../src/core/config/auth-config');
 
 async function main() {
+  dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+
   const platformArg = (process.argv[2] || '').toLowerCase().trim();
 
   // Validate platform argument
@@ -37,8 +41,14 @@ async function main() {
   const platformDef = PLATFORMS.find((p) => p.id === platformArg);
   const label = platformDef ? platformDef.label : platformArg;
 
-  const config = getAdapterConfig();
-  const context = await getPersistentContext();
+  const adapterOptions = {};
+  // Auth bootstrap is a manual flow; if headless isn't explicitly set, force headed browser.
+  if (typeof process.env.PLAYWRIGHT_HEADLESS !== 'string') {
+    adapterOptions.headless = false;
+  }
+
+  const config = getAdapterConfig(adapterOptions);
+  const context = await getPersistentContext(adapterOptions);
   const page = await context.newPage();
 
   await page.goto(authConfig.loginUrl, { waitUntil: 'domcontentloaded' });

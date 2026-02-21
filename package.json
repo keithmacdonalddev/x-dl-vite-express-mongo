@@ -10,7 +10,7 @@
     "dev:server": "npm run dev --prefix server",
     "build": "npm run build --prefix client",
     "test": "npm run test --prefix server && npm run test --prefix client",
-    "test:regression": "npm --prefix server exec node -- --test server/test/services/extractor-quality-selection.test.js server/test/services/extractor-failure-classification.test.js server/test/worker/process-job-failure-outcome.test.js server/test/worker/process-job-failure-identity.test.js && npm --prefix client run test",
+    "test:regression": "npm --prefix server exec node -- --test server/test/services/extractor-quality-selection.test.js server/test/services/extractor-failure-classification.test.js server/test/services/profile-discovery-service.test.js server/test/worker/process-job-failure-outcome.test.js server/test/worker/process-job-failure-identity.test.js && npm --prefix client run test",
     "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1",
     "verify": "npm run test && npm run build --prefix client && npm run lint --prefix client && npm run check",
     "auth:bootstrap": "npm run auth:bootstrap --prefix server",
