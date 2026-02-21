@@ -160,9 +160,18 @@ export function JobsPage({ onOpenContact }) {
                     if (typeof onOpenContact === 'function') onOpenContact(contact.slug)
                   }}
                 >
-                  {contact.latestThumbnail && (
-                    <img src={toAssetHref(contact.latestThumbnail)} alt={contact.handle || contact.slug} />
-                  )}
+                  <img
+                    src={toAssetHref(contact.avatarPath)}
+                    alt={contact.handle || contact.slug}
+                    onError={(e) => {
+                      const fallback = toAssetHref(contact.latestThumbnail)
+                      if (fallback && e.target.src !== fallback) {
+                        e.target.src = fallback
+                      } else {
+                        e.target.style.display = 'none'
+                      }
+                    }}
+                  />
                   <span className="contact-chip-content">
                     <span className="contact-chip-name">{contact.displayName || contact.handle || `@${contact.slug}`}</span>
                     <small>{contact.completedJobs} downloads | view profile</small>

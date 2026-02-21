@@ -59,6 +59,7 @@ export function buildContacts(jobs) {
       latestAt: '',
       firstSeenAt: '',
       latestThumbnail: '',
+      avatarPath: `downloads/${slug}/avatar.jpg`,
     }
 
     current.totalJobs += 1

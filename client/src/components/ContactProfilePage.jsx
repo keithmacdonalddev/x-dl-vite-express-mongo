@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   deleteContactProfile,
   downloadDiscoveredPost,
@@ -26,13 +26,23 @@ function sortNewestFirst(left, right) {
   return r - l
 }
 
+const DISCOVERY_POLL_INTERVAL_MS = 2500
+const DISCOVERY_POLL_MAX_ATTEMPTS = 24
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export function ContactProfilePage({ contactSlug, onBack }) {
   const { jobs, isLoading, error, refresh } = useJobsPolling({ intervalMs: 3000 })
   const [editContactName, setEditContactName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [discoveredPosts, setDiscoveredPosts] = useState([])
   const [isDiscoveryDownloading, setIsDiscoveryDownloading] = useState(false)
+  const [isDiscoveryRefreshing, setIsDiscoveryRefreshing] = useState(false)
+  const [discoveryRefreshStatus, setDiscoveryRefreshStatus] = useState({ tone: '', text: '' })
   const [expandedJobId, setExpandedJobId] = useState('')
+  const refreshRunRef = useRef(0)
 
   function toggleExpanded(jobId) {
     setExpandedJobId((prev) => (prev === jobId ? '' : jobId))
@@ -63,19 +73,28 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     actions.cleanupHiddenIds(contactJobs.map((j) => j._id))
   }, [contactJobs]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchDiscoveredPosts = useCallback(async () => {
-    if (!normalizedSlug) return
+  const fetchDiscoveredPosts = useCallback(async ({ silent = true } = {}) => {
+    if (!normalizedSlug) return []
     try {
       const data = await listDiscoveredPosts(normalizedSlug)
-      if (Array.isArray(data.posts)) {
-        setDiscoveredPosts(data.posts)
-      }
-    } catch { /* best-effort */ }
+      const posts = Array.isArray(data.posts) ? data.posts : []
+      setDiscoveredPosts(posts)
+      return posts
+    } catch (err) {
+      if (!silent) throw err
+      return []
+    }
   }, [normalizedSlug])
 
   useEffect(() => {
     fetchDiscoveredPosts()
   }, [fetchDiscoveredPosts])
+
+  useEffect(() => {
+    refreshRunRef.current += 1
+    setIsDiscoveryRefreshing(false)
+    setDiscoveryRefreshStatus({ tone: '', text: '' })
+  }, [normalizedSlug])
 
   async function handleDownloadDiscovered(discoveredPostId) {
     setIsDiscoveryDownloading(true)
@@ -91,12 +110,58 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   }
 
   async function handleRefreshDiscovery() {
+    if (!normalizedSlug || isDiscoveryRefreshing) return
+
+    const runId = refreshRunRef.current + 1
+    refreshRunRef.current = runId
+    const isCurrentRun = () => refreshRunRef.current === runId
+    const initialCount = discoveredPosts.length
+
+    setIsDiscoveryRefreshing(true)
+    setDiscoveryRefreshStatus({ tone: 'info', text: 'Discovery started. Scraping profile...' })
+
     try {
       await refreshDiscovery(normalizedSlug)
-      // Poll for new results after a short delay
-      setTimeout(fetchDiscoveredPosts, 5000)
+
+      for (let attempt = 1; attempt <= DISCOVERY_POLL_MAX_ATTEMPTS; attempt += 1) {
+        if (!isCurrentRun()) return
+        setDiscoveryRefreshStatus({
+          tone: 'info',
+          text: `Discovery in progress... check ${attempt}/${DISCOVERY_POLL_MAX_ATTEMPTS}`,
+        })
+
+        await delay(DISCOVERY_POLL_INTERVAL_MS)
+        if (!isCurrentRun()) return
+
+        const posts = await fetchDiscoveredPosts({ silent: false })
+        if (!isCurrentRun()) return
+
+        const nextCount = Array.isArray(posts) ? posts.length : 0
+        if (nextCount > initialCount) {
+          const added = nextCount - initialCount
+          setDiscoveryRefreshStatus({
+            tone: 'success',
+            text: `Discovery complete. Found ${added} new video${added === 1 ? '' : 's'}.`,
+          })
+          return
+        }
+      }
+
+      setDiscoveryRefreshStatus({
+        tone: 'info',
+        text: 'Discovery complete. No new videos found.',
+      })
     } catch (err) {
-      actions.setActionError(err instanceof Error ? err.message : String(err))
+      if (!isCurrentRun()) return
+      const message = err instanceof Error ? err.message : String(err)
+      setDiscoveryRefreshStatus({
+        tone: 'error',
+        text: `Discovery failed: ${message}`,
+      })
+    } finally {
+      if (isCurrentRun()) {
+        setIsDiscoveryRefreshing(false)
+      }
     }
   }
 
@@ -176,13 +241,19 @@ export function ContactProfilePage({ contactSlug, onBack }) {
       <section className="layout profile-layout">
         <aside className="card profile-summary">
           <h2>Profile Summary</h2>
-          {contact?.latestThumbnail && (
-            <img
-              className="profile-avatar"
-              src={toAssetHref(contact.latestThumbnail)}
-              alt={contact.displayName || contact.handle || contact.slug}
-            />
-          )}
+          <img
+            className="profile-avatar"
+            src={toAssetHref(contact?.avatarPath)}
+            alt={contact?.displayName || contact?.handle || contact?.slug}
+            onError={(e) => {
+              const fallback = toAssetHref(contact?.latestThumbnail)
+              if (fallback && e.target.src !== fallback) {
+                e.target.src = fallback
+              } else {
+                e.target.style.display = 'none'
+              }
+            }}
+          />
           <p><strong>Handle:</strong> {contact?.handle || 'n/a'}</p>
           <p><strong>Platform:</strong> {contact?.platform || 'unknown'}</p>
           <p><strong>Total jobs:</strong> {contact?.totalJobs || 0}</p>
@@ -206,9 +277,21 @@ export function ContactProfilePage({ contactSlug, onBack }) {
             Refresh now
           </button>
           {contact?.platform === 'tiktok' && (
-            <button type="button" className="ghost-btn" onClick={handleRefreshDiscovery}>
-              Discover more videos
-            </button>
+            <div className="discovery-refresh">
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={handleRefreshDiscovery}
+                disabled={isDiscoveryRefreshing}
+              >
+                {isDiscoveryRefreshing ? 'Discovering...' : 'Discover more videos'}
+              </button>
+              {discoveryRefreshStatus.text && (
+                <p className={`discovery-refresh-status is-${discoveryRefreshStatus.tone || 'info'}`}>
+                  {discoveryRefreshStatus.text}
+                </p>
+              )}
+            </div>
           )}
           <button type="button" className="danger-btn" onClick={openContactDelete} disabled={actions.isMutating}>
             Delete contact permanently
