@@ -18,7 +18,7 @@ import {
 import { useSelection } from '../features/dashboard/useSelection'
 import { useJobActions } from '../features/dashboard/useJobActions'
 import { JobEditForm } from '../features/dashboard/JobEditForm'
-import { IntakeForm } from '../features/intake/IntakeForm'
+
 import { ConfirmModal } from './ConfirmModal'
 import { DiscoveredGrid } from './DiscoveredGrid'
 import { OverflowMenu } from './OverflowMenu'
@@ -229,26 +229,15 @@ export function ContactProfilePage({ contactSlug, onBack }) {
 
   return (
     <main className="app">
-      <header className="hero">
+      <header className="hero is-profile">
+        <button type="button" className="back-breadcrumb" onClick={onBack}>
+          &larr; Dashboard
+        </button>
         <p className="eyebrow">creator profile</p>
         <h1>{contact?.displayName || contact?.handle || `@${contactSlug}`}</h1>
         <p className="subhead">
-          Dedicated timeline with every captured post thumbnail, metadata, and media variants.
+          Captured posts, media, and metadata.
         </p>
-        <div className="hero-intake-wrap">
-          <IntakeForm
-            onCreated={refresh}
-            onDuplicate={async () => {
-              await refresh()
-              if (typeof onBack === 'function') onBack()
-            }}
-            isBusy={actions.isMutating}
-            compact
-          />
-        </div>
-        <button type="button" className="ghost-btn" onClick={onBack}>
-          Back to dashboard
-        </button>
       </header>
 
       <section className="layout profile-layout">
