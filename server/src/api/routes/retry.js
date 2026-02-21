@@ -6,6 +6,7 @@ const { JOB_STATUSES } = require('../../core/constants/job-status');
 const { ERROR_CODES } = require('../../core/lib/error-codes');
 const { logger } = require('../../core/lib/logger');
 const { resolveDomainId } = require('../../core/dispatch/resolve-domain-id');
+const { resolvePublishedAt } = require('../../core/utils/published-at');
 const {
   sendError,
   getRequestTraceId,
@@ -57,6 +58,13 @@ retryRouter.post('/:id/manual-retry', async (req, res) => {
       accountHandle: typeof original.accountHandle === 'string' ? original.accountHandle : '',
       accountDisplayName: typeof original.accountDisplayName === 'string' ? original.accountDisplayName : '',
       accountSlug: typeof original.accountSlug === 'string' ? original.accountSlug : '',
+      publishedAt: resolvePublishedAt({
+        publishedAt: original.publishedAt,
+        metadataPublishedAt: original.metadata && original.metadata.publishedAt,
+        tweetUrl: original.tweetUrl,
+        canonicalUrl: original.canonicalUrl,
+        createdAtFallback: original.createdAt,
+      }),
       thumbnailUrl: typeof original.thumbnailUrl === 'string' ? original.thumbnailUrl : '',
       thumbnailPath: typeof original.thumbnailPath === 'string' ? original.thumbnailPath : '',
     });

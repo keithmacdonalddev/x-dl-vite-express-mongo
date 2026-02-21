@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { Job } = require('../../core/models/job');
+const { DiscoveredPost } = require('../../core/data/discovered-post-model');
 const { ERROR_CODES } = require('../../core/lib/error-codes');
 const { logger } = require('../../core/lib/logger');
 const {
@@ -63,12 +64,16 @@ contactsRouter.delete('/contact/:slug', async (req, res) => {
 
   try {
     const jobs = await Job.find({ accountSlug: slug }).lean();
+    const discoveredPosts = await DiscoveredPost.find({ accountSlug: slug }).lean();
     await Promise.all(jobs.map((job) => deleteJobFiles(job)));
+    await Promise.all(discoveredPosts.map((post) => deleteJobFiles({ outputPath: '', thumbnailPath: post.thumbnailPath })));
     const result = await Job.deleteMany({ accountSlug: slug });
+    const discoveredResult = await DiscoveredPost.deleteMany({ accountSlug: slug });
 
     return res.json({
       ok: true,
       deletedCount: result.deletedCount || 0,
+      discoveredDeletedCount: discoveredResult.deletedCount || 0,
       contactSlug: slug,
     });
   } catch (error) {

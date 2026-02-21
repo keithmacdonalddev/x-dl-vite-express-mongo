@@ -8,6 +8,7 @@ const { logger } = require('../../core/lib/logger');
 const { getPlatformCapabilities } = require('../../core/config/platform-capabilities');
 const { PLATFORMS } = require('../../core/platforms/registry');
 const { resolveDomainId } = require('../../core/dispatch/resolve-domain-id');
+const { resolvePublishedAt } = require('../../core/utils/published-at');
 const {
   sendError,
   getRequestTraceId,
@@ -20,6 +21,54 @@ const {
 } = require('./helpers/route-utils');
 const jobsRouter = express.Router();
 const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
+const DEDUPE_JOB_STATUSES = [...ACTIVE_JOB_STATUSES, JOB_STATUSES.COMPLETED];
+
+function buildDuplicateJobError(existingJobStatus) {
+  if (existingJobStatus === JOB_STATUSES.COMPLETED) {
+    return {
+      code: ERROR_CODES.DUPLICATE_COMPLETED_JOB,
+      message: 'This URL was already downloaded.',
+      event: 'jobs.create.duplicate_completed',
+    };
+  }
+
+  return {
+    code: ERROR_CODES.DUPLICATE_ACTIVE_JOB,
+    message: 'This URL is already downloading.',
+    event: 'jobs.create.duplicate_active',
+  };
+}
+
+function getTimeMs(value) {
+  if (!value) return 0;
+  const d = new Date(value);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function normalizeJobPublishedAt(job) {
+  const resolvedPublishedAt = resolvePublishedAt({
+    publishedAt: job && job.publishedAt,
+    metadataPublishedAt: job && job.metadata && job.metadata.publishedAt,
+    tweetUrl: job && job.tweetUrl,
+    canonicalUrl: job && job.canonicalUrl,
+    createdAtFallback: job && job.createdAt,
+  });
+
+  return {
+    ...(job || {}),
+    publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
+  };
+}
+
+function compareJobsByPublishedAtDesc(left, right) {
+  const lp = getTimeMs(left && left.publishedAt);
+  const rp = getTimeMs(right && right.publishedAt);
+  if (rp !== lp) return rp - lp;
+  const lc = getTimeMs(left && left.createdAt);
+  const rc = getTimeMs(right && right.createdAt);
+  return rc - lc;
+}
 
 jobsRouter.get('/', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
@@ -31,7 +80,10 @@ jobsRouter.get('/', async (req, res) => {
   const filter = status ? { status } : {};
 
   try {
-    const jobs = await Job.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+    const jobsRaw = await Job.find(filter).sort({ publishedAt: -1, createdAt: -1 }).limit(limit).lean();
+    const jobs = jobsRaw
+      .map((job) => normalizeJobPublishedAt(job))
+      .sort(compareJobsByPublishedAtDesc);
     return res.json({
       ok: true,
       jobs,
@@ -53,10 +105,11 @@ jobsRouter.get('/:id', async (req, res) => {
   }
 
   try {
-    const job = await Job.findById(req.params.id).lean();
-    if (!job) {
+    const jobRaw = await Job.findById(req.params.id).lean();
+    if (!jobRaw) {
       return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
     }
+    const job = normalizeJobPublishedAt(jobRaw);
     return res.json({
       ok: true,
       job,
@@ -116,23 +169,29 @@ jobsRouter.post('/', async (req, res) => {
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
+  const canonicalUrl = canonicalizePostUrl(tweetUrl) || tweetUrl;
+  const resolvedPublishedAt = resolvePublishedAt({
+    tweetUrl,
+    canonicalUrl,
+  });
+  const duplicateQuery = {
+    status: { $in: DEDUPE_JOB_STATUSES },
+    $or: [
+      { canonicalUrl },
+      { tweetUrl },
+    ],
+  };
+
   try {
-    const canonicalUrl = canonicalizePostUrl(tweetUrl) || tweetUrl;
-    const existingActive = await Job.findOne({
-      status: { $in: ACTIVE_JOB_STATUSES },
-      $or: [
-        { canonicalUrl },
-        { tweetUrl },
-      ],
-    }).sort({ createdAt: -1 }).lean();
-
-    if (existingActive) {
-      const existingJobId = existingActive._id ? String(existingActive._id) : '';
-      const existingJobStatus = typeof existingActive.status === 'string'
-        ? existingActive.status
+    const existingJob = await Job.findOne(duplicateQuery).sort({ createdAt: -1 }).lean();
+    if (existingJob) {
+      const existingJobId = existingJob._id ? String(existingJob._id) : '';
+      const existingJobStatus = typeof existingJob.status === 'string'
+        ? existingJob.status
         : JOB_STATUSES.QUEUED;
+      const duplicate = buildDuplicateJobError(existingJobStatus);
 
-      logger.info('jobs.create.duplicate_active', {
+      logger.info(duplicate.event, {
         traceId,
         tweetUrl,
         canonicalUrl,
@@ -142,8 +201,8 @@ jobsRouter.post('/', async (req, res) => {
 
       return res.status(409).json({
         ok: false,
-        code: ERROR_CODES.DUPLICATE_ACTIVE_JOB,
-        error: 'This URL is already downloading.',
+        code: duplicate.code,
+        error: duplicate.message,
         existingJobId,
         existingJobStatus,
       });
@@ -154,13 +213,46 @@ jobsRouter.post('/', async (req, res) => {
       tweetUrl,
     });
 
-    const job = await Job.create({
-      tweetUrl,
-      canonicalUrl,
-      domainId,
-      traceId,
-      status: JOB_STATUSES.QUEUED,
-    });
+    let job;
+    try {
+      job = await Job.create({
+        tweetUrl,
+        canonicalUrl,
+        domainId,
+        traceId,
+        status: JOB_STATUSES.QUEUED,
+        publishedAt: resolvedPublishedAt,
+      });
+    } catch (createErr) {
+      if (createErr && createErr.code === 11000) {
+        const racedJob = await Job.findOne(duplicateQuery).sort({ createdAt: -1 }).lean();
+        if (racedJob) {
+          const existingJobId = racedJob._id ? String(racedJob._id) : '';
+          const existingJobStatus = typeof racedJob.status === 'string'
+            ? racedJob.status
+            : JOB_STATUSES.QUEUED;
+          const duplicate = buildDuplicateJobError(existingJobStatus);
+
+          logger.info('jobs.create.duplicate_race_resolved', {
+            traceId,
+            tweetUrl,
+            canonicalUrl,
+            existingJobId,
+            existingJobStatus,
+          });
+
+          return res.status(409).json({
+            ok: false,
+            code: duplicate.code,
+            error: duplicate.message,
+            existingJobId,
+            existingJobStatus,
+          });
+        }
+      }
+
+      throw createErr;
+    }
 
     logger.info('jobs.create.queued', {
       traceId,
@@ -217,6 +309,12 @@ jobsRouter.patch('/:id', async (req, res) => {
     }
     updates.tweetUrl = tweetUrl;
     updates.canonicalUrl = canonicalizePostUrl(tweetUrl) || tweetUrl;
+    updates.publishedAt = resolvePublishedAt({
+      publishedAt: updates.publishedAt,
+      metadataPublishedAt: null,
+      tweetUrl,
+      canonicalUrl: updates.canonicalUrl,
+    });
     updates.domainId = resolveDomainId({
       platformId: postInfo.platform,
       tweetUrl,
@@ -239,7 +337,7 @@ jobsRouter.patch('/:id', async (req, res) => {
 
     return res.json({
       ok: true,
-      job: job.toObject(),
+      job: normalizeJobPublishedAt(job.toObject()),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -306,4 +404,3 @@ jobsRouter.post('/bulk-delete', async (req, res) => {
 module.exports = {
   jobsRouter,
 };
-
