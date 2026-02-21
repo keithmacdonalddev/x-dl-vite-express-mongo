@@ -342,21 +342,6 @@ h1 {
   font-size: 13px;
 }
 
-.refresh-btn {
-  border: 0;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font: inherit;
-  font-weight: 700;
-  color: #fff;
-  background: #185587;
-  cursor: pointer;
-}
-
-.refresh-btn:hover {
-  background: #123e62;
-}
-
 .discovery-refresh-status {
   margin: 0;
   font-size: 12px;

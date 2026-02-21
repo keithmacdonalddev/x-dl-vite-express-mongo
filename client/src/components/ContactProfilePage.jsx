@@ -281,7 +281,6 @@ export function ContactProfilePage({ contactSlug, onBack }) {
               </button>
             </form>
             <div className="profile-actions-row">
-              <button type="button" className="refresh-btn" onClick={refresh}>Refresh</button>
               {contact?.platform === 'tiktok' && (
                 <button
                   type="button"
