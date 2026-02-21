@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatTimestamp, getPublishedAtValue, toAssetHref } from '../lib/contacts'
+import { formatShortDate, getPublishedAtValue, toAssetHref } from '../lib/contacts'
 
 function DiscoveredCardThumb({ src, alt }) {
   const [broken, setBroken] = useState(false)
@@ -41,12 +41,16 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
       </div>
       <ul className="discovered-grid">
         {posts.map((post) => {
-          const isAlreadyDownloaded = Boolean(post.downloadedJobId)
+          const hasVerifiedDownloaded = typeof post.isDownloaded === 'boolean'
+          const isAlreadyDownloaded = hasVerifiedDownloaded
+            ? post.isDownloaded
+            : Boolean(post.downloadedJobId)
+          const isLinkedActive = !isAlreadyDownloaded && Boolean(post.downloadedJobId)
           const isThisDownloading = downloadingPostIds.has(post._id)
           const thumbSrc = post.thumbnailPath
             ? toAssetHref(post.thumbnailPath)
             : post.thumbnailUrl || ''
-          const canQueue = !isAlreadyDownloaded && !isThisDownloading
+          const canQueue = !isAlreadyDownloaded && !isLinkedActive && !isThisDownloading
 
           function handleThumbClick() {
             if (!canQueue) return
@@ -60,16 +64,26 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
                 className="discovered-thumb-btn"
                 onClick={handleThumbClick}
                 disabled={!canQueue}
-                title={isAlreadyDownloaded ? 'Already downloaded' : isThisDownloading ? 'Queuing...' : 'Queue this video'}
+                title={
+                  isAlreadyDownloaded
+                    ? 'Already downloaded'
+                    : isLinkedActive
+                      ? 'Already queued or downloading'
+                      : isThisDownloading
+                        ? 'Queuing...'
+                        : 'Queue this video'
+                }
               >
                 <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} />
               </button>
               <div className="discovered-card-body">
                 {post.title && <p className="discovered-card-title">{post.title}</p>}
-                <p className="discovered-card-date">Published: {formatTimestamp(getPublishedAtValue(post))}</p>
+                <p className="discovered-card-date">{formatShortDate(getPublishedAtValue(post))}</p>
                 <div className="discovered-card-actions">
                   {isAlreadyDownloaded ? (
                     <span className="discovered-badge is-done">Downloaded</span>
+                  ) : isLinkedActive ? (
+                    <span className="discovered-badge is-active">Queued</span>
                   ) : (
                     <button
                       type="button"

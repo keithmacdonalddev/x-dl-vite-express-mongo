@@ -19,6 +19,7 @@ import { useSelection } from '../features/dashboard/useSelection'
 import { useJobActions } from '../features/dashboard/useJobActions'
 import { JobEditForm } from '../features/dashboard/JobEditForm'
 
+import { IntakeForm } from '../features/intake/IntakeForm'
 import { ConfirmModal } from './ConfirmModal'
 import { DiscoveredGrid } from './DiscoveredGrid'
 import { OverflowMenu } from './OverflowMenu'
@@ -238,6 +239,9 @@ export function ContactProfilePage({ contactSlug, onBack }) {
         <p className="subhead">
           Captured posts, media, and metadata.
         </p>
+        <div className="hero-intake-wrap is-compact">
+          <IntakeForm onCreated={refresh} isBusy={actions.isMutating} compact />
+        </div>
       </header>
 
       <section className="layout profile-layout">

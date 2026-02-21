@@ -46,6 +46,15 @@ h1 {
   margin-top: 14px;
 }
 
+.hero-intake-wrap.is-compact {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.hero-intake-wrap.is-compact .vault-input-shell {
+  padding: 6px 8px;
+}
+
 /* Compact hero for profile pages */
 
 .hero.is-profile {
@@ -566,6 +575,11 @@ h1 {
 .discovered-badge.is-done {
   background: #eaf7ef;
   color: #2d8a4e;
+}
+
+.discovered-badge.is-active {
+  background: #e8f1fb;
+  color: #245a8b;
 }
 
 .modal-overlay {
