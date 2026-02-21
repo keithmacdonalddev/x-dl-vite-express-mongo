@@ -29,7 +29,7 @@ This domain owns all files under `server/src/core/`. No agent outside the core-t
 |------|---------|
 | `data/job-status.js` | Canonical enum definitions: `JOB_STATUSES` (queued, running, completed, failed, canceled), `JOB_STATUS_VALUES`, `SOURCE_TYPES` (direct, hls, unknown), `SOURCE_TYPE_VALUES`. All frozen objects. |
 | `data/job-model.js` | Canonical Mongoose Job schema: 20+ fields (tweetUrl, canonicalUrl, domainId, traceId, status, progressPct, attemptCount, sourceType, account*, extracted*, candidate*, image*, metadata, thumbnail*, outputPath, error, startedAt, completedAt, failedAt). Index on `{ status: 1, createdAt: 1 }`. Exports `{ Job, JOB_STATUSES }`. |
-| `data/discovered-post-model.js` | Mongoose `DiscoveredPost` schema for profile discovery: accountSlug, accountHandle, accountPlatform, postUrl, canonicalUrl, thumbnailUrl, thumbnailPath, videoId, title, downloadedJobId (ObjectId ref). Indexes: unique on `canonicalUrl`, compound on `{ accountSlug, downloadedJobId }`. Exports `{ DiscoveredPost }`. |
+| `data/discovered-post-model.js` | Mongoose `DiscoveredPost` schema for profile discovery: accountSlug, accountHandle, accountPlatform, postUrl, canonicalUrl, thumbnailUrl, thumbnailPath, videoId, title, downloadedJobId (ObjectId ref). Indexes: unique on `canonicalUrl`, compound on `{ accountSlug, downloadedJobId }`, compound on `{ accountSlug, publishedAt, createdAt }`, partial-unique on `{ accountSlug, videoId }` (non-empty videoId only, prevents duplicate videos when URL variants differ). Exports `{ DiscoveredPost }`. |
 
 ### dispatch/ (2 files)
 

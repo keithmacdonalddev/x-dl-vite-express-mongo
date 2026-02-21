@@ -57,6 +57,14 @@ const discoveredPostSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    removedFromSourceAt: {
+      type: Date,
+      default: null,
+    },
+    profileRemovedFromSourceAt: {
+      type: Date,
+      default: null,
+    },
     downloadedJobId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -71,6 +79,13 @@ const discoveredPostSchema = new mongoose.Schema(
 discoveredPostSchema.index({ canonicalUrl: 1 }, { unique: true });
 discoveredPostSchema.index({ accountSlug: 1, downloadedJobId: 1 });
 discoveredPostSchema.index({ accountSlug: 1, publishedAt: -1, createdAt: -1 });
+// Prevent duplicate discovered posts for the same account+video when URL variants differ (e.g. www vs non-www).
+// Uses a partial filter so only documents with a non-empty videoId are included — posts without a
+// videoId (non-TikTok content or legacy records) are excluded and do not conflict with each other.
+discoveredPostSchema.index(
+  { accountSlug: 1, videoId: 1 },
+  { unique: true, partialFilterExpression: { videoId: { $type: 'string', $gt: '' } } }
+);
 
 const DiscoveredPost =
   mongoose.models.DiscoveredPost || mongoose.model('DiscoveredPost', discoveredPostSchema);
