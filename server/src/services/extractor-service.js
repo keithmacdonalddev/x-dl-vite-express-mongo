@@ -375,6 +375,25 @@ async function extractFromTweet(tweetUrl, { pageFactory, telemetryContext } = {}
     });
     const metadataStartedAt = Date.now();
     const metadata = typeof page.collectPostMetadata === 'function' ? await page.collectPostMetadata() : {};
+
+    // Merge TikTok-specific cover and author avatar from rehydration JSON.
+    // These fields are only populated on TikTok pages; non-TikTok pages return {}.
+    if (typeof page.collectTikTokMetadata === 'function') {
+      try {
+        const tikTokMeta = await page.collectTikTokMetadata();
+        if (tikTokMeta && typeof tikTokMeta === 'object') {
+          if (tikTokMeta.coverUrl) {
+            metadata.coverUrl = tikTokMeta.coverUrl;
+          }
+          if (tikTokMeta.authorAvatarUrl) {
+            metadata.authorAvatarUrl = tikTokMeta.authorAvatarUrl;
+          }
+        }
+      } catch {
+        // Non-blocking: if TikTok metadata extraction fails, proceed without it
+      }
+    }
+
     logger.info('extractor.collect.metadata.completed', {
       ...contextMeta,
       tweetUrl,

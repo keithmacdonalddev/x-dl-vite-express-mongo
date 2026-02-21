@@ -127,16 +127,17 @@ module.exports = {
 
 // playwright-adapter.js
 module.exports = {
-  createPlaywrightPageFactory, // (options?) => async () => PageWrapper
-  getPersistentContext,        // async (options?) => BrowserContext
-  closePersistentContext,      // async () => void
-  getAdapterConfig,            // (input?) => AdapterConfig
-  assessAccessState,           // ({ title, visibleText, content, finalUrl }) => string
+  createPlaywrightPageFactory,  // (options?) => async () => PageWrapper
+  getPersistentContext,         // async (options?) => BrowserContext
+  closePersistentContext,       // async () => void
+  getAdapterConfig,             // (input?) => AdapterConfig
+  assessAccessState,            // ({ title, visibleText, content, finalUrl }) => string
   extractTikTokRehydrationUrls, // async (page) => Array<{ url, source }>
-  hasPersistentContext,        // () => boolean (read-only check, no side effects)
+  extractTikTokPostMetadata,    // async (page) => { coverUrl, authorAvatarUrl } (TikTok only, empty {} otherwise)
+  hasPersistentContext,         // () => boolean (read-only check, no side effects)
 }
 // PageWrapper (returned by pageFactory()) now includes:
-// goto, collectMediaUrls, collectImageUrls, collectPostMetadata, collectPageDiagnostics, close
+// goto, collectMediaUrls, collectImageUrls, collectPostMetadata, collectTikTokMetadata, collectPageDiagnostics, close
 
 // profile-discovery-service.js
 module.exports = {
@@ -159,7 +160,9 @@ module.exports = {
     title, description, author, thumbnailUrl, canonicalUrl, pageUrl,
     siteName, locale, publishedAt, videoWidth, videoHeight, durationSeconds,
     keywords, twitterCreator, twitterSite,
-    selectedMediaUrl, selectedMediaType, selectedMedia, candidateCount, candidateSummaries
+    selectedMediaUrl, selectedMediaType, selectedMedia, candidateCount, candidateSummaries,
+    coverUrl?,        // TikTok only: video cover image (originCover or cover)
+    authorAvatarUrl?, // TikTok only: video creator avatar (avatarLarger > avatarMedium > avatarThumb)
   },
 }
 

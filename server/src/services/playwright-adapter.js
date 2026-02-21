@@ -248,6 +248,52 @@ function extractMediaUrlsFromContent(content) {
   return Array.from(new Set(mediaMatches));
 }
 
+async function extractTikTokPostMetadata(page) {
+  if (!page || typeof page.evaluate !== 'function') {
+    return {};
+  }
+
+  try {
+    const result = await page.evaluate(() => {
+      const rehydrationScript = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
+      if (!rehydrationScript) {
+        return {};
+      }
+
+      try {
+        const data = JSON.parse(rehydrationScript.textContent || '{}');
+        const defaultScope = data['__DEFAULT_SCOPE__'] || {};
+        const videoDetail = defaultScope['webapp.video-detail'] || {};
+        const itemInfo = videoDetail.itemInfo || {};
+        const itemStruct = itemInfo.itemStruct || {};
+        const video = itemStruct.video || {};
+        const author = itemStruct.author || {};
+
+        const coverUrl = (
+          (typeof video.originCover === 'string' && video.originCover) ||
+          (typeof video.cover === 'string' && video.cover) ||
+          ''
+        );
+
+        const authorAvatarUrl = (
+          (typeof author.avatarLarger === 'string' && author.avatarLarger) ||
+          (typeof author.avatarMedium === 'string' && author.avatarMedium) ||
+          (typeof author.avatarThumb === 'string' && author.avatarThumb) ||
+          ''
+        );
+
+        return { coverUrl, authorAvatarUrl };
+      } catch {
+        return {};
+      }
+    });
+
+    return result && typeof result === 'object' ? result : {};
+  } catch {
+    return {};
+  }
+}
+
 async function extractTikTokRehydrationUrls(page) {
   if (!page || typeof page.evaluate !== 'function') {
     return [];
@@ -691,6 +737,9 @@ function createPlaywrightPageFactory(options = {}) {
       async collectPostMetadata() {
         return readPostMetadata(page);
       },
+      async collectTikTokMetadata() {
+        return extractTikTokPostMetadata(page);
+      },
       async collectPageDiagnostics() {
         const diagnosticsTimeoutMs = 300;
         const [title, finalUrl, canonicalUrl, ogTitle, bodyText] = await Promise.all([
@@ -733,5 +782,6 @@ module.exports = {
   getAdapterConfig,
   assessAccessState,
   extractTikTokRehydrationUrls,
+  extractTikTokPostMetadata,
   hasPersistentContext,
 };
