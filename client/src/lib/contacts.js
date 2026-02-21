@@ -9,6 +9,32 @@ export function formatTimestamp(value) {
   return date.toLocaleString()
 }
 
+function toDateMs(value) {
+  if (!value) return 0
+  const date = new Date(value)
+  const ms = date.getTime()
+  return Number.isFinite(ms) ? ms : 0
+}
+
+export function getPublishedAtValue(entry = {}) {
+  if (!entry || typeof entry !== 'object') return ''
+  if (entry.publishedAt) return entry.publishedAt
+  if (entry.metadata && typeof entry.metadata === 'object' && entry.metadata.publishedAt) {
+    return entry.metadata.publishedAt
+  }
+  if (entry.createdAt) return entry.createdAt
+  return ''
+}
+
+export function compareByPublishedAtDesc(left = {}, right = {}) {
+  const leftPublishedMs = toDateMs(getPublishedAtValue(left))
+  const rightPublishedMs = toDateMs(getPublishedAtValue(right))
+  if (rightPublishedMs !== leftPublishedMs) {
+    return rightPublishedMs - leftPublishedMs
+  }
+  return toDateMs(right.createdAt) - toDateMs(left.createdAt)
+}
+
 export function toAssetHref(value) {
   if (!value || typeof value !== 'string') {
     return ''
@@ -67,13 +93,13 @@ export function buildContacts(jobs) {
       current.completedJobs += 1
     }
 
-    const createdAt = job.createdAt || ''
-    if (!current.firstSeenAt || (createdAt && new Date(createdAt) < new Date(current.firstSeenAt))) {
-      current.firstSeenAt = createdAt
+    const publishedAt = getPublishedAtValue(job)
+    if (!current.firstSeenAt || (publishedAt && new Date(publishedAt) < new Date(current.firstSeenAt))) {
+      current.firstSeenAt = publishedAt
     }
 
-    if (!current.latestAt || (createdAt && new Date(createdAt) > new Date(current.latestAt))) {
-      current.latestAt = createdAt
+    if (!current.latestAt || (publishedAt && new Date(publishedAt) > new Date(current.latestAt))) {
+      current.latestAt = publishedAt
       current.latestThumbnail = job.thumbnailPath || (Array.isArray(job.imageUrls) ? job.imageUrls[0] || '' : '')
       current.platform = job.accountPlatform || current.platform
       current.handle = job.accountHandle || current.handle
@@ -84,8 +110,8 @@ export function buildContacts(jobs) {
   }
 
   return Array.from(map.values()).sort((a, b) => {
-    const aTime = a.latestAt ? new Date(a.latestAt).getTime() : 0
-    const bTime = b.latestAt ? new Date(b.latestAt).getTime() : 0
+    const aTime = toDateMs(a.latestAt)
+    const bTime = toDateMs(b.latestAt)
     return bTime - aTime
   })
 }
@@ -166,4 +192,3 @@ export function parseQualityLabel(url, index) {
   }
   return parts.join(' | ')
 }
-

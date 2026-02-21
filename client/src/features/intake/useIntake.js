@@ -107,14 +107,24 @@ export function useIntake({ onCreated, onDuplicate }) {
       logIntakeEvent('submit-success', { source, platform: classified.platform })
       if (typeof onCreated === 'function') await onCreated()
     } catch (err) {
-      if (err && err.code === 'DUPLICATE_ACTIVE_JOB' && typeof err.existingJobId === 'string' && err.existingJobId) {
+      if (
+        err &&
+        (err.code === 'DUPLICATE_ACTIVE_JOB' || err.code === 'DUPLICATE_COMPLETED_JOB') &&
+        typeof err.existingJobId === 'string' &&
+        err.existingJobId
+      ) {
         setDuplicateActiveJob({
           jobId: err.existingJobId,
           status: typeof err.existingJobStatus === 'string' ? err.existingJobStatus : 'queued',
         })
-        setSubmitError('This URL is already downloading.')
+        setSubmitError(
+          err.code === 'DUPLICATE_COMPLETED_JOB'
+            ? 'This URL was already downloaded.'
+            : 'This URL is already downloading.'
+        )
         logIntakeEvent('submit-duplicate-active', {
           source,
+          code: err.code,
           existingJobId: err.existingJobId,
           existingJobStatus: err.existingJobStatus,
         })

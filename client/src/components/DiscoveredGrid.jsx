@@ -1,4 +1,23 @@
-import { toAssetHref } from '../lib/contacts'
+import { useState } from 'react'
+import { formatTimestamp, getPublishedAtValue, toAssetHref } from '../lib/contacts'
+
+function DiscoveredCardThumb({ src, alt }) {
+  const [broken, setBroken] = useState(false)
+
+  if (!src || broken) {
+    return <div className="discovered-card-thumb discovered-card-placeholder" />
+  }
+
+  return (
+    <img
+      className="discovered-card-thumb"
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={() => setBroken(true)}
+    />
+  )
+}
 
 export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
   if (!Array.isArray(posts) || posts.length === 0) {
@@ -36,26 +55,18 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
 
           return (
             <li key={post._id} className={`discovered-card${isAlreadyDownloaded ? ' is-downloaded' : ''}${isThisDownloading ? ' is-downloading' : ''}`}>
-              {thumbSrc ? (
-                <button
-                  type="button"
-                  className="discovered-thumb-btn"
-                  onClick={handleThumbClick}
-                  disabled={!canQueue}
-                  title={isAlreadyDownloaded ? 'Already downloaded' : isThisDownloading ? 'Queuing...' : 'Queue this video'}
-                >
-                  <img
-                    className="discovered-card-thumb"
-                    src={thumbSrc}
-                    alt={post.title || 'Discovered video'}
-                    loading="lazy"
-                  />
-                </button>
-              ) : (
-                <div className="discovered-card-thumb discovered-card-placeholder" />
-              )}
+              <button
+                type="button"
+                className="discovered-thumb-btn"
+                onClick={handleThumbClick}
+                disabled={!canQueue}
+                title={isAlreadyDownloaded ? 'Already downloaded' : isThisDownloading ? 'Queuing...' : 'Queue this video'}
+              >
+                <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} />
+              </button>
               <div className="discovered-card-body">
                 {post.title && <p className="discovered-card-title">{post.title}</p>}
+                <p className="discovered-card-date">Published: {formatTimestamp(getPublishedAtValue(post))}</p>
                 <div className="discovered-card-actions">
                   {isAlreadyDownloaded ? (
                     <span className="discovered-badge is-done">Downloaded</span>

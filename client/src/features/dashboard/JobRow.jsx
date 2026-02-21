@@ -1,5 +1,8 @@
 import {
   deriveHandleFromUrl,
+  formatTimestamp,
+  getPublishedAtValue,
+  makeContactSlug,
   toAssetHref,
 } from '../../lib/contacts'
 import { JobEditForm } from './JobEditForm'
@@ -19,6 +22,7 @@ export function JobRow({
   onUpdateEditDraft,
   onDelete,
   onRetry,
+  onOpenContact,
   isHighlighted,
 }) {
   const accountLabel =
@@ -27,6 +31,7 @@ export function JobRow({
     deriveHandleFromUrl(job.tweetUrl || '')
 
   const thumbnailSrc = job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0]) || ''
+  const contactSlug = makeContactSlug(job)
 
   const menuItems = [
     { label: 'Edit', onClick: () => onStartEdit(job) },
@@ -55,9 +60,21 @@ export function JobRow({
       <div className="job-top">
         <div className="job-primary">
           <p className="job-account-label">
-            <strong>{accountLabel || 'unknown account'}</strong>
+            {typeof onOpenContact === 'function' ? (
+              <button
+                type="button"
+                className="job-account-link"
+                onClick={() => onOpenContact(contactSlug)}
+                title="Open creator profile"
+              >
+                <strong>{accountLabel || 'unknown account'}</strong>
+              </button>
+            ) : (
+              <strong>{accountLabel || 'unknown account'}</strong>
+            )}
             <span className={`status-chip is-${job.status}`}>{job.status}</span>
           </p>
+          <p className="job-status-note">Published: {formatTimestamp(getPublishedAtValue(job))}</p>
           {job.status === 'completed' && job.outputPath ? (
             <div className="job-media-preview">
               <video controls preload="metadata" src={toAssetHref(job.outputPath)} />

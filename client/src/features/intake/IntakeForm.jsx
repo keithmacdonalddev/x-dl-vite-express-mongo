@@ -5,7 +5,7 @@ import { useAuthStatus } from '../../hooks/useAuthStatus'
 import { PLATFORMS } from '../../platforms/index'
 import './intake.css'
 
-export function IntakeForm({ onCreated, onDuplicate, isBusy }) {
+export function IntakeForm({ onCreated, onDuplicate, isBusy, compact = false }) {
   const prefersReducedMotion = useReducedMotion()
   const {
     postUrl,
@@ -36,12 +36,12 @@ export function IntakeForm({ onCreated, onDuplicate, isBusy }) {
 
   return (
     <motion.section
-      className={`card vault-experience${isIntakeSuccessPulse ? ' is-pulsing' : ''}`}
+      className={`${compact ? 'vault-experience vault-experience-compact' : 'card vault-experience'}${isIntakeSuccessPulse ? ' is-pulsing' : ''}`}
       initial={prefersReducedMotion ? false : { opacity: 0, y: 14, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
     >
-      <h2>Media Vault</h2>
+      {!compact && <h2>Media Vault</h2>}
       <form className="vault-form" onSubmit={handleSubmit}>
         <motion.div
           className={`vault-input-shell${hasReadyUrl ? ' is-ready' : ''}${
@@ -105,73 +105,77 @@ export function IntakeForm({ onCreated, onDuplicate, isBusy }) {
           </motion.button>
         </motion.div>
 
-        <div className="vault-chip-row" aria-label="Source availability">
-          {PLATFORMS.map((platform) => {
-            const enabled = platformCapabilities[platform.id] === true
-            const auth = authStatus[platform.id] || {}
-            const isThisConnecting = isConnecting === platform.id
+        {!compact && (
+          <div className="vault-chip-row" aria-label="Source availability">
+            {PLATFORMS.map((platform) => {
+              const enabled = platformCapabilities[platform.id] === true
+              const auth = authStatus[platform.id] || {}
+              const isThisConnecting = isConnecting === platform.id
 
-            return (
-              <div key={platform.id} className="vault-platform-group">
-                <motion.button
-                  type="button"
-                  className={`vault-chip ${enabled ? 'is-enabled' : 'is-disabled'}`}
-                  title={enabled ? `${platform.label} downloads enabled. Click to disable.` : `${platform.label} downloads disabled. Click to enable.`}
-                  onClick={() => handleTogglePlatform(platform.id)}
-                  disabled={isUpdatingCapabilities || isSubmitting || isBusy}
-                  whileHover={prefersReducedMotion ? undefined : { y: -1 }}
-                  whileTap={prefersReducedMotion ? undefined : { y: 0.5, scale: 0.99 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 26, mass: 0.72 }}
-                >
-                  {enabled ? `${platform.label} enabled` : `${platform.label} disabled`}
-                </motion.button>
-
-                {enabled && (
-                  <button
+              return (
+                <div key={platform.id} className="vault-platform-group">
+                  <motion.button
                     type="button"
-                    className={`vault-auth-chip ${auth.connected ? 'is-connected' : 'is-disconnected'}${isThisConnecting ? ' is-connecting' : ''}`}
-                    onClick={() => auth.connected ? disconnectPlatform(platform.id) : connectPlatform(platform.id)}
-                    disabled={isThisConnecting || isSubmitting || isBusy}
-                    title={
-                      auth.connected
-                        ? `${platform.label} session active. Click to disconnect.`
-                        : isThisConnecting
-                        ? `Waiting for ${platform.label} login...`
-                        : `Connect ${platform.label} account`
-                    }
+                    className={`vault-chip ${enabled ? 'is-enabled' : 'is-disabled'}`}
+                    title={enabled ? `${platform.label} downloads enabled. Click to disable.` : `${platform.label} downloads disabled. Click to enable.`}
+                    onClick={() => handleTogglePlatform(platform.id)}
+                    disabled={isUpdatingCapabilities || isSubmitting || isBusy}
+                    whileHover={prefersReducedMotion ? undefined : { y: -1 }}
+                    whileTap={prefersReducedMotion ? undefined : { y: 0.5, scale: 0.99 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 26, mass: 0.72 }}
                   >
-                    <span className={`auth-dot ${auth.connected ? 'is-active' : ''}`} aria-hidden="true" />
-                    <span>
-                      {auth.connected
-                        ? 'Connected'
-                        : isThisConnecting
-                        ? 'Waiting for login...'
-                        : 'Connect'}
-                    </span>
-                  </button>
-                )}
-              </div>
-            )
-          })}
-          <span className="vault-chip is-neutral" title="Clipboard paste available">
-            Clipboard ready
-          </span>
-        </div>
+                    {enabled ? `${platform.label} enabled` : `${platform.label} disabled`}
+                  </motion.button>
 
-        <AnimatePresence mode="wait">
-          {capabilitiesNote && (
-            <motion.p
-              key="capability-note"
-              className="vault-note"
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0, y: -2 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              {capabilitiesNote}
-            </motion.p>
-          )}
-        </AnimatePresence>
+                  {enabled && (
+                    <button
+                      type="button"
+                      className={`vault-auth-chip ${auth.connected ? 'is-connected' : 'is-disconnected'}${isThisConnecting ? ' is-connecting' : ''}`}
+                      onClick={() => auth.connected ? disconnectPlatform(platform.id) : connectPlatform(platform.id)}
+                      disabled={isThisConnecting || isSubmitting || isBusy}
+                      title={
+                        auth.connected
+                          ? `${platform.label} session active. Click to disconnect.`
+                          : isThisConnecting
+                          ? `Waiting for ${platform.label} login...`
+                          : `Connect ${platform.label} account`
+                      }
+                    >
+                      <span className={`auth-dot ${auth.connected ? 'is-active' : ''}`} aria-hidden="true" />
+                      <span>
+                        {auth.connected
+                          ? 'Connected'
+                          : isThisConnecting
+                          ? 'Waiting for login...'
+                          : 'Connect'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+            <span className="vault-chip is-neutral" title="Clipboard paste available">
+              Clipboard ready
+            </span>
+          </div>
+        )}
+
+        {!compact && (
+          <AnimatePresence mode="wait">
+            {capabilitiesNote && (
+              <motion.p
+                key="capability-note"
+                className="vault-note"
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, y: -2 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                {capabilitiesNote}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        )}
 
         {(submitError || authError) && (
           <div className="vault-submit-feedback">

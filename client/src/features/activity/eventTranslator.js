@@ -26,6 +26,9 @@ const translations = {
   'jobs.create.platform_disabled': (m) => ({ text: `Platform ${m.platform || '?'} is disabled`, icon: '\u2717' }),
   'jobs.create.db_not_connected': () => ({ text: 'Database not connected \u2014 cannot create job', icon: '\u2717' }),
   'jobs.create.queued': (m) => ({ text: `Job queued for ${m.accountHandle ? '@' + m.accountHandle : m.tweetUrl || '?'} (${m.platform || '?'})`, icon: '\u2713' }),
+  'jobs.create.duplicate_active': () => ({ text: 'URL already has an active download job', icon: '\u26a0' }),
+  'jobs.create.duplicate_completed': () => ({ text: 'URL already has a completed download job', icon: '\u26a0' }),
+  'jobs.create.duplicate_race_resolved': () => ({ text: 'Duplicate job race detected; reused existing job', icon: '\u26a0' }),
   'jobs.create.failed': (m) => ({ text: `Failed to create job: ${m.message || 'unknown error'}`, icon: '\u2717' }),
 
   // --- Job list/detail ---
@@ -131,6 +134,11 @@ const translations = {
   'discovery.thumbnail.fetch_failed': (m) => ({ text: `Discovery thumbnail fetch failed: ${m.message || '?'}`, icon: '\u26a0' }),
   'discovery.thumbnail.fetch_non_image': (m) => ({ text: `Discovery thumbnail URL returned ${m.contentType || 'non-image'} content`, icon: '\u26a0' }),
   'discovery.thumbnail.auth_non_image': (m) => ({ text: `Auth thumbnail fetch returned ${m.contentType || 'non-image'} content`, icon: '\u26a0' }),
+  'discovery.thumbnail.bad_status': (m) => ({ text: `Discovery thumbnail request returned status ${m.status || '?'}`, icon: '\u26a0' }),
+  'discovery.thumbnail.no_body': () => ({ text: 'Discovery thumbnail response was empty', icon: '\u26a0' }),
+  'discovery.thumbnail.bad_content_type': (m) => ({ text: `Discovery thumbnail URL returned ${m.contentType || 'non-image'} content`, icon: '\u26a0' }),
+  'discovery.thumbnail.empty_file': () => ({ text: 'Discovery thumbnail response produced an empty image file', icon: '\u26a0' }),
+  'discovery.thumbnail.timeout': (m) => ({ text: `Discovery thumbnail request timed out${m.timeoutMs ? ` after ${fmtSec(m.timeoutMs)}` : ''}`, icon: '\u26a0' }),
   'discovery.thumbnail.failed': (m) => ({ text: `Discovery thumbnail download failed: ${m.message || '?'}`, icon: '\u2717' }),
   'discovery.create.failed': (m) => ({ text: `Failed to persist discovered post: ${m.message || m.postUrl || '?'}`, icon: '\u2717' }),
 
@@ -140,6 +148,7 @@ const translations = {
   'discovery.download.failed': (m) => ({ text: `Failed to queue discovered post: ${m.message || '?'}`, icon: '\u2717' }),
   'discovery.list.failed': (m) => ({ text: `Failed to list discovered posts: ${m.message || '?'}`, icon: '\u2717' }),
   'discovery.refresh.failed': (m) => ({ text: `Discovery refresh failed: ${m.message || '?'}`, icon: '\u2717' }),
+  'discovery.refresh.already_running': () => ({ text: 'Discovery refresh already in progress for this contact', icon: '\u26a0' }),
 
   // --- Final status ---
   'worker.job.completed': (m) => {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listTelemetry, openTelemetryStream } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
-import { buildContacts, toAssetHref } from '../lib/contacts'
+import { buildContacts, compareByPublishedAtDesc, toAssetHref } from '../lib/contacts'
 import { IntakeForm } from '../features/intake/IntakeForm'
 import { JobsList } from '../features/dashboard/JobsList'
 import { useSelection } from '../features/dashboard/useSelection'
@@ -43,7 +43,10 @@ export function JobsPage({ onOpenContact }) {
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
-  const visibleJobs = useMemo(() => jobs.filter((job) => !actions.hiddenJobIds[job._id]), [jobs, actions.hiddenJobIds])
+  const visibleJobs = useMemo(
+    () => jobs.filter((job) => !actions.hiddenJobIds[job._id]).sort(compareByPublishedAtDesc),
+    [jobs, actions.hiddenJobIds]
+  )
   const allJobIds = useMemo(() => visibleJobs.map((job) => job._id), [visibleJobs])
   const selection = useSelection(allJobIds)
 
@@ -142,6 +145,9 @@ export function JobsPage({ onOpenContact }) {
         <p className="subhead">
           Submit X or TikTok URLs, keep account profiles, and choose any captured media quality.
         </p>
+        <div className="hero-intake-wrap">
+          <IntakeForm onCreated={refresh} onDuplicate={handleDuplicateJobJump} isBusy={actions.isMutating} compact />
+        </div>
       </header>
 
       <section className="layout">
@@ -183,8 +189,6 @@ export function JobsPage({ onOpenContact }) {
         </aside>
 
         <section className="workspace">
-          <IntakeForm onCreated={refresh} onDuplicate={handleDuplicateJobJump} isBusy={actions.isMutating} />
-
           <JobsList
             jobs={visibleJobs}
             isLoading={isLoading}
@@ -204,6 +208,7 @@ export function JobsPage({ onOpenContact }) {
             onOpenSingleDelete={openSingleDelete}
             onOpenBulkDelete={openBulkDelete}
             onRetry={actions.handleRetry}
+            onOpenContact={onOpenContact}
             highlightedJobId={highlightedJobId}
           />
         </section>

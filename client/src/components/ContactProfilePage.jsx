@@ -9,22 +9,19 @@ import {
 import { useJobsPolling } from '../hooks/useJobsPolling'
 import {
   buildContacts,
+  compareByPublishedAtDesc,
   formatTimestamp,
+  getPublishedAtValue,
   makeContactSlug,
   toAssetHref,
 } from '../lib/contacts'
 import { useSelection } from '../features/dashboard/useSelection'
 import { useJobActions } from '../features/dashboard/useJobActions'
 import { JobEditForm } from '../features/dashboard/JobEditForm'
+import { IntakeForm } from '../features/intake/IntakeForm'
 import { ConfirmModal } from './ConfirmModal'
 import { DiscoveredGrid } from './DiscoveredGrid'
 import { OverflowMenu } from './OverflowMenu'
-
-function sortNewestFirst(left, right) {
-  const l = left.createdAt ? new Date(left.createdAt).getTime() : 0
-  const r = right.createdAt ? new Date(right.createdAt).getTime() : 0
-  return r - l
-}
 
 const DISCOVERY_POLL_INTERVAL_MS = 2500
 const DISCOVERY_POLL_MAX_ATTEMPTS = 48
@@ -58,7 +55,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   )
 
   const contactJobs = useMemo(
-    () => jobs.filter((job) => makeContactSlug(job) === normalizedSlug).sort(sortNewestFirst),
+    () => jobs.filter((job) => makeContactSlug(job) === normalizedSlug).sort(compareByPublishedAtDesc),
     [jobs, normalizedSlug]
   )
   const visibleContactJobs = useMemo(
@@ -77,7 +74,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     if (!normalizedSlug) return []
     try {
       const data = await listDiscoveredPosts(normalizedSlug)
-      const posts = Array.isArray(data.posts) ? data.posts : []
+      const posts = Array.isArray(data.posts) ? data.posts.slice().sort(compareByPublishedAtDesc) : []
       setDiscoveredPosts(posts)
       return posts
     } catch (err) {
@@ -238,6 +235,17 @@ export function ContactProfilePage({ contactSlug, onBack }) {
         <p className="subhead">
           Dedicated timeline with every captured post thumbnail, metadata, and media variants.
         </p>
+        <div className="hero-intake-wrap">
+          <IntakeForm
+            onCreated={refresh}
+            onDuplicate={async () => {
+              await refresh()
+              if (typeof onBack === 'function') onBack()
+            }}
+            isBusy={actions.isMutating}
+            compact
+          />
+        </div>
         <button type="button" className="ghost-btn" onClick={onBack}>
           Back to dashboard
         </button>
@@ -359,7 +367,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                         <div className="profile-card-details">
                           <p className="profile-card-status-line">
                             <span className={`status-chip is-${job.status}`}>{job.status}</span>
-                            <span className="profile-card-date">{formatTimestamp(job.createdAt)}</span>
+                            <span className="profile-card-date">{formatTimestamp(getPublishedAtValue(job))}</span>
                           </p>
                           <p className="profile-card-url">
                             <a href={job.tweetUrl} target="_blank" rel="noreferrer">

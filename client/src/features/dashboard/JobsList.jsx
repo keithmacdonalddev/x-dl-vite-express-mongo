@@ -20,6 +20,7 @@ export function JobsList({
   onOpenSingleDelete,
   onOpenBulkDelete,
   onRetry,
+  onOpenContact,
   highlightedJobId,
 }) {
   return (
@@ -62,6 +63,7 @@ export function JobsList({
               onUpdateEditDraft={onUpdateEditDraft}
               onDelete={onOpenSingleDelete}
               onRetry={onRetry}
+              onOpenContact={onOpenContact}
               isHighlighted={highlightedJobId === job._id}
             />
           ))}
