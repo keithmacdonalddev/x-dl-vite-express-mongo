@@ -62,7 +62,7 @@ discoveryRouter.post('/:id/download', async (req, res) => {
       return sendError(res, 404, ERROR_CODES.DISCOVERY_NOT_FOUND, 'Discovered post not found.');
     }
 
-    // Check if a job already exists for this URL
+    // Short-circuit: post already has a linked job
     if (post.downloadedJobId) {
       const existingJob = await Job.findById(post.downloadedJobId).lean();
       if (existingJob) {
@@ -75,21 +75,70 @@ discoveryRouter.post('/:id/download', async (req, res) => {
     }
 
     const canonicalUrl = post.canonicalUrl || canonicalizePostUrl(post.postUrl) || post.postUrl;
+
+    // Race-safe duplicate check: look for any active/completed job for this URL
+    const duplicateJob = await Job.findOne({
+      canonicalUrl,
+      status: { $in: [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING, JOB_STATUSES.COMPLETED] },
+    }).lean();
+
+    if (duplicateJob) {
+      // Atomically link the discovered post to the existing job (idempotent)
+      await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: duplicateJob._id }, { new: true });
+      logger.info('discovery.download.deduplicated', {
+        traceId,
+        discoveredPostId: post._id.toString(),
+        jobId: duplicateJob._id.toString(),
+        canonicalUrl,
+      });
+      return res.json({
+        ok: true,
+        job: duplicateJob,
+        alreadyExists: true,
+      });
+    }
+
     const domainId = resolveDomainId({
       platformId: post.accountPlatform || 'tiktok',
       tweetUrl: post.postUrl,
     });
 
-    const job = await Job.create({
-      tweetUrl: post.postUrl,
-      canonicalUrl,
-      domainId,
-      traceId,
-      status: JOB_STATUSES.QUEUED,
-      accountPlatform: post.accountPlatform || 'tiktok',
-      accountHandle: post.accountHandle || '',
-      accountSlug: post.accountSlug || '',
-    });
+    let job;
+    try {
+      job = await Job.create({
+        tweetUrl: post.postUrl,
+        canonicalUrl,
+        domainId,
+        traceId,
+        status: JOB_STATUSES.QUEUED,
+        accountPlatform: post.accountPlatform || 'tiktok',
+        accountHandle: post.accountHandle || '',
+        accountSlug: post.accountSlug || '',
+      });
+    } catch (createErr) {
+      // E11000: concurrent request won the race and created the job first
+      if (createErr.code === 11000) {
+        const racedJob = await Job.findOne({
+          canonicalUrl,
+          status: { $in: [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING, JOB_STATUSES.COMPLETED] },
+        }).lean();
+        if (racedJob) {
+          await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: racedJob._id }, { new: true });
+          logger.info('discovery.download.race-resolved', {
+            traceId,
+            discoveredPostId: post._id.toString(),
+            jobId: racedJob._id.toString(),
+            canonicalUrl,
+          });
+          return res.json({
+            ok: true,
+            job: racedJob,
+            alreadyExists: true,
+          });
+        }
+      }
+      throw createErr;
+    }
 
     // Link the discovered post to the new job
     await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: job._id });
@@ -127,16 +176,24 @@ discoveryRouter.post('/:accountSlug/refresh', async (req, res) => {
   }
 
   try {
-    // Find any job for this contact to get the handle
-    const sampleJob = await Job.findOne({ accountSlug: slug }).lean();
+    // Prefer latest TikTok job with an account handle to avoid short-link discovery failures.
+    const sampleJob = await Job.findOne({
+      accountSlug: slug,
+      accountPlatform: 'tiktok',
+    })
+      .sort({ createdAt: -1 })
+      .lean();
     if (!sampleJob) {
-      return sendError(res, 404, ERROR_CODES.DISCOVERY_NOT_FOUND, 'No jobs found for this contact.');
+      return sendError(res, 404, ERROR_CODES.DISCOVERY_NOT_FOUND, 'No TikTok jobs found for this contact.');
     }
 
     // Fire-and-forget
     triggerProfileDiscovery({
       tweetUrl: sampleJob.tweetUrl,
       accountSlug: slug,
+      accountHandle: sampleJob.accountHandle || '',
+      accountDisplayName: sampleJob.accountDisplayName || '',
+      sourceJobId: sampleJob._id,
       traceId,
     }).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
