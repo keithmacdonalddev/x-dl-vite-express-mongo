@@ -2,6 +2,13 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { logger } = require('../core/lib/logger');
 
+// playwright-extra wraps playwright's chromium with plugin support.
+// StealthPlugin patches navigator.webdriver, user-agent, plugins, etc.
+// to defeat bot detection on TikTok, Cloudflare, etc.
+const { chromium: stealthChromium } = require('playwright-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+stealthChromium.use(StealthPlugin());
+
 const MEDIA_URL_PATTERN = /\.(mp4|m3u8|webm|mov|m4v)(\?.*)?$/i;
 const IMAGE_URL_PATTERN = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
 const { getAuthBlockingHosts, getAllMediaPathPatterns } = require('../core/platforms/registry');
@@ -39,14 +46,9 @@ function resolveChromium(injectedChromium) {
     return injectedChromium;
   }
 
-  try {
-    return require('playwright').chromium;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Playwright dependency is required for production extraction. Install with: npm --prefix server install playwright (${message})`
-    );
-  }
+  // Use the module-level stealth-wrapped chromium (playwright-extra + stealth plugin).
+  // This patches navigator.webdriver and dozens of bot-detection signals on every launch.
+  return stealthChromium;
 }
 
 function getAdapterConfig(input = {}) {
@@ -130,13 +132,24 @@ async function clearChromiumSingletonArtifacts(userDataDir) {
   await Promise.all(removals).catch(() => {});
 }
 
+// Belt-and-suspenders anti-detection args applied on every launch,
+// complementing the stealth plugin patches applied at the playwright-extra layer.
+const STEALTH_LAUNCH_ARGS = [
+  '--disable-blink-features=AutomationControlled',
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+];
+
 async function launchPersistentContextWithRecovery(chromium, config) {
+  const launchOptions = {
+    headless: config.headless,
+    acceptDownloads: true,
+    args: STEALTH_LAUNCH_ARGS,
+    ...config.contextOptions,
+  };
+
   try {
-    return await chromium.launchPersistentContext(config.userDataDir, {
-      headless: config.headless,
-      acceptDownloads: true,
-      ...config.contextOptions,
-    });
+    return await chromium.launchPersistentContext(config.userDataDir, launchOptions);
   } catch (error) {
     if (!isLaunchClosedError(error)) {
       throw error;
@@ -144,11 +157,7 @@ async function launchPersistentContextWithRecovery(chromium, config) {
 
     await clearChromiumSingletonArtifacts(config.userDataDir);
 
-    return chromium.launchPersistentContext(config.userDataDir, {
-      headless: config.headless,
-      acceptDownloads: true,
-      ...config.contextOptions,
-    });
+    return chromium.launchPersistentContext(config.userDataDir, launchOptions);
   }
 }
 
@@ -547,6 +556,7 @@ function createPlaywrightPageFactory(options = {}) {
   async function openEphemeralPage() {
     const browser = await chromium.launch({
       headless: config.headless,
+      args: STEALTH_LAUNCH_ARGS,
     });
     const context = await browser.newContext();
     const page = await context.newPage();
