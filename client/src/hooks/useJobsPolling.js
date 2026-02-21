@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { listJobs } from '../api/jobsApi'
 
 export function useJobsPolling({ intervalMs = 3000 } = {}) {
@@ -11,11 +11,15 @@ export function useJobsPolling({ intervalMs = 3000 } = {}) {
     setJobs(Array.isArray(payload.jobs) ? payload.jobs : [])
   }, [])
 
+  const inflight = useRef(false)
+
   useEffect(() => {
     let cancelled = false
     let intervalId
 
     async function loadNow() {
+      if (inflight.current) return
+      inflight.current = true
       try {
         const payload = await listJobs()
         if (!cancelled) {
@@ -27,6 +31,7 @@ export function useJobsPolling({ intervalMs = 3000 } = {}) {
           setError(err instanceof Error ? err.message : String(err))
         }
       } finally {
+        inflight.current = false
         if (!cancelled) {
           setIsLoading(false)
         }
