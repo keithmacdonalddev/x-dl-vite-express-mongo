@@ -267,42 +267,41 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           <p><strong>Completed:</strong> {contact?.completedJobs || 0}</p>
           <p><strong>First seen:</strong> {formatShortDate(contact?.firstSeenAt)}</p>
           <p><strong>Latest:</strong> {formatShortDate(contact?.latestAt)}</p>
-          <form className="edit-form" onSubmit={saveContactEdit}>
-            <label htmlFor="contact-display-name">Edit display name</label>
-            <input
-              id="contact-display-name"
-              type="text"
-              placeholder="Creator display name"
-              value={editContactName}
-              onChange={(event) => setEditContactName(event.target.value)}
-            />
-            <button type="submit" disabled={actions.isMutating}>
-              {actions.isMutating ? 'Saving...' : 'Save profile'}
-            </button>
-          </form>
-          <button type="button" className="refresh-btn" onClick={refresh}>
-            Refresh now
-          </button>
-          {contact?.platform === 'tiktok' && (
-            <div className="discovery-refresh">
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={handleRefreshDiscovery}
-                disabled={isDiscoveryRefreshing}
-              >
-                {isDiscoveryRefreshing ? 'Discovering...' : 'Discover more videos'}
+          <div className="profile-actions-area">
+            <form className="edit-form profile-edit-inline" onSubmit={saveContactEdit}>
+              <input
+                id="contact-display-name"
+                type="text"
+                placeholder="Display name"
+                value={editContactName}
+                onChange={(event) => setEditContactName(event.target.value)}
+              />
+              <button type="submit" disabled={actions.isMutating}>
+                {actions.isMutating ? '...' : 'Save'}
               </button>
-              {discoveryRefreshStatus.text && (
-                <p className={`discovery-refresh-status is-${discoveryRefreshStatus.tone || 'info'}`}>
-                  {discoveryRefreshStatus.text}
-                </p>
+            </form>
+            <div className="profile-actions-row">
+              <button type="button" className="refresh-btn" onClick={refresh}>Refresh</button>
+              {contact?.platform === 'tiktok' && (
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={handleRefreshDiscovery}
+                  disabled={isDiscoveryRefreshing}
+                >
+                  {isDiscoveryRefreshing ? 'Discovering...' : 'Discover'}
+                </button>
               )}
             </div>
-          )}
-          <button type="button" className="danger-btn" onClick={openContactDelete} disabled={actions.isMutating}>
-            Delete contact permanently
-          </button>
+            {discoveryRefreshStatus.text && (
+              <p className={`discovery-refresh-status is-${discoveryRefreshStatus.tone || 'info'}`}>
+                {discoveryRefreshStatus.text}
+              </p>
+            )}
+            <button type="button" className="profile-delete-link" onClick={openContactDelete} disabled={actions.isMutating}>
+              Delete contact
+            </button>
+          </div>
           {errorMessage && <p className="error">{errorMessage}</p>}
         </aside>
 

@@ -261,6 +261,59 @@ h1 {
   position: sticky;
   top: 12px;
   align-self: start;
+  padding: 12px;
+}
+
+.profile-actions-area {
+  border-top: 1px dashed var(--line);
+  margin-top: 8px;
+  padding-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.profile-edit-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.profile-edit-inline input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.profile-edit-inline button {
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.profile-actions-row {
+  display: flex;
+  gap: 6px;
+}
+
+.profile-actions-row button {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.profile-delete-link {
+  background: none;
+  border: none;
+  color: #a01f1f;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+
+.profile-delete-link:hover {
+  color: #8f2f2f;
 }
 
 .profile-right {
@@ -302,11 +355,6 @@ h1 {
 
 .refresh-btn:hover {
   background: #123e62;
-}
-
-.discovery-refresh {
-  display: grid;
-  gap: 6px;
 }
 
 .discovery-refresh-status {
@@ -475,12 +523,12 @@ h1 {
   margin: 0;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 }
 
 .discovered-card {
   border: 1px solid #d7e2e9;
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
   background: #fff;
   transition: border-color 180ms ease, box-shadow 180ms ease;
@@ -522,7 +570,7 @@ h1 {
 
 .discovered-card-thumb {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   background: #d7e3ee;
   display: block;
@@ -533,7 +581,7 @@ h1 {
 }
 
 .discovered-card-body {
-  padding: 6px;
+  padding: 4px 6px;
 }
 
 .discovered-card-title {
@@ -555,9 +603,9 @@ h1 {
   width: 100%;
   border: 0;
   border-radius: 10px;
-  padding: 7px 12px;
+  padding: 5px 8px;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #fff;
   background: var(--accent);

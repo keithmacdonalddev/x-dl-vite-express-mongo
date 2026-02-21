@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatShortDate, getPublishedAtValue, toAssetHref } from '../lib/contacts'
+import { toAssetHref } from '../lib/contacts'
 
 function DiscoveredCardThumb({ src, alt }) {
   const [broken, setBroken] = useState(false)
@@ -77,8 +77,6 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
                 <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} />
               </button>
               <div className="discovered-card-body">
-                {post.title && <p className="discovered-card-title">{post.title}</p>}
-                <p className="discovered-card-date">{formatShortDate(getPublishedAtValue(post))}</p>
                 <div className="discovered-card-actions">
                   {isAlreadyDownloaded ? (
                     <span className="discovered-badge is-done">Downloaded</span>
