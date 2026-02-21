@@ -700,6 +700,8 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
         tweetUrl: job.tweetUrl,
         accountSlug: job.accountSlug || '',
         accountHandle: job.accountHandle || '',
+        accountDisplayName: job.accountDisplayName || '',
+        sourceJobId: job._id,
         traceId: job.traceId || '',
       }).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
