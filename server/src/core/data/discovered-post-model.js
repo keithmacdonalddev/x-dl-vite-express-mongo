@@ -13,6 +13,11 @@ const discoveredPostSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    accountDisplayName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     accountPlatform: {
       type: String,
       default: 'tiktok',
@@ -48,6 +53,10 @@ const discoveredPostSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
     downloadedJobId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -61,6 +70,7 @@ const discoveredPostSchema = new mongoose.Schema(
 
 discoveredPostSchema.index({ canonicalUrl: 1 }, { unique: true });
 discoveredPostSchema.index({ accountSlug: 1, downloadedJobId: 1 });
+discoveredPostSchema.index({ accountSlug: 1, publishedAt: -1, createdAt: -1 });
 
 const DiscoveredPost =
   mongoose.models.DiscoveredPost || mongoose.model('DiscoveredPost', discoveredPostSchema);

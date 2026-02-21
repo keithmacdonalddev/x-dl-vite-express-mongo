@@ -73,6 +73,10 @@ const jobSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
     extractedUrl: {
       type: String,
       default: '',
@@ -135,6 +139,23 @@ const jobSchema = new mongoose.Schema(
 );
 
 jobSchema.index({ status: 1, createdAt: 1 });
+jobSchema.index({ publishedAt: -1, createdAt: -1 });
+jobSchema.index(
+  { canonicalUrl: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      canonicalUrl: { $exists: true, $gt: '' },
+      status: {
+        $in: [
+          JOB_STATUSES.QUEUED,
+          JOB_STATUSES.RUNNING,
+          JOB_STATUSES.COMPLETED,
+        ],
+      },
+    },
+  }
+);
 
 const Job = mongoose.models.Job || mongoose.model('Job', jobSchema);
 
