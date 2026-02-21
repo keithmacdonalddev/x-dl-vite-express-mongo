@@ -40,6 +40,103 @@ function getConfig() {
 const DOWNLOADS_ROOT = path.resolve(process.cwd(), 'downloads');
 const DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE = 250;
 
+async function reconcileSourceAvailability({
+  slug,
+  scrapedCanonicalUrls,
+  profileRemovedOnSource,
+  canAssertProfileAvailable,
+  checkedAt,
+} = {}) {
+  if (!slug) {
+    return;
+  }
+
+  const canonicalUrls = Array.isArray(scrapedCanonicalUrls)
+    ? scrapedCanonicalUrls.filter((url) => typeof url === 'string' && url)
+    : [];
+
+  if (profileRemovedOnSource) {
+    await Promise.all([
+      DiscoveredPost.updateMany(
+        { accountSlug: slug, accountPlatform: 'tiktok', removedFromSourceAt: null },
+        { $set: { removedFromSourceAt: checkedAt } }
+      ),
+      Job.updateMany(
+        { accountSlug: slug, accountPlatform: 'tiktok', removedFromSourceAt: null },
+        { $set: { removedFromSourceAt: checkedAt } }
+      ),
+      DiscoveredPost.updateMany(
+        { accountSlug: slug, accountPlatform: 'tiktok', profileRemovedFromSourceAt: null },
+        { $set: { profileRemovedFromSourceAt: checkedAt } }
+      ),
+      Job.updateMany(
+        { accountSlug: slug, accountPlatform: 'tiktok', profileRemovedFromSourceAt: null },
+        { $set: { profileRemovedFromSourceAt: checkedAt } }
+      ),
+    ]);
+    return;
+  }
+
+  if (canAssertProfileAvailable) {
+    await Promise.all([
+      DiscoveredPost.updateMany(
+        { accountSlug: slug, accountPlatform: 'tiktok', profileRemovedFromSourceAt: { $ne: null } },
+        { $set: { profileRemovedFromSourceAt: null } }
+      ),
+      Job.updateMany(
+        { accountSlug: slug, accountPlatform: 'tiktok', profileRemovedFromSourceAt: { $ne: null } },
+        { $set: { profileRemovedFromSourceAt: null } }
+      ),
+    ]);
+  }
+
+  if (canonicalUrls.length === 0) {
+    return;
+  }
+
+  await Promise.all([
+    DiscoveredPost.updateMany(
+      {
+        accountSlug: slug,
+        accountPlatform: 'tiktok',
+        canonicalUrl: { $in: canonicalUrls },
+        removedFromSourceAt: { $ne: null },
+      },
+      { $set: { removedFromSourceAt: null } }
+    ),
+    Job.updateMany(
+      {
+        accountSlug: slug,
+        accountPlatform: 'tiktok',
+        canonicalUrl: { $in: canonicalUrls },
+        removedFromSourceAt: { $ne: null },
+      },
+      { $set: { removedFromSourceAt: null } }
+    ),
+  ]);
+
+  await Promise.all([
+    DiscoveredPost.updateMany(
+      {
+        accountSlug: slug,
+        accountPlatform: 'tiktok',
+        canonicalUrl: { $nin: canonicalUrls, $exists: true, $ne: '' },
+        removedFromSourceAt: null,
+      },
+      { $set: { removedFromSourceAt: checkedAt } }
+    ),
+    Job.updateMany(
+      {
+        accountSlug: slug,
+        accountPlatform: 'tiktok',
+        canonicalUrl: { $nin: canonicalUrls, $exists: true, $ne: '' },
+        removedFromSourceAt: null,
+      },
+      { $set: { removedFromSourceAt: checkedAt } }
+    ),
+  ]);
+}
+
 // ---------------------------------------------------------------------------
 // Handle utilities
 // ---------------------------------------------------------------------------
@@ -345,7 +442,12 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
 
       if (!solved) {
         logger.error('discovery.scrape.captcha_timeout', { ...logContext, handle });
-        return { items: [], profileAvatarUrl: '', stats: { rawCount: 0, filteredCount: 0, itemCount: 0 } };
+        return {
+          items: [],
+          profileAvatarUrl: '',
+          profileUnavailable: false,
+          stats: { rawCount: 0, filteredCount: 0, itemCount: 0 },
+        };
       }
     }
 
@@ -548,22 +650,44 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
     const rawCount = allRaw.length;
 
     // Diagnostic DOM snippet if nothing found
+    let profileUnavailable = false;
     if (allRaw.length === 0) {
       try {
-        const bodySnippet = await page.evaluate(() => {
+        const diagnostics = await page.evaluate(() => {
           const body = document.body;
-          if (!body) return 'NO BODY';
-          return JSON.stringify({
-            title: document.title,
+          const bodyText = body ? body.innerText : '';
+          const lowered = (bodyText || '').toLowerCase();
+          const title = document.title || '';
+          const loweredTitle = title.toLowerCase();
+          const unavailablePhrases = [
+            "couldn't find this account",
+            'couldn’t find this account',
+            "couldn't find this user",
+            'account not found',
+            'user not found',
+            'this account is unavailable',
+          ];
+          const profileUnavailable = unavailablePhrases.some((phrase) => (
+            lowered.includes(phrase) || loweredTitle.includes(phrase)
+          ));
+
+          return {
+            title,
             url: window.location.href,
-            bodyText: body.innerText.slice(0, 1500),
-            scriptIds: Array.from(document.querySelectorAll('script[id]')).map(s => s.id),
+            bodyText: bodyText.slice(0, 1500),
+            scriptIds: Array.from(document.querySelectorAll('script[id]')).map((s) => s.id),
             anchorCount: document.querySelectorAll('a').length,
             videoLinkCount: document.querySelectorAll('a[href*="/video/"]').length,
             hasRehydration: !!document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__'),
-          });
+            profileUnavailable,
+          };
         });
-        logger.info('discovery.scrape.dom_debug', { ...logContext, handle, bodySnippet });
+        profileUnavailable = Boolean(diagnostics && diagnostics.profileUnavailable);
+        logger.info('discovery.scrape.dom_debug', {
+          ...logContext,
+          handle,
+          bodySnippet: JSON.stringify(diagnostics),
+        });
       } catch { /* ignore */ }
     }
 
@@ -595,7 +719,8 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
 
       const videoId = match[2];
       // Canonicalize (strip query params for the canonical form)
-      const canonBase = `https://www.tiktok.com/${urlHandle}/video/${videoId}`;
+      // Use non-www host so URLs are consistent regardless of scrape source
+      const canonBase = `https://tiktok.com/${urlHandle}/video/${videoId}`;
       const canonicalUrl = canonicalizePostUrl(canonBase) || canonBase;
       const resolvedPublishedAt = resolvePublishedAt({
         publishedAt: raw.publishedAt,
@@ -627,12 +752,18 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
     return {
       items,
       profileAvatarUrl,
+      profileUnavailable,
       stats: { rawCount, filteredCount, itemCount: items.length },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('discovery.scrape.failed', { ...logContext, handle, message });
-    return { items: [], profileAvatarUrl: '', stats: { rawCount: 0, filteredCount: 0, itemCount: 0 } };
+    return {
+      items: [],
+      profileAvatarUrl: '',
+      profileUnavailable: false,
+      stats: { rawCount: 0, filteredCount: 0, itemCount: 0 },
+    };
   } finally {
     if (page && typeof page.close === 'function') {
       await page.close().catch(() => {});
@@ -699,6 +830,19 @@ async function triggerProfileDiscovery({
 
     const items = scrapeResult.items || [];
     const profileAvatarUrl = scrapeResult.profileAvatarUrl || '';
+    const scrapedCanonicalUrls = Array.from(
+      new Set(items.map((i) => i.canonicalUrl).filter((url) => typeof url === 'string' && url))
+    );
+    const profileRemovedOnSource = items.length === 0 && scrapeResult.profileUnavailable === true;
+    const sourceCheckedAt = new Date();
+
+    await reconcileSourceAvailability({
+      slug,
+      scrapedCanonicalUrls,
+      profileRemovedOnSource,
+      canAssertProfileAvailable: items.length > 0,
+      checkedAt: sourceCheckedAt,
+    });
 
     // Download avatar even if no new items found (if URL is available)
     if (profileAvatarUrl) {
@@ -710,42 +854,60 @@ async function triggerProfileDiscovery({
     }
 
     if (items.length === 0) {
-      logger.info('discovery.trigger.no_items', { ...discoveryLogContext, handle, slug });
+      logger.info('discovery.trigger.no_items', {
+        ...discoveryLogContext,
+        handle,
+        slug,
+        profileRemovedOnSource,
+      });
       return;
     }
 
     // ---------------------------------------------------------------------------
-    // Bounded dedupe: $in lookups scoped to scraped URLs only
+    // Bounded dedupe: $in lookups scoped to scraped URLs and videoIds
+    // Both canonicalUrl and videoId are checked to survive URL normalisation
+    // differences between runs (e.g. www.tiktok.com vs tiktok.com).
     // ---------------------------------------------------------------------------
-    const scrapedCanonicalUrls = Array.from(
-      new Set(items.map((i) => i.canonicalUrl).filter((url) => typeof url === 'string' && url))
+    const scrapedVideoIds = Array.from(
+      new Set(items.map((i) => i.videoId).filter((id) => typeof id === 'string' && id))
     );
-
     const knownUrls = new Set();
+    const knownVideoIds = new Set();
     for (let i = 0; i < scrapedCanonicalUrls.length; i += DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE) {
       const canonicalChunk = scrapedCanonicalUrls.slice(i, i + DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE);
+      const videoIdChunk = scrapedVideoIds.slice(i, i + DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE);
       const [existingJobDocs, existingDiscoveredDocs] = await Promise.all([
-        Job.find({ canonicalUrl: { $in: canonicalChunk } }).select('canonicalUrl').lean(),
-        DiscoveredPost.find({ canonicalUrl: { $in: canonicalChunk } }).select('canonicalUrl').lean(),
+        Job.find({ $or: [{ canonicalUrl: { $in: canonicalChunk } }, { videoId: { $in: videoIdChunk } }] })
+          .select('canonicalUrl videoId').lean(),
+        DiscoveredPost.find({ $or: [{ canonicalUrl: { $in: canonicalChunk } }, { videoId: { $in: videoIdChunk } }] })
+          .select('canonicalUrl videoId').lean(),
       ]);
       for (const doc of existingJobDocs) {
         if (doc && typeof doc.canonicalUrl === 'string' && doc.canonicalUrl) {
           knownUrls.add(doc.canonicalUrl);
+        }
+        if (doc && typeof doc.videoId === 'string' && doc.videoId) {
+          knownVideoIds.add(doc.videoId);
         }
       }
       for (const doc of existingDiscoveredDocs) {
         if (doc && typeof doc.canonicalUrl === 'string' && doc.canonicalUrl) {
           knownUrls.add(doc.canonicalUrl);
         }
+        if (doc && typeof doc.videoId === 'string' && doc.videoId) {
+          knownVideoIds.add(doc.videoId);
+        }
       }
     }
 
-    // In-memory dedupe by canonical URL
+    // In-memory dedupe by canonical URL and videoId
     const seenInBatch = new Set();
     const newItems = items.filter((item) => {
       if (knownUrls.has(item.canonicalUrl)) return false;
+      if (item.videoId && knownVideoIds.has(item.videoId)) return false;
       if (seenInBatch.has(item.canonicalUrl)) return false;
       seenInBatch.add(item.canonicalUrl);
+      if (item.videoId) seenInBatch.add(item.videoId);
       return true;
     });
 
