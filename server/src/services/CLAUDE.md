@@ -15,7 +15,7 @@ This domain owns all files under `server/src/services/`. No agent outside the se
 | `extractor-service.js` | Playwright-based media URL extraction: navigates to post URL, intercepts network responses for video/image URLs, scrapes DOM for TikTok rehydration data, ranks candidates by quality (resolution, bitrate, watermark, codec). Exports `{ extractFromTweet, pickMediaUrl, listCandidateMediaUrls, getMediaCandidateFacts, createExtractorError }`. ~499 lines. |
 | `downloader-service.js` | Media download: direct HTTP fetch with stream pipeline, ffmpeg HLS download, Playwright-authenticated download (cookies), browser navigation download (full TLS fingerprint). Includes signed URL expiry detection. Exports `{ isAuthBlockedStatus, isSignedUrlExpired, chooseDownloadMode, downloadDirect, downloadDirectWithPlaywrightSession, downloadDirectWithBrowserNavigation, downloadHlsWithFfmpeg, downloadMedia }`. ~571 lines. |
 | `playwright-adapter.js` | Singleton persistent Chromium context management: launch with recovery, page factory (creates pages with network interception for media/image URLs + page diagnostics), access state assessment (bot challenge, auth wall), manual solve polling, TikTok rehydration URL extraction. Exports `{ createPlaywrightPageFactory, getPersistentContext, closePersistentContext, getAdapterConfig, assessAccessState, extractTikTokRehydrationUrls, hasPersistentContext }`. ~728 lines. |
-| `profile-discovery-service.js` | TikTok profile discovery: scrapes a user's profile page for video posts, deduplicates against existing Jobs and DiscoveredPosts, creates DiscoveredPost documents, downloads thumbnails. **Exception to statelessness rule**: imports `Job` model for deduplication queries (read-only `distinct()`) and `DiscoveredPost` model for persistence. Exports `{ triggerProfileDiscovery, scrapeProfileVideos, extractHandleFromTikTokUrl }`. ~255 lines. |
+| `profile-discovery-service.js` | TikTok profile discovery: scrapes a user's profile page for video posts, deduplicates against existing Jobs and DiscoveredPosts, creates DiscoveredPost documents, downloads thumbnails + avatar. **Exception to statelessness rule**: imports `Job` model for deduplication queries (bounded `$in` lookups) and `DiscoveredPost` model for persistence. Exports `{ triggerProfileDiscovery, scrapeProfileVideos, extractHandleFromTikTokUrl, normalizeHandle, resolveDiscoveryHandle }`. ~400 lines. |
 
 **File count:** 4 source files in 1 directory.
 
@@ -141,9 +141,11 @@ module.exports = {
 
 // profile-discovery-service.js
 module.exports = {
-  triggerProfileDiscovery,     // async ({ tweetUrl, accountSlug, traceId }) => void
-  scrapeProfileVideos,         // async (handle, { traceId }) => Array<{ postUrl, canonicalUrl, thumbnailUrl, title, videoId }>
+  triggerProfileDiscovery,     // async ({ tweetUrl, accountSlug, accountHandle, accountDisplayName, sourceJobId, traceId }) => void
+  scrapeProfileVideos,         // async (handle, { traceId }) => { items, profileAvatarUrl, stats: { rawCount, filteredCount, itemCount } }
   extractHandleFromTikTokUrl,  // (tweetUrl: string) => string
+  normalizeHandle,             // (value: string) => string — trims, prefixes @, rejects invalid
+  resolveDiscoveryHandle,      // ({ tweetUrl, accountHandle, accountSlug }) => string — best handle for discovery
 }
 ```
 
@@ -183,7 +185,7 @@ module.exports = {
 
 **Contract rules:**
 - Services MUST be stateless relative to job state -- no `job.save()` calls for status transitions
-- **Exception:** `profile-discovery-service.js` imports `Job` model for read-only deduplication (`Job.distinct('canonicalUrl', ...)`) and `DiscoveredPost` model for persistence. This is a controlled exception -- it never modifies Job documents or manages job status.
+- **Exception:** `profile-discovery-service.js` imports `Job` model for read-only deduplication (bounded `Job.find({ canonicalUrl: { $in: [...] } })`) and `DiscoveredPost` model for persistence. This is a controlled exception -- it never modifies Job documents or manages job status.
 - Services MUST NOT import from `api/` or `worker/`
 - All functions accept a `telemetryContext` object for traceId propagation
 - Download functions accept dependency injection params (`fetchImpl`, `spawnImpl`, `getPersistentContextImpl`) for testability
@@ -199,7 +201,7 @@ module.exports = {
 
 ## Domain Rules
 
-- **Do not import `Job` model or manage job status** except in `profile-discovery-service.js` which uses read-only `Job.distinct()` for deduplication. No other Services file may import the Job model.
+- **Do not import `Job` model or manage job status** except in `profile-discovery-service.js` which uses read-only `Job.find({ canonicalUrl: { $in: [...] } })` for deduplication. No other Services file may import the Job model.
 - **NEVER import from `api/` or `worker/`** -- Services is consumed, not a consumer
 - **Always close Playwright pages in finally blocks** -- leaked pages exhaust browser memory
 - **Always include telemetryContext in log calls** -- enables end-to-end tracing
