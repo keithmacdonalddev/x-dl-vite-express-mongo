@@ -7,10 +7,19 @@ const { Job } = require('../core/models/job');
 const { logger } = require('../core/lib/logger');
 const { canonicalizePostUrl } = require('../core/utils/validation');
 const { sanitizeAccountSlug } = require('../core/utils/account-profile');
+const { resolvePublishedAt, parsePublishedAt } = require('../core/utils/published-at');
 
 // ---------------------------------------------------------------------------
 // Config — env-backed with defaults
 // ---------------------------------------------------------------------------
+
+function parseBooleanEnv(value, fallback = false) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') return true;
+  if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') return false;
+  return fallback;
+}
 
 function getConfig() {
   return {
@@ -21,10 +30,15 @@ function getConfig() {
     DISCOVERY_SCROLL_PAUSE_MS: parseInt(process.env.DISCOVERY_SCROLL_PAUSE_MS || '600', 10),
     DISCOVERY_SCROLL_STAGNANT_STEPS: parseInt(process.env.DISCOVERY_SCROLL_STAGNANT_STEPS || '3', 10),
     DISCOVERY_WRITE_CONCURRENCY: parseInt(process.env.DISCOVERY_WRITE_CONCURRENCY || '4', 10),
+    DISCOVERY_THUMBNAIL_TIMEOUT_MS: parseInt(process.env.DISCOVERY_THUMBNAIL_TIMEOUT_MS || '15000', 10),
+    DISCOVERY_THUMBNAIL_AUTH_FALLBACK: parseBooleanEnv(process.env.DISCOVERY_THUMBNAIL_AUTH_FALLBACK, true),
+    DISCOVERY_DEBUG_SCREENSHOTS: parseBooleanEnv(process.env.DISCOVERY_DEBUG_SCREENSHOTS, false),
+    DISCOVERY_DEBUG_SCREENSHOT_RETENTION_MS: parseInt(process.env.DISCOVERY_DEBUG_SCREENSHOT_RETENTION_MS || '86400000', 10),
   };
 }
 
 const DOWNLOADS_ROOT = path.resolve(process.cwd(), 'downloads');
+const DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE = 250;
 
 // ---------------------------------------------------------------------------
 // Handle utilities
@@ -63,22 +77,20 @@ function extractHandleFromTikTokUrl(tweetUrl) {
 
 /**
  * Resolve the best TikTok handle for discovery.
- * - For short links (vm.tiktok.com, vt.tiktok.com) or any URL without a handle
- *   in the path, prefer the explicit accountHandle parameter.
+ * - Prefer explicit accountHandle when present.
+ * - Fall back to handle parsed from URL.
  * - Fall back to '@' + accountSlug when accountHandle is empty/invalid.
  * Returns a normalized handle string (with @ prefix), or empty string if unresolvable.
  */
 function resolveDiscoveryHandle({ tweetUrl, accountHandle, accountSlug } = {}) {
   // Normalize the explicit handle first
   const normalizedExplicit = normalizeHandle(accountHandle || '');
+  if (normalizedExplicit) {
+    return normalizedExplicit;
+  }
 
   // Check if the URL itself contains a handle in the path
   const urlHandle = extractHandleFromTikTokUrl(tweetUrl || '');
-
-  // Prefer explicit accountHandle for short links (no handle in URL)
-  if (!urlHandle && normalizedExplicit) {
-    return normalizedExplicit;
-  }
 
   // If URL has a handle, prefer it (canonical form)
   if (urlHandle) {
@@ -98,12 +110,73 @@ function resolveDiscoveryHandle({ tweetUrl, accountHandle, accountSlug } = {}) {
 // Thumbnail download
 // ---------------------------------------------------------------------------
 
-async function downloadThumbnail(thumbnailUrl, targetPath, { traceId } = {}) {
+async function removeFileIfExists(targetPath) {
+  try {
+    await fs.promises.unlink(targetPath);
+  } catch {
+    // ignore — file may not exist
+  }
+}
+
+async function downloadThumbnailWithAuthFallback(thumbnailUrl, targetPath, { traceId, jobId } = {}) {
+  try {
+    const { downloadDirectWithPlaywrightSession } = require('./downloader-service');
+    const authResult = await downloadDirectWithPlaywrightSession(thumbnailUrl, {
+      targetPath,
+      telemetryContext: { traceId, jobId, stage: 'discovery-thumbnail-auth' },
+    });
+
+    const contentType = authResult && typeof authResult.contentType === 'string'
+      ? authResult.contentType
+      : '';
+
+    if (contentType && !contentType.startsWith('image/')) {
+      logger.warn('discovery.thumbnail.auth_non_image', {
+        traceId,
+        jobId,
+        thumbnailUrl,
+        contentType,
+      });
+      await removeFileIfExists(targetPath);
+      return '';
+    }
+
+    return targetPath;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('discovery.thumbnail.fetch_failed', {
+      traceId,
+      jobId,
+      thumbnailUrl,
+      message,
+    });
+    await removeFileIfExists(targetPath);
+    return '';
+  }
+}
+
+async function downloadThumbnail(thumbnailUrl, targetPath, { traceId, jobId } = {}) {
   if (!thumbnailUrl || !thumbnailUrl.startsWith('http')) return '';
 
-  let output = null;
+  const config = getConfig();
+  const shouldAuthFallback = Boolean(config.DISCOVERY_THUMBNAIL_AUTH_FALLBACK);
+  let authFallbackAttempted = false;
+  let timeoutHandle = null;
+
+  async function maybeAuthFallback() {
+    if (!shouldAuthFallback || authFallbackAttempted) return '';
+    authFallbackAttempted = true;
+    return downloadThumbnailWithAuthFallback(thumbnailUrl, targetPath, { traceId, jobId });
+  }
+
   try {
     await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+
+    const abortController = typeof AbortController === 'function' ? new AbortController() : null;
+    if (abortController) {
+      timeoutHandle = setTimeout(() => abortController.abort(), config.DISCOVERY_THUMBNAIL_TIMEOUT_MS);
+      timeoutHandle.unref?.();
+    }
 
     const response = await fetch(thumbnailUrl, {
       headers: {
@@ -111,21 +184,23 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId } = {}) {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
         referer: 'https://www.tiktok.com/',
       },
+      signal: abortController ? abortController.signal : undefined,
     });
 
     // Validate response status
     if (!response.ok) {
       logger.warn('discovery.thumbnail.bad_status', {
         traceId,
+        jobId,
         thumbnailUrl,
         status: response.status,
       });
-      return '';
+      return maybeAuthFallback();
     }
 
     if (!response.body) {
-      logger.warn('discovery.thumbnail.no_body', { traceId, thumbnailUrl });
-      return '';
+      logger.warn('discovery.thumbnail.no_body', { traceId, jobId, thumbnailUrl });
+      return maybeAuthFallback();
     }
 
     // Validate content-type
@@ -133,28 +208,73 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId } = {}) {
     if (!contentType.startsWith('image/')) {
       logger.warn('discovery.thumbnail.bad_content_type', {
         traceId,
+        jobId,
         thumbnailUrl,
         contentType,
       });
-      return '';
+      return maybeAuthFallback();
     }
 
     const { Readable } = require('node:stream');
     const { pipeline } = require('node:stream/promises');
-    output = fs.createWriteStream(targetPath);
+    const output = fs.createWriteStream(targetPath);
     await pipeline(Readable.fromWeb(response.body), output);
+    const stat = await fs.promises.stat(targetPath).catch(() => null);
+    if (!stat || stat.size <= 0) {
+      logger.warn('discovery.thumbnail.empty_file', {
+        traceId,
+        jobId,
+        thumbnailUrl,
+      });
+      await removeFileIfExists(targetPath);
+      return maybeAuthFallback();
+    }
 
     return targetPath;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error('discovery.thumbnail.failed', { traceId, thumbnailUrl, message });
+    if (error && error.name === 'AbortError') {
+      logger.warn('discovery.thumbnail.timeout', {
+        traceId,
+        jobId,
+        thumbnailUrl,
+        timeoutMs: config.DISCOVERY_THUMBNAIL_TIMEOUT_MS,
+      });
+    } else {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error('discovery.thumbnail.failed', { traceId, jobId, thumbnailUrl, message });
+    }
 
-    // Delete partial file if it exists
-    try {
-      await fs.promises.unlink(targetPath);
-    } catch { /* ignore — file may not exist */ }
+    await removeFileIfExists(targetPath);
+    return maybeAuthFallback();
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
 
-    return '';
+async function cleanupOldDiscoveryScreenshots(screenshotDir, retentionMs) {
+  if (!Number.isFinite(retentionMs) || retentionMs <= 0) return;
+  try {
+    const files = await fs.promises.readdir(screenshotDir);
+    const now = Date.now();
+    await Promise.all(
+      files
+        .filter((filename) => filename.startsWith('discovery-debug-') && filename.endsWith('.png'))
+        .map(async (filename) => {
+          const fullPath = path.join(screenshotDir, filename);
+          try {
+            const stat = await fs.promises.stat(fullPath);
+            if (now - stat.mtimeMs > retentionMs) {
+              await fs.promises.unlink(fullPath);
+            }
+          } catch {
+            // ignore best-effort cleanup errors
+          }
+        })
+    );
+  } catch {
+    // ignore best-effort cleanup errors
   }
 }
 
@@ -162,12 +282,13 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId } = {}) {
 // Profile scrape
 // ---------------------------------------------------------------------------
 
-async function scrapeProfileVideos(handle, { traceId } = {}) {
+async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
+  const logContext = { traceId, jobId };
   const config = getConfig();
   const profileUrl = `https://www.tiktok.com/${handle}`;
   const { getPersistentContext } = require('./playwright-adapter');
 
-  logger.info('discovery.scrape.started', { traceId, handle, profileUrl });
+  logger.info('discovery.scrape.started', { ...logContext, handle, profileUrl });
 
   let page = null;
   let context = null;
@@ -201,7 +322,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
     const accessState = assessAccessState({ title: pageTitle, visibleText, content: '', finalUrl });
 
     if (accessState === 'BOT_CHALLENGE') {
-      logger.info('discovery.scrape.captcha_detected', { traceId, handle });
+      logger.info('discovery.scrape.captcha_detected', { ...logContext, handle });
 
       const pollMs = config.DISCOVERY_CAPTCHA_POLL_MS;
       const maxAttempts = Math.floor(config.DISCOVERY_CAPTCHA_WAIT_MS / pollMs);
@@ -216,27 +337,36 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
 
         if (!retryState) {
           solved = true;
-          logger.info('discovery.scrape.captcha_solved', { traceId, handle, attempts: attempt + 1 });
+          logger.info('discovery.scrape.captcha_solved', { ...logContext, handle, attempts: attempt + 1 });
           await page.waitForTimeout(3000);
           break;
         }
       }
 
       if (!solved) {
-        logger.error('discovery.scrape.captcha_timeout', { traceId, handle });
+        logger.error('discovery.scrape.captcha_timeout', { ...logContext, handle });
         return { items: [], profileAvatarUrl: '', stats: { rawCount: 0, filteredCount: 0, itemCount: 0 } };
       }
     }
 
-    // Diagnostic screenshot
-    const screenshotDir = path.resolve(process.cwd(), 'tmp');
-    await fs.promises.mkdir(screenshotDir, { recursive: true });
-    const screenshotPath = path.join(screenshotDir, `discovery-debug-${handle.replace('@', '')}-${Date.now()}.png`);
-    try {
-      await page.screenshot({ path: screenshotPath, fullPage: false });
-      logger.info('discovery.scrape.screenshot', { traceId, handle, screenshotPath });
-    } catch (screenshotErr) {
-      logger.error('discovery.scrape.screenshot_failed', { traceId, handle, message: screenshotErr.message || String(screenshotErr) });
+    if (config.DISCOVERY_DEBUG_SCREENSHOTS) {
+      const screenshotDir = path.resolve(process.cwd(), 'tmp');
+      await fs.promises.mkdir(screenshotDir, { recursive: true });
+      await cleanupOldDiscoveryScreenshots(
+        screenshotDir,
+        config.DISCOVERY_DEBUG_SCREENSHOT_RETENTION_MS
+      );
+      const screenshotPath = path.join(screenshotDir, `discovery-debug-${handle.replace('@', '')}-${Date.now()}.png`);
+      try {
+        await page.screenshot({ path: screenshotPath, fullPage: false });
+        logger.info('discovery.scrape.screenshot', { ...logContext, handle, screenshotPath });
+      } catch (screenshotErr) {
+        logger.error('discovery.scrape.screenshot_failed', {
+          ...logContext,
+          handle,
+          message: screenshotErr.message || String(screenshotErr),
+        });
+      }
     }
 
     // ---------------------------------------------------------------------------
@@ -249,7 +379,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
       // Elapsed-time guard: don't exceed 70% of DISCOVERY_TIMEOUT_MS
       if (Date.now() - scrapeStartedAt > scrapeTimeoutMs) {
         logger.info('discovery.scrape.scroll_timeout_guard', {
-          traceId,
+          ...logContext,
           handle,
           step,
           elapsedMs: Date.now() - scrapeStartedAt,
@@ -262,25 +392,32 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
 
       const newHeight = await page.evaluate(() => document.body.scrollHeight).catch(() => lastHeight);
 
-      logger.info('discovery.scrape.scrolled', {
-        traceId,
-        handle,
-        step,
-        height: lastHeight,
-        newHeight,
-      });
+      const shouldLogScroll =
+        step === 0 ||
+        step === config.DISCOVERY_SCROLL_MAX_STEPS - 1 ||
+        step % 5 === 0 ||
+        newHeight <= lastHeight;
+      if (shouldLogScroll) {
+        logger.info('discovery.scrape.scrolled', {
+          ...logContext,
+          handle,
+          step,
+          height: lastHeight,
+          newHeight,
+        });
+      }
 
       if (newHeight <= lastHeight) {
         stagnantCount++;
         logger.info('discovery.scrape.scroll_stagnated', {
-          traceId,
+          ...logContext,
           handle,
           step,
           stagnantCount,
         });
 
         if (stagnantCount >= config.DISCOVERY_SCROLL_STAGNANT_STEPS) {
-          logger.info('discovery.scrape.end_of_feed', { traceId, handle, step });
+          logger.info('discovery.scrape.end_of_feed', { ...logContext, handle, step });
           break;
         }
       } else {
@@ -292,18 +429,22 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
     // ---------------------------------------------------------------------------
     // Multi-strategy extraction with in-browser dedupe
     // ---------------------------------------------------------------------------
-    const targetHandleLower = handle.toLowerCase();
-
-    const rawItems = await page.evaluate((targetHandleLower) => {
+    const rawItems = await page.evaluate(() => {
       const seen = new Set();
       const results = [];
 
-      function addItem(postUrl, thumbnailUrl, title, avatarUrl) {
+      function addItem(postUrl, thumbnailUrl, title, avatarUrl, publishedAt) {
         if (!postUrl) return;
         const key = postUrl.split('?')[0]; // canonical key (no query params)
         if (seen.has(key)) return;
         seen.add(key);
-        results.push({ postUrl, thumbnailUrl: thumbnailUrl || '', title: title || '', avatarUrl: avatarUrl || '' });
+        results.push({
+          postUrl,
+          thumbnailUrl: thumbnailUrl || '',
+          title: title || '',
+          avatarUrl: avatarUrl || '',
+          publishedAt: publishedAt || '',
+        });
       }
 
       // Strategy 1: data-e2e user-post-item links
@@ -315,7 +456,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
         const alt = img ? (img.getAttribute('alt') || '') : '';
         if (href) {
           const fullUrl = href.startsWith('http') ? href : 'https://www.tiktok.com' + href;
-          addItem(fullUrl, thumbUrl, alt, '');
+          addItem(fullUrl, thumbUrl, alt, '', '');
         }
       }
 
@@ -328,7 +469,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
         const alt = img ? (img.getAttribute('alt') || '') : '';
         if (href) {
           const fullUrl = href.startsWith('http') ? href : 'https://www.tiktok.com' + href;
-          addItem(fullUrl, thumbUrl, alt, '');
+          addItem(fullUrl, thumbUrl, alt, '', '');
         }
       }
 
@@ -363,36 +504,34 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
               if (!profileAvatarUrl) {
                 profileAvatarUrl = author.avatarLarger || author.avatarMedium || author.avatarThumb || '';
               }
-              addItem(postUrl, thumbUrl, title, '');
+              addItem(postUrl, thumbUrl, title, '', item.createTime || '');
             }
           }
         } catch { /* ignore */ }
       }
 
-      // Strategy 4: SIGI_STATE fallback
-      if (results.length === 0) {
-        const scripts = document.querySelectorAll('script[id="SIGI_STATE"], script#SIGI_STATE');
-        for (const script of scripts) {
-          try {
-            const data = JSON.parse(script.textContent || '{}');
-            const itemModule = data.ItemModule || {};
-            for (const [videoId, item] of Object.entries(itemModule)) {
-              if (!item || !item.author) continue;
-              const itemHandle = item.author || '';
-              const postUrl = 'https://www.tiktok.com/@' + itemHandle + '/video/' + videoId;
-              const video = item.video || {};
-              const thumbUrl = video.cover || video.originCover || '';
-              const title = item.desc || '';
-              if (!profileAvatarUrl) {
-                const authorInfo = (data.UserModule || {}).users || {};
-                const authorData = authorInfo[itemHandle] || {};
-                profileAvatarUrl = authorData.avatarLarger || authorData.avatarMedium || authorData.avatarThumb || '';
-              }
-              addItem(postUrl, thumbUrl, title, '');
+      // Strategy 4: SIGI_STATE
+      const scripts = document.querySelectorAll('script[id="SIGI_STATE"], script#SIGI_STATE');
+      for (const script of scripts) {
+        try {
+          const data = JSON.parse(script.textContent || '{}');
+          const itemModule = data.ItemModule || {};
+          for (const [videoId, item] of Object.entries(itemModule)) {
+            if (!item || !item.author) continue;
+            const itemHandle = item.author || '';
+            const postUrl = 'https://www.tiktok.com/@' + itemHandle + '/video/' + videoId;
+            const video = item.video || {};
+            const thumbUrl = video.cover || video.originCover || '';
+            const title = item.desc || '';
+            if (!profileAvatarUrl) {
+              const authorInfo = (data.UserModule || {}).users || {};
+              const authorData = authorInfo[itemHandle] || {};
+              profileAvatarUrl = authorData.avatarLarger || authorData.avatarMedium || authorData.avatarThumb || '';
             }
-          } catch { /* ignore */ }
-          break; // only first match
-        }
+            addItem(postUrl, thumbUrl, title, '', item.createTime || '');
+          }
+        } catch { /* ignore */ }
+        break; // only first match
       }
 
       // Try meta tags for avatar as last resort
@@ -402,7 +541,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
       }
 
       return { results, profileAvatarUrl };
-    }, targetHandleLower);
+    });
 
     const allRaw = rawItems.results || [];
     const profileAvatarUrl = rawItems.profileAvatarUrl || '';
@@ -424,7 +563,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
             hasRehydration: !!document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__'),
           });
         });
-        logger.info('discovery.scrape.dom_debug', { traceId, handle, bodySnippet });
+        logger.info('discovery.scrape.dom_debug', { ...logContext, handle, bodySnippet });
       } catch { /* ignore */ }
     }
 
@@ -458,6 +597,12 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
       // Canonicalize (strip query params for the canonical form)
       const canonBase = `https://www.tiktok.com/${urlHandle}/video/${videoId}`;
       const canonicalUrl = canonicalizePostUrl(canonBase) || canonBase;
+      const resolvedPublishedAt = resolvePublishedAt({
+        publishedAt: raw.publishedAt,
+        videoId,
+        tweetUrl: canonBase,
+        canonicalUrl,
+      });
 
       items.push({
         postUrl: canonBase,
@@ -465,13 +610,14 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
         thumbnailUrl: raw.thumbnailUrl || '',
         title: raw.title || '',
         videoId,
+        publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
       });
     }
 
     const filteredCount = allRaw.length - items.length;
 
     logger.info('discovery.scrape.completed', {
-      traceId,
+      ...logContext,
       handle,
       rawCount,
       filteredCount,
@@ -485,7 +631,7 @@ async function scrapeProfileVideos(handle, { traceId } = {}) {
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error('discovery.scrape.failed', { traceId, handle, message });
+    logger.error('discovery.scrape.failed', { ...logContext, handle, message });
     return { items: [], profileAvatarUrl: '', stats: { rawCount: 0, filteredCount: 0, itemCount: 0 } };
   } finally {
     if (page && typeof page.close === 'function') {
@@ -507,16 +653,21 @@ async function triggerProfileDiscovery({
   traceId,
 } = {}) {
   const config = getConfig();
+  const sourceJobIdString = sourceJobId ? sourceJobId.toString() : '';
+  const discoveryLogContext = {
+    traceId,
+    sourceJobId: sourceJobIdString,
+    jobId: sourceJobIdString,
+  };
 
   const handle = resolveDiscoveryHandle({ tweetUrl, accountHandle, accountSlug });
   if (!handle) {
     logger.info('discovery.trigger.no_handle', {
-      traceId,
+      ...discoveryLogContext,
       tweetUrl,
       accountHandle,
       accountSlug,
       accountDisplayName,
-      sourceJobId,
     });
     return;
   }
@@ -525,20 +676,24 @@ async function triggerProfileDiscovery({
   const startedAt = Date.now();
 
   logger.info('discovery.trigger.started', {
-    traceId,
+    ...discoveryLogContext,
     handle,
     slug,
     accountDisplayName,
-    sourceJobId,
   });
 
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Discovery timed out')), config.DISCOVERY_TIMEOUT_MS)
-  );
+  let discoveryTimeoutHandle = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    discoveryTimeoutHandle = setTimeout(
+      () => reject(new Error('Discovery timed out')),
+      config.DISCOVERY_TIMEOUT_MS
+    );
+    discoveryTimeoutHandle.unref?.();
+  });
 
   try {
     const scrapeResult = await Promise.race([
-      scrapeProfileVideos(handle, { traceId }),
+      scrapeProfileVideos(handle, { traceId, jobId: sourceJobIdString }),
       timeoutPromise,
     ]);
 
@@ -548,28 +703,42 @@ async function triggerProfileDiscovery({
     // Download avatar even if no new items found (if URL is available)
     if (profileAvatarUrl) {
       const avatarPath = path.join(DOWNLOADS_ROOT, slug, 'avatar.jpg');
-      await downloadThumbnail(profileAvatarUrl, avatarPath, { traceId });
+      await downloadThumbnail(profileAvatarUrl, avatarPath, {
+        traceId,
+        jobId: sourceJobIdString,
+      });
     }
 
     if (items.length === 0) {
-      logger.info('discovery.trigger.no_items', { traceId, handle, slug });
+      logger.info('discovery.trigger.no_items', { ...discoveryLogContext, handle, slug });
       return;
     }
 
     // ---------------------------------------------------------------------------
     // Bounded dedupe: $in lookups scoped to scraped URLs only
     // ---------------------------------------------------------------------------
-    const scrapedCanonicalUrls = items.map((i) => i.canonicalUrl);
+    const scrapedCanonicalUrls = Array.from(
+      new Set(items.map((i) => i.canonicalUrl).filter((url) => typeof url === 'string' && url))
+    );
 
-    const [existingJobDocs, existingDiscoveredDocs] = await Promise.all([
-      Job.find({ canonicalUrl: { $in: scrapedCanonicalUrls } }).select('canonicalUrl').lean(),
-      DiscoveredPost.find({ canonicalUrl: { $in: scrapedCanonicalUrls } }).select('canonicalUrl').lean(),
-    ]);
-
-    const knownUrls = new Set([
-      ...existingJobDocs.map((d) => d.canonicalUrl),
-      ...existingDiscoveredDocs.map((d) => d.canonicalUrl),
-    ]);
+    const knownUrls = new Set();
+    for (let i = 0; i < scrapedCanonicalUrls.length; i += DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE) {
+      const canonicalChunk = scrapedCanonicalUrls.slice(i, i + DISCOVERY_DEDUPE_LOOKUP_BATCH_SIZE);
+      const [existingJobDocs, existingDiscoveredDocs] = await Promise.all([
+        Job.find({ canonicalUrl: { $in: canonicalChunk } }).select('canonicalUrl').lean(),
+        DiscoveredPost.find({ canonicalUrl: { $in: canonicalChunk } }).select('canonicalUrl').lean(),
+      ]);
+      for (const doc of existingJobDocs) {
+        if (doc && typeof doc.canonicalUrl === 'string' && doc.canonicalUrl) {
+          knownUrls.add(doc.canonicalUrl);
+        }
+      }
+      for (const doc of existingDiscoveredDocs) {
+        if (doc && typeof doc.canonicalUrl === 'string' && doc.canonicalUrl) {
+          knownUrls.add(doc.canonicalUrl);
+        }
+      }
+    }
 
     // In-memory dedupe by canonical URL
     const seenInBatch = new Set();
@@ -582,7 +751,7 @@ async function triggerProfileDiscovery({
 
     if (newItems.length === 0) {
       logger.info('discovery.trigger.all_known', {
-        traceId,
+        ...discoveryLogContext,
         handle,
         slug,
         totalScraped: items.length,
@@ -591,7 +760,7 @@ async function triggerProfileDiscovery({
     }
 
     logger.info('discovery.trigger.new_items', {
-      traceId,
+      ...discoveryLogContext,
       handle,
       slug,
       newCount: newItems.length,
@@ -611,19 +780,32 @@ async function triggerProfileDiscovery({
           const doc = await DiscoveredPost.create({
             accountSlug: slug,
             accountHandle: handle,
+            accountDisplayName: accountDisplayName || '',
             accountPlatform: 'tiktok',
             postUrl: item.postUrl,
             canonicalUrl: item.canonicalUrl,
             thumbnailUrl: item.thumbnailUrl,
             videoId: item.videoId,
             title: item.title,
+            publishedAt: parsePublishedAt(item.publishedAt),
           });
 
-          // Download thumbnail
+          // Download thumbnail (with single retry after 2s on failure)
           if (item.thumbnailUrl) {
             const thumbFilename = `${item.videoId || doc._id.toString()}.jpg`;
             const thumbPath = path.join(discoveredDir, thumbFilename);
-            const savedPath = await downloadThumbnail(item.thumbnailUrl, thumbPath, { traceId });
+            let savedPath = await downloadThumbnail(item.thumbnailUrl, thumbPath, {
+              traceId,
+              jobId: sourceJobIdString,
+            });
+            // Single retry after 2s if first attempt failed
+            if (!savedPath) {
+              await new Promise((r) => setTimeout(r, 2000));
+              savedPath = await downloadThumbnail(item.thumbnailUrl, thumbPath, {
+                traceId,
+                jobId: sourceJobIdString,
+              });
+            }
             if (savedPath) {
               const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
               await DiscoveredPost.findByIdAndUpdate(doc._id, { thumbnailPath: relativePath });
@@ -634,7 +816,7 @@ async function triggerProfileDiscovery({
           if (error.code === 11000) return;
           const message = error instanceof Error ? error.message : String(error);
           logger.error('discovery.create.failed', {
-            traceId,
+            ...discoveryLogContext,
             postUrl: item.postUrl,
             message,
           });
@@ -642,8 +824,53 @@ async function triggerProfileDiscovery({
       }));
     }
 
+    // Re-attempt thumbnails for existing posts with URL but no local file
+    try {
+      const postsNeedingThumbs = await DiscoveredPost.find({
+        accountSlug: slug,
+        thumbnailUrl: { $ne: '' },
+        $or: [{ thumbnailPath: '' }, { thumbnailPath: { $exists: false } }],
+      }).lean();
+
+      if (postsNeedingThumbs.length > 0) {
+        logger.info('discovery.trigger.reattempt_thumbnails', {
+          ...discoveryLogContext,
+          count: postsNeedingThumbs.length,
+        });
+
+        for (let i = 0; i < postsNeedingThumbs.length; i += concurrency) {
+          const chunk = postsNeedingThumbs.slice(i, i + concurrency);
+          await Promise.all(chunk.map(async (post) => {
+            try {
+              const thumbFilename = `${post.videoId || post._id.toString()}.jpg`;
+              const thumbPath = path.join(discoveredDir, thumbFilename);
+              const savedPath = await downloadThumbnail(post.thumbnailUrl, thumbPath, {
+                traceId,
+                jobId: sourceJobIdString,
+              });
+              if (savedPath) {
+                const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
+                await DiscoveredPost.findByIdAndUpdate(post._id, { thumbnailPath: relativePath });
+              }
+            } catch (err) {
+              logger.warn('discovery.thumbnail.reattempt_failed', {
+                ...discoveryLogContext,
+                postId: post._id.toString(),
+                message: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }));
+        }
+      }
+    } catch (err) {
+      logger.warn('discovery.trigger.reattempt_thumbnails_failed', {
+        ...discoveryLogContext,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     logger.info('discovery.trigger.completed', {
-      traceId,
+      ...discoveryLogContext,
       handle,
       slug,
       newCount: newItems.length,
@@ -652,12 +879,16 @@ async function triggerProfileDiscovery({
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('discovery.trigger.failed', {
-      traceId,
+      ...discoveryLogContext,
       handle,
       slug,
       message,
       durationMs: Date.now() - startedAt,
     });
+  } finally {
+    if (discoveryTimeoutHandle) {
+      clearTimeout(discoveryTimeoutHandle);
+    }
   }
 }
 
