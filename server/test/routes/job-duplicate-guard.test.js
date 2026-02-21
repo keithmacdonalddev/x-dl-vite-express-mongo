@@ -148,3 +148,152 @@ test('POST /api/jobs blocks active duplicate URL before create', async () => {
     clearModuleCache(serverSrc);
   }
 });
+
+test('POST /api/jobs blocks completed duplicate URL before create', async () => {
+  let createCalls = 0;
+
+  const mongooseStub = {
+    connection: { readyState: 1 },
+    Types: {
+      ObjectId: {
+        isValid: () => true,
+      },
+    },
+  };
+
+  const existingJob = {
+    _id: 'existing-completed-job-1',
+    status: 'completed',
+  };
+
+  const jobStub = {
+    Job: {
+      findOne: () => ({
+        sort: () => ({
+          lean: async () => existingJob,
+        }),
+      }),
+      create: async () => {
+        createCalls += 1;
+        return {
+          _id: 'new-job-should-not-exist',
+          status: 'queued',
+          createdAt: new Date(),
+        };
+      },
+    },
+  };
+
+  const loggerStub = {
+    logger: {
+      info: () => {},
+      error: () => {},
+      warn: () => {},
+    },
+  };
+
+  const teardowns = [
+    injectStub(require.resolve('mongoose'), mongooseStub),
+    injectStub(path.join(serverSrc, 'core/models/job.js'), jobStub),
+    injectStub(path.join(serverSrc, 'core/lib/logger.js'), loggerStub),
+  ];
+
+  try {
+    delete require.cache[path.join(serverSrc, 'api/routes/jobs.js')];
+    const { jobsRouter } = require('../../src/api/routes/jobs');
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/jobs', jobsRouter);
+
+    const response = await requestJson(app, 'POST', '/api/jobs', {
+      tweetUrl: 'https://www.tiktok.com/@creator/video/7601673687430991122',
+    });
+
+    assert.equal(response.status, 409);
+    assert.equal(response.body.ok, false);
+    assert.equal(response.body.code, 'DUPLICATE_COMPLETED_JOB');
+    assert.equal(response.body.existingJobId, 'existing-completed-job-1');
+    assert.equal(response.body.existingJobStatus, 'completed');
+    assert.equal(createCalls, 0);
+  } finally {
+    teardowns.forEach((teardown) => teardown());
+    clearModuleCache(serverSrc);
+  }
+});
+
+test('POST /api/jobs resolves E11000 race with deterministic duplicate response', async () => {
+  let createCalls = 0;
+  let findOneCalls = 0;
+
+  const mongooseStub = {
+    connection: { readyState: 1 },
+    Types: {
+      ObjectId: {
+        isValid: () => true,
+      },
+    },
+  };
+
+  const racedJob = {
+    _id: 'job-raced-completed-1',
+    status: 'completed',
+  };
+
+  const jobStub = {
+    Job: {
+      findOne: () => ({
+        sort: () => ({
+          lean: async () => {
+            findOneCalls += 1;
+            if (findOneCalls === 1) return null;
+            return racedJob;
+          },
+        }),
+      }),
+      create: async () => {
+        createCalls += 1;
+        const err = new Error('duplicate key');
+        err.code = 11000;
+        throw err;
+      },
+    },
+  };
+
+  const loggerStub = {
+    logger: {
+      info: () => {},
+      error: () => {},
+      warn: () => {},
+    },
+  };
+
+  const teardowns = [
+    injectStub(require.resolve('mongoose'), mongooseStub),
+    injectStub(path.join(serverSrc, 'core/models/job.js'), jobStub),
+    injectStub(path.join(serverSrc, 'core/lib/logger.js'), loggerStub),
+  ];
+
+  try {
+    delete require.cache[path.join(serverSrc, 'api/routes/jobs.js')];
+    const { jobsRouter } = require('../../src/api/routes/jobs');
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/jobs', jobsRouter);
+
+    const response = await requestJson(app, 'POST', '/api/jobs', {
+      tweetUrl: 'https://www.tiktok.com/@creator/video/7601673687430991122',
+    });
+
+    assert.equal(response.status, 409);
+    assert.equal(response.body.ok, false);
+    assert.equal(response.body.code, 'DUPLICATE_COMPLETED_JOB');
+    assert.equal(response.body.existingJobId, 'job-raced-completed-1');
+    assert.equal(response.body.existingJobStatus, 'completed');
+    assert.equal(createCalls, 1);
+  } finally {
+    teardowns.forEach((teardown) => teardown());
+    clearModuleCache(serverSrc);
+  }
+});

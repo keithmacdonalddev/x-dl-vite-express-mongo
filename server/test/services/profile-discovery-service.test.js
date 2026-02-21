@@ -37,6 +37,16 @@ test('resolveDiscoveryHandle prefers explicit accountHandle for short links', ()
   assert.equal(handle, '@known_handle');
 });
 
+test('resolveDiscoveryHandle prefers explicit accountHandle over URL handle', () => {
+  const handle = resolveDiscoveryHandle({
+    tweetUrl: 'https://www.tiktok.com/@url_handle/video/7601673687430991122',
+    accountHandle: '@explicit_handle',
+    accountSlug: 'fallback_slug',
+  });
+
+  assert.equal(handle, '@explicit_handle');
+});
+
 test('resolveDiscoveryHandle falls back to accountSlug when URL has no handle', () => {
   const handle = resolveDiscoveryHandle({
     tweetUrl: 'https://vt.tiktok.com/abcdef/',
