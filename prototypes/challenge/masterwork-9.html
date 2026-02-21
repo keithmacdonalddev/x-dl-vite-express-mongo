@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Masterwork 9: Resonance</title>
+<!--
+  Media Vault — Masterwork
+  Agent: 9
+  Concept: Resonance — Sound-First Interface
+-->
+<!-- SPECIAL FEATURE: Spectral Memory — Every completed download leaves a persistent harmonic fingerprint in a living waveform visualization that accumulates over your session, creating a unique audio-visual signature of your download history that you can replay by hovering over its peaks -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #0a0c10;
+  --surface: #12151c;
+  --surface-2: #181c26;
+  --surface-3: #1e2330;
+  --ink: #e2e8f4;
+  --ink-dim: #8d9ab4;
+  --ink-faint: #4a5672;
+  --border: rgba(140,160,200,.1);
+  --border-hover: rgba(140,160,200,.18);
+  --accent: #5b8df8;
+  --accent-dim: rgba(91,141,248,.15);
+  --accent-glow: rgba(91,141,248,.08);
+  --success: #3dba78;
+  --success-dim: rgba(61,186,120,.12);
+  --danger: #e05454;
+  --danger-dim: rgba(224,84,84,.12);
+  --warning: #dda044;
+  --warning-dim: rgba(221,160,68,.12);
+  --queued: #7c8db5;
+  --queued-dim: rgba(124,141,181,.12);
+  --running: #5b8df8;
+  --completed: #3dba78;
+  --failed: #e05454;
+  --canceled: #6b7394;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', 'SF Mono', 'Consolas', monospace;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-sm: 6px;
+}
+
+html { font-family: var(--font); background: var(--bg); color: var(--ink); font-size: 15px; }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(91,141,248,.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 100%, rgba(61,186,120,.03) 0%, transparent 50%),
+    var(--bg);
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* ─── LAYOUT ─── */
+.app { width: min(1280px, 96vw); margin: 0 auto; padding: 0 16px 60px; }
+
+/* ─── UNMUTE BANNER ─── */
+.unmute-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9000;
+  background: linear-gradient(135deg, rgba(91,141,248,.95), rgba(91,100,248,.95));
+  color: #fff; text-align: center; padding: 14px 20px;
+  font-weight: 600; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: transform .4s cubic-bezier(.4,0,.2,1), opacity .4s;
+  letter-spacing: .02em;
+}
+.unmute-banner.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+.unmute-banner svg { width: 22px; height: 22px; }
+.unmute-banner:hover { background: linear-gradient(135deg, rgba(91,141,248,1), rgba(91,100,248,1)); }
+
+/* ─── SOUND CONTROL ─── */
+.sound-ctrl {
+  position: fixed; top: 16px; right: 16px; z-index: 8000;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 6px 14px 6px 10px;
+  cursor: pointer; transition: all .2s;
+}
+.sound-ctrl:hover { border-color: var(--border-hover); background: var(--surface-3); }
+.sound-ctrl .sc-icon { width: 20px; height: 20px; color: var(--accent); transition: color .2s; }
+.sound-ctrl .sc-label { font-size: 11.5px; font-weight: 600; color: var(--ink-dim); letter-spacing: .04em; text-transform: uppercase; }
+.sound-ctrl.muted .sc-icon { color: var(--ink-faint); }
+.sound-ctrl .sc-vol {
+  width: 60px; height: 3px; background: rgba(255,255,255,.08); border-radius: 2px;
+  position: relative; overflow: hidden;
+}
+.sound-ctrl .sc-vol-fill {
+  height: 100%; background: var(--accent); border-radius: 2px;
+  width: 70%; transition: width .2s;
+}
+.sound-ctrl.muted .sc-vol-fill { width: 0; background: var(--ink-faint); }
+
+/* ─── HEADER ─── */
+.header {
+  padding: 28px 0 20px;
+  display: flex; align-items: center; gap: 14px;
+}
+.logo {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #7c6bf8);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 15px; color: #fff;
+  box-shadow: 0 4px 20px rgba(91,141,248,.2);
+}
+.header h1 {
+  font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 800;
+  letter-spacing: -.03em; color: var(--ink);
+}
+.header-sub {
+  font-size: 12px; color: var(--ink-faint); font-weight: 500;
+  margin-left: auto; letter-spacing: .03em; text-transform: uppercase;
+}
+
+/* ─── SPECTRAL MEMORY (waveform) ─── */
+.spectral-memory {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.spectral-memory::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(91,141,248,.03) 50%, transparent 100%);
+  pointer-events: none;
+}
+.spectral-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin-bottom: 8px; position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 8px;
+}
+.spectral-label .sl-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: .4; }
+  50% { opacity: 1; }
+}
+.spectral-canvas {
+  width: 100%; height: 64px; display: block;
+  border-radius: var(--radius-sm);
+  position: relative; z-index: 1;
+  cursor: crosshair;
+}
+
+/* ─── NAV ROW ─── */
+.nav-row {
+  display: flex; gap: 6px; margin-bottom: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px;
+}
+.nav-btn {
+  flex: 1; border: none; background: transparent;
+  color: var(--ink-dim); font-family: var(--font);
+  font-size: 13px; font-weight: 600; padding: 9px 12px;
+  border-radius: 7px; cursor: pointer;
+  transition: all .2s; position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.nav-btn:hover { color: var(--ink); background: rgba(255,255,255,.04); }
+.nav-btn.active {
+  color: var(--ink); background: var(--surface-3);
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.nav-btn .nb-count {
+  font-size: 10px; font-weight: 700; padding: 1px 6px;
+  border-radius: 999px; background: var(--accent-dim); color: var(--accent);
+}
+.nav-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── SECTIONS ─── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ─── MAIN GRID ─── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 14px;
+  align-items: start;
+}
+
+/* ─── INTAKE ─── */
+.intake {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .3s, box-shadow .3s;
+}
+.intake::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(91,141,248,.3), transparent);
+  opacity: 0; transition: opacity .3s;
+}
+.intake.focused::after { opacity: 1; }
+.intake.focused {
+  border-color: rgba(91,141,248,.3);
+  box-shadow: 0 0 30px rgba(91,141,248,.06);
+}
+.intake-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin-bottom: 12px;
+}
+.intake-row {
+  display: flex; gap: 8px;
+}
+.intake-input {
+  flex: 1; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; font-size: 14.5px; font-family: var(--font);
+  color: var(--ink); outline: none;
+  transition: border-color .2s, background .2s;
+}
+.intake-input::placeholder { color: var(--ink-faint); font-weight: 450; }
+.intake-input:focus {
+  border-color: rgba(91,141,248,.4);
+  background: var(--surface-3);
+}
+.intake-submit {
+  border: none; background: var(--accent);
+  color: #fff; font-family: var(--font);
+  font-size: 13.5px; font-weight: 700;
+  padding: 12px 22px; border-radius: var(--radius);
+  cursor: pointer; transition: all .2s;
+  white-space: nowrap;
+  position: relative; overflow: hidden;
+}
+.intake-submit:hover { background: #4a7de6; }
+.intake-submit:active { transform: scale(.97); }
+.intake-submit:disabled { opacity: .5; cursor: not-allowed; }
+.intake-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.intake-submit .submit-wave {
+  position: absolute; border-radius: 50%;
+  background: rgba(255,255,255,.3);
+  transform: scale(0); animation: ripple-out .6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes ripple-out {
+  to { transform: scale(2.5); opacity: 0; }
+}
+.intake-feedback {
+  margin-top: 10px; font-size: 12px; font-weight: 500;
+  color: var(--ink-faint); min-height: 18px;
+  transition: color .2s;
+}
+.intake-feedback.valid { color: var(--success); }
+.intake-feedback.invalid { color: var(--danger); }
+
+/* ─── SOUND INDICATOR ─── */
+.sound-indicator {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 6px; vertical-align: middle;
+}
+.sound-indicator .si-bar {
+  width: 2px; border-radius: 1px;
+  background: var(--accent);
+  animation: si-bounce .6s ease-in-out infinite alternate;
+}
+.sound-indicator .si-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+.sound-indicator .si-bar:nth-child(2) { height: 12px; animation-delay: .15s; }
+.sound-indicator .si-bar:nth-child(3) { height: 6px; animation-delay: .3s; }
+.sound-indicator .si-bar:nth-child(4) { height: 10px; animation-delay: .1s; }
+@keyframes si-bounce {
+  from { transform: scaleY(.4); }
+  to { transform: scaleY(1); }
+}
+
+/* ─── JOBS ─── */
+.jobs-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.jobs-title {
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  display: flex; align-items: center; gap: 8px;
+}
+.jobs-title .jt-count {
+  font-size: 11px; color: var(--ink-dim);
+  font-weight: 500;
+}
+
+.job-list { display: flex; flex-direction: column; gap: 6px; }
+
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: default;
+  transition: border-color .2s, background .2s, transform .25s;
+  position: relative;
+  overflow: hidden;
+}
+.job-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-2);
+}
+.job-card.entering {
+  animation: job-enter .4s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes job-enter {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Sound wave on card for running jobs */
+.job-card .jc-wave {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  overflow: hidden;
+}
+.job-card .jc-wave-inner {
+  height: 100%; border-radius: 1px;
+  transition: width .8s ease-in-out;
+}
+.job-card[data-status="running"] .jc-wave-inner {
+  background: linear-gradient(90deg, var(--accent), rgba(91,141,248,.3));
+  animation: wave-shimmer 2s ease-in-out infinite;
+}
+@keyframes wave-shimmer {
+  0%, 100% { opacity: .6; }
+  50% { opacity: 1; }
+}
+.job-card[data-status="completed"] .jc-wave-inner {
+  background: var(--success); width: 100% !important;
+}
+.job-card[data-status="failed"] .jc-wave-inner {
+  background: var(--danger); width: 100% !important;
+}
+
+.jc-platform {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; flex-shrink: 0;
+}
+.jc-platform.x { background: var(--surface-3); color: var(--ink); }
+.jc-platform.tiktok { background: rgba(255,0,80,.1); color: #ff3366; }
+
+.jc-info { flex: 1; min-width: 0; }
+.jc-user {
+  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.jc-url {
+  font-size: 11.5px; color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.jc-status {
+  font-size: 11px; font-weight: 700; padding: 4px 10px;
+  border-radius: 999px; flex-shrink: 0;
+  letter-spacing: .03em; text-transform: uppercase;
+}
+.jc-status.queued { background: var(--queued-dim); color: var(--queued); }
+.jc-status.running { background: var(--accent-dim); color: var(--accent); }
+.jc-status.completed { background: var(--success-dim); color: var(--success); }
+.jc-status.failed { background: var(--danger-dim); color: var(--danger); }
+.jc-status.canceled { background: rgba(107,115,148,.12); color: var(--canceled); }
+
+/* Sound bars next to running status */
+.jc-status.running .status-sound {
+  display: inline-flex; gap: 1.5px; margin-left: 5px; vertical-align: middle;
+}
+.jc-status.running .status-sound span {
+  width: 2px; border-radius: 1px; background: var(--accent);
+  display: inline-block;
+}
+.jc-status.running .status-sound span:nth-child(1) { height: 6px; animation: ss 0.5s ease-in-out infinite alternate; }
+.jc-status.running .status-sound span:nth-child(2) { height: 10px; animation: ss 0.5s ease-in-out 0.1s infinite alternate; }
+.jc-status.running .status-sound span:nth-child(3) { height: 4px; animation: ss 0.5s ease-in-out 0.2s infinite alternate; }
+@keyframes ss {
+  from { transform: scaleY(.3); } to { transform: scaleY(1); }
+}
+
+.jc-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.jc-btn {
+  border: 1px solid var(--border); background: transparent;
+  color: var(--ink-dim); font-family: var(--font);
+  font-size: 11px; font-weight: 600; padding: 5px 10px;
+  border-radius: 6px; cursor: pointer; transition: all .15s;
+}
+.jc-btn:hover { border-color: var(--border-hover); color: var(--ink); background: var(--surface-3); }
+.jc-btn.danger:hover { border-color: rgba(224,84,84,.3); color: var(--danger); background: var(--danger-dim); }
+.jc-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ─── RIGHT SIDEBAR ─── */
+.sidebar {
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* ─── ACTIVITY FEED ─── */
+.activity {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  max-height: 380px;
+  display: flex; flex-direction: column;
+}
+.activity-header {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+}
+.activity-header .ah-pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.activity-list {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  padding-right: 4px;
+}
+.activity-item {
+  font-size: 12px; color: var(--ink-dim);
+  padding: 6px 8px; border-radius: 6px;
+  background: var(--surface-2);
+  display: flex; align-items: flex-start; gap: 8px;
+  line-height: 1.4;
+  animation: ai-in .3s ease-out;
+}
+@keyframes ai-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.ai-time {
+  font-size: 10px; color: var(--ink-faint); font-family: var(--mono);
+  white-space: nowrap; flex-shrink: 0; padding-top: 1px;
+}
+.ai-level {
+  width: 4px; height: 4px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 6px;
+}
+.ai-level.info { background: var(--accent); }
+.ai-level.success { background: var(--success); }
+.ai-level.warn { background: var(--warning); }
+.ai-level.error { background: var(--danger); }
+.ai-text { flex: 1; }
+
+/* ─── CONTACTS SECTION ─── */
+.contacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.contact-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: border-color .2s, background .2s;
+  cursor: pointer;
+}
+.contact-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-2);
+}
+.contact-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cc-top {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.cc-avatar {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+}
+.cc-name {
+  font-size: 14px; font-weight: 700; color: var(--ink);
+}
+.cc-handle {
+  font-size: 11.5px; color: var(--ink-faint); margin-top: 1px;
+}
+.cc-stats {
+  display: flex; gap: 16px;
+}
+.cc-stat-label {
+  font-size: 10px; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+}
+.cc-stat-val {
+  font-size: 18px; font-weight: 800; color: var(--ink);
+  font-feature-settings: 'tnum' 1;
+}
+.cc-waveform {
+  margin-top: 10px; height: 24px; display: flex;
+  align-items: flex-end; gap: 2px;
+}
+.cc-waveform span {
+  flex: 1; border-radius: 2px 2px 0 0;
+  background: var(--accent-dim);
+  transition: height .3s ease-out;
+}
+
+/* ─── SETTINGS SECTION ─── */
+.settings-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  max-width: 500px;
+}
+.settings-title {
+  font-size: 16px; font-weight: 800; margin-bottom: 16px;
+}
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-info {}
+.setting-name { font-size: 14px; font-weight: 700; }
+.setting-desc { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+
+/* Toggle switch */
+.toggle {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: var(--surface-3); border: 1px solid var(--border);
+  position: relative; cursor: pointer;
+  transition: background .25s, border-color .25s;
+}
+.toggle.on {
+  background: var(--accent); border-color: var(--accent);
+}
+.toggle .toggle-knob {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; position: absolute;
+  top: 2px; left: 2px;
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.toggle.on .toggle-knob { transform: translateX(20px); }
+.toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ─── AUDIO SETTINGS ─── */
+.audio-settings {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px; margin-top: 14px;
+  max-width: 500px;
+}
+.volume-slider-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 10px;
+}
+.volume-slider {
+  flex: 1; height: 4px; -webkit-appearance: none; appearance: none;
+  background: var(--surface-3); border-radius: 2px; outline: none;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--accent);
+  cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.volume-val {
+  font-size: 12px; font-weight: 700; color: var(--ink-dim);
+  font-family: var(--mono); min-width: 32px; text-align: right;
+}
+
+/* ─── TONE LEGEND ─── */
+.tone-legend {
+  margin-top: 16px; padding: 14px; background: var(--surface-2);
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
+.tone-legend h4 {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+.tl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; font-size: 12.5px; color: var(--ink-dim);
+  cursor: pointer; transition: color .15s;
+}
+.tl-item:hover { color: var(--ink); }
+.tl-swatch {
+  width: 24px; height: 14px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 1px;
+}
+.tl-swatch span {
+  width: 2px; border-radius: 1px;
+}
+.tl-name { flex: 1; }
+.tl-freq { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .sidebar { order: -1; }
+}
+
+/* ─── REDUCED MOTION ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Unmute Banner -->
+<div class="unmute-banner" id="unmuteBanner" role="button" tabindex="0" aria-label="Enable sound to experience the audio interface">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+    <line x1="23" y1="9" x2="17" y2="15"></line>
+    <line x1="17" y1="9" x2="23" y2="15"></line>
+  </svg>
+  <span>Click anywhere to enable sound — this interface speaks to you</span>
+  <div class="sound-indicator"><div class="si-bar"></div><div class="si-bar"></div><div class="si-bar"></div><div class="si-bar"></div></div>
+</div>
+
+<!-- Sound Control -->
+<div class="sound-ctrl" id="soundCtrl" role="button" tabindex="0" aria-label="Toggle sound">
+  <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+  </svg>
+  <div class="sc-vol"><div class="sc-vol-fill"></div></div>
+  <span class="sc-label">Sound</span>
+</div>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">MV</div>
+    <h1>Media Vault</h1>
+    <span class="header-sub">Resonance</span>
+  </header>
+
+  <!-- Spectral Memory Visualization -->
+  <div class="spectral-memory" aria-label="Spectral Memory: accumulated download waveform history">
+    <div class="spectral-label">
+      <span class="sl-dot"></span> Spectral Memory
+    </div>
+    <canvas class="spectral-canvas" id="spectralCanvas"></canvas>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="nav-row" role="tablist" aria-label="Main navigation">
+    <button class="nav-btn active" role="tab" aria-selected="true" data-section="dashboard" tabindex="0">
+      Dashboard <span class="nb-count" id="dashCount">6</span>
+    </button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-section="contacts" tabindex="-1">
+      Contacts <span class="nb-count">3</span>
+    </button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-section="settings" tabindex="-1">
+      Settings
+    </button>
+  </nav>
+
+  <!-- DASHBOARD SECTION -->
+  <section class="section active" id="sec-dashboard" role="tabpanel">
+    <!-- Intake Form -->
+    <div class="intake" id="intakeForm">
+      <div class="intake-eyebrow">Download a Video</div>
+      <div class="intake-row">
+        <input class="intake-input" id="intakeInput" type="url"
+               placeholder="Paste an X or TikTok URL..."
+               aria-label="Video URL input"
+               autocomplete="off" spellcheck="false">
+        <button class="intake-submit" id="intakeSubmit" aria-label="Download video">
+          Download
+        </button>
+      </div>
+      <div class="intake-feedback" id="intakeFeedback" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- Main Grid: Jobs + Sidebar -->
+    <div class="main-grid">
+      <div>
+        <div class="jobs-header">
+          <div class="jobs-title">
+            Jobs <span class="jt-count" id="jobsCount">6 total</span>
+          </div>
+        </div>
+        <div class="job-list" id="jobList" aria-label="Download jobs"></div>
+      </div>
+      <div class="sidebar">
+        <div class="activity">
+          <div class="activity-header">
+            <span class="ah-pulse"></span> Activity Feed
+          </div>
+          <div class="activity-list" id="activityList" aria-label="Activity feed" role="log" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTS SECTION -->
+  <section class="section" id="sec-contacts" role="tabpanel">
+    <div class="contacts-grid" id="contactsGrid"></div>
+  </section>
+
+  <!-- SETTINGS SECTION -->
+  <section class="section" id="sec-settings" role="tabpanel">
+    <div class="settings-panel">
+      <div class="settings-title">Platforms</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">X (Twitter)</div>
+          <div class="setting-desc">Download videos from x.com and twitter.com</div>
+        </div>
+        <div class="toggle on" id="toggleX" role="switch" aria-checked="true" aria-label="Enable X platform" tabindex="0">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">TikTok</div>
+          <div class="setting-desc">Download videos from tiktok.com</div>
+        </div>
+        <div class="toggle on" id="toggleTikTok" role="switch" aria-checked="true" aria-label="Enable TikTok platform" tabindex="0">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="audio-settings">
+      <div class="settings-title">Audio</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Master Volume</div>
+          <div class="setting-desc">Control the overall volume of interface sounds</div>
+        </div>
+        <div class="volume-slider-row">
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70" aria-label="Master volume">
+          <span class="volume-val" id="volumeVal">70%</span>
+        </div>
+      </div>
+
+      <div class="tone-legend">
+        <h4>Audio Language Reference</h4>
+        <div class="tl-item" data-tone="navigate">
+          <div class="tl-swatch" style="background:var(--accent-dim)">
+            <span style="height:8px;background:var(--accent)"></span>
+            <span style="height:12px;background:var(--accent)"></span>
+            <span style="height:6px;background:var(--accent)"></span>
+          </div>
+          <span class="tl-name">Navigation</span>
+          <span class="tl-freq">440 Hz</span>
+        </div>
+        <div class="tl-item" data-tone="submit">
+          <div class="tl-swatch" style="background:var(--accent-dim)">
+            <span style="height:10px;background:var(--accent)"></span>
+            <span style="height:14px;background:var(--accent)"></span>
+            <span style="height:8px;background:var(--accent)"></span>
+          </div>
+          <span class="tl-name">Submit / Confirm</span>
+          <span class="tl-freq">C4 arpeggio</span>
+        </div>
+        <div class="tl-item" data-tone="queued">
+          <div class="tl-swatch" style="background:var(--queued-dim)">
+            <span style="height:6px;background:var(--queued)"></span>
+            <span style="height:6px;background:var(--queued)"></span>
+            <span style="height:6px;background:var(--queued)"></span>
+          </div>
+          <span class="tl-name">Job Queued</span>
+          <span class="tl-freq">330 Hz soft</span>
+        </div>
+        <div class="tl-item" data-tone="running">
+          <div class="tl-swatch" style="background:var(--accent-dim)">
+            <span style="height:6px;background:var(--accent)"></span>
+            <span style="height:10px;background:var(--accent)"></span>
+            <span style="height:4px;background:var(--accent)"></span>
+          </div>
+          <span class="tl-name">Job Running</span>
+          <span class="tl-freq">Rhythmic pulse</span>
+        </div>
+        <div class="tl-item" data-tone="completed">
+          <div class="tl-swatch" style="background:var(--success-dim)">
+            <span style="height:8px;background:var(--success)"></span>
+            <span style="height:14px;background:var(--success)"></span>
+            <span style="height:10px;background:var(--success)"></span>
+          </div>
+          <span class="tl-name">Job Completed</span>
+          <span class="tl-freq">Major chord</span>
+        </div>
+        <div class="tl-item" data-tone="failed">
+          <div class="tl-swatch" style="background:var(--danger-dim)">
+            <span style="height:10px;background:var(--danger)"></span>
+            <span style="height:4px;background:var(--danger)"></span>
+            <span style="height:10px;background:var(--danger)"></span>
+          </div>
+          <span class="tl-name">Job Failed</span>
+          <span class="tl-freq">Minor second</span>
+        </div>
+        <div class="tl-item" data-tone="delete">
+          <div class="tl-swatch" style="background:var(--danger-dim)">
+            <span style="height:12px;background:var(--danger)"></span>
+            <span style="height:8px;background:var(--danger)"></span>
+            <span style="height:4px;background:var(--danger)"></span>
+          </div>
+          <span class="tl-name">Delete / Cancel</span>
+          <span class="tl-freq">Descending</span>
+        </div>
+        <div class="tl-item" data-tone="hover">
+          <div class="tl-swatch" style="background:rgba(255,255,255,.06)">
+            <span style="height:4px;background:var(--ink-faint)"></span>
+            <span style="height:6px;background:var(--ink-faint)"></span>
+            <span style="height:4px;background:var(--ink-faint)"></span>
+          </div>
+          <span class="tl-name">Hover / Focus</span>
+          <span class="tl-freq">Soft tick</span>
+        </div>
+        <div class="tl-item" data-tone="toggle">
+          <div class="tl-swatch" style="background:var(--success-dim)">
+            <span style="height:8px;background:var(--success)"></span>
+            <span style="height:12px;background:var(--success)"></span>
+            <span style="height:8px;background:var(--success)"></span>
+          </div>
+          <span class="tl-name">Toggle On/Off</span>
+          <span class="tl-freq">Pop up/down</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// AUDIO ENGINE — The core of Resonance
+// ═══════════════════════════════════════════════════════
+
+const AudioEngine = (() => {
+  let ctx = null;
+  let masterGain = null;
+  let enabled = false;
+  let volume = 0.7;
+
+  function init() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = volume;
+    masterGain.connect(ctx.destination);
+  }
+
+  function ensureRunning() {
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+
+  function setVolume(v) {
+    volume = Math.max(0, Math.min(1, v));
+    if (masterGain) masterGain.gain.setTargetAtTime(volume, ctx.currentTime, 0.02);
+  }
+
+  function enable() {
+    init();
+    ensureRunning();
+    enabled = true;
+  }
+
+  function isEnabled() { return enabled; }
+
+  // Core tone generators
+  function playTone(freq, duration, type = 'sine', gainVal = 0.15, detune = 0) {
+    if (!enabled || !ctx) return;
+    ensureRunning();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    osc.detune.value = detune;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(gainVal, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration + 0.01);
+  }
+
+  function playNoise(duration, gainVal = 0.05) {
+    if (!enabled || !ctx) return;
+    ensureRunning();
+    const bufferSize = ctx.sampleRate * duration;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 2000;
+    filter.Q.value = 0.5;
+    gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    source.start();
+  }
+
+  // ─── Sound vocabulary ───
+
+  // Navigation: gentle click/tick
+  function navigate() {
+    playTone(880, 0.06, 'sine', 0.08);
+    playTone(1320, 0.04, 'sine', 0.04);
+  }
+
+  // Hover: very subtle tick
+  function hover() {
+    playTone(1200, 0.03, 'sine', 0.03);
+  }
+
+  // Typing: soft keypresses
+  function keystroke() {
+    const f = 600 + Math.random() * 400;
+    playTone(f, 0.025, 'triangle', 0.02);
+  }
+
+  // URL valid: ascending two-note
+  function urlValid() {
+    playTone(523.25, 0.12, 'sine', 0.1); // C5
+    setTimeout(() => playTone(659.25, 0.15, 'sine', 0.1), 100); // E5
+  }
+
+  // URL invalid: descending buzz
+  function urlInvalid() {
+    playTone(330, 0.15, 'sawtooth', 0.04);
+    setTimeout(() => playTone(277, 0.15, 'sawtooth', 0.04), 80);
+  }
+
+  // Submit: triumphant ascending arpeggio C-E-G-C
+  function submit() {
+    const notes = [261.63, 329.63, 392.00, 523.25];
+    notes.forEach((f, i) => {
+      setTimeout(() => playTone(f, 0.2, 'sine', 0.12), i * 70);
+    });
+    setTimeout(() => playNoise(0.08, 0.03), 40);
+  }
+
+  // Job queued: soft resonant ding
+  function queued() {
+    playTone(330, 0.3, 'sine', 0.08);
+    playTone(330, 0.3, 'triangle', 0.04);
+  }
+
+  // Job running: rhythmic pulse (called once, sets up interval)
+  let runningIntervals = {};
+  function startRunning(jobId) {
+    if (runningIntervals[jobId]) return;
+    let step = 0;
+    const pulse = () => {
+      if (!enabled) return;
+      const freqs = [220, 277, 220, 330];
+      playTone(freqs[step % 4], 0.08, 'sine', 0.04);
+      step++;
+    };
+    pulse();
+    runningIntervals[jobId] = setInterval(pulse, 2000);
+  }
+  function stopRunning(jobId) {
+    if (runningIntervals[jobId]) {
+      clearInterval(runningIntervals[jobId]);
+      delete runningIntervals[jobId];
+    }
+  }
+
+  // Job completed: satisfying major chord + shimmer
+  function completed() {
+    // C major chord
+    playTone(261.63, 0.5, 'sine', 0.1);
+    playTone(329.63, 0.5, 'sine', 0.08);
+    playTone(392.00, 0.5, 'sine', 0.08);
+    setTimeout(() => {
+      playTone(523.25, 0.4, 'sine', 0.1);
+      playNoise(0.15, 0.02);
+    }, 150);
+    return { fundamental: 261.63, harmonics: [329.63, 392.00, 523.25] };
+  }
+
+  // Job failed: dissonant minor second
+  function failed() {
+    playTone(233, 0.4, 'sawtooth', 0.06);
+    playTone(247, 0.4, 'sawtooth', 0.06);
+    setTimeout(() => playTone(185, 0.3, 'sine', 0.05), 200);
+  }
+
+  // Delete: descending pitch sweep
+  function deleteSound() {
+    playTone(660, 0.08, 'triangle', 0.08);
+    setTimeout(() => playTone(440, 0.08, 'triangle', 0.06), 60);
+    setTimeout(() => playTone(330, 0.1, 'triangle', 0.04), 120);
+    setTimeout(() => playNoise(0.06, 0.03), 150);
+  }
+
+  // Retry: ascending hopeful
+  function retry() {
+    playTone(330, 0.1, 'sine', 0.08);
+    setTimeout(() => playTone(440, 0.12, 'sine', 0.1), 100);
+    setTimeout(() => playTone(554, 0.15, 'sine', 0.1), 200);
+  }
+
+  // Toggle on: pop up
+  function toggleOn() {
+    playTone(500, 0.08, 'sine', 0.1);
+    setTimeout(() => playTone(750, 0.12, 'sine', 0.1), 50);
+  }
+
+  // Toggle off: pop down
+  function toggleOff() {
+    playTone(750, 0.08, 'sine', 0.08);
+    setTimeout(() => playTone(500, 0.1, 'sine', 0.06), 50);
+  }
+
+  // Activity: soft blip
+  function activityBlip(level) {
+    const freqMap = { info: 800, success: 660, warn: 550, error: 440 };
+    const f = freqMap[level] || 700;
+    playTone(f, 0.05, 'sine', 0.025);
+  }
+
+  // Ambient drone for spectral memory hover
+  function spectralHover(freq) {
+    if (!enabled || !ctx) return;
+    ensureRunning();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.1);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.55);
+  }
+
+  // Welcome chord on first enable
+  function welcome() {
+    // Warm pad chord: Cmaj7
+    const notes = [
+      { f: 130.81, t: 'sine', g: 0.06 },   // C3
+      { f: 164.81, t: 'sine', g: 0.05 },   // E3
+      { f: 196.00, t: 'sine', g: 0.05 },   // G3
+      { f: 246.94, t: 'triangle', g: 0.04 }, // B3
+    ];
+    notes.forEach(n => playTone(n.f, 1.2, n.t, n.g));
+    setTimeout(() => playTone(261.63, 0.8, 'sine', 0.06), 300);
+  }
+
+  return {
+    enable, isEnabled, setVolume,
+    navigate, hover, keystroke, urlValid, urlInvalid,
+    submit, queued, startRunning, stopRunning,
+    completed, failed, deleteSound, retry,
+    toggleOn, toggleOff, activityBlip,
+    spectralHover, welcome, playTone
+  };
+})();
+
+// ═══════════════════════════════════════════════════════
+// SPECTRAL MEMORY — Accumulated waveform visualization
+// ═══════════════════════════════════════════════════════
+
+const SpectralMemory = (() => {
+  const canvas = document.getElementById('spectralCanvas');
+  const cctx = canvas.getContext('2d');
+  let harmonicHistory = []; // Array of { fundamentals, time, color }
+  let animFrame = null;
+  let hoverFreq = null;
+  let width = 0, height = 0;
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    width = canvas.width = rect.width - 36;
+    height = canvas.height = 64;
+  }
+
+  function addHarmonic(data) {
+    harmonicHistory.push({
+      fundamental: data.fundamental || 261.63,
+      harmonics: data.harmonics || [],
+      time: Date.now(),
+      color: data.color || '#5b8df8',
+      amplitude: 1.0
+    });
+  }
+
+  function draw() {
+    cctx.clearRect(0, 0, width, height);
+
+    // Background waveform (ambient breathing)
+    const t = Date.now() * 0.001;
+    cctx.strokeStyle = 'rgba(91,141,248,0.06)';
+    cctx.lineWidth = 1;
+    cctx.beginPath();
+    for (let x = 0; x < width; x++) {
+      const y = height / 2 + Math.sin(x * 0.02 + t) * 8 + Math.sin(x * 0.05 + t * 1.3) * 4;
+      x === 0 ? cctx.moveTo(x, y) : cctx.lineTo(x, y);
+    }
+    cctx.stroke();
+
+    // Harmonic peaks from completed downloads
+    harmonicHistory.forEach((h, idx) => {
+      const age = (Date.now() - h.time) / 1000;
+      const decay = Math.max(0.15, Math.exp(-age * 0.01)); // slow decay
+      const xPos = (idx / Math.max(harmonicHistory.length, 1)) * width;
+      const spread = width / Math.max(harmonicHistory.length, 1);
+
+      // Draw harmonic peak
+      const gradient = cctx.createLinearGradient(xPos, height, xPos, 0);
+      gradient.addColorStop(0, 'transparent');
+      gradient.addColorStop(0.3, h.color + '15');
+      gradient.addColorStop(1, h.color + '40');
+
+      cctx.fillStyle = gradient;
+      cctx.beginPath();
+      const peakHeight = height * 0.7 * decay * h.amplitude;
+
+      // Waveform shape based on fundamental frequency
+      for (let dx = -spread / 2; dx < spread / 2; dx++) {
+        const nx = dx / (spread / 2); // -1 to 1
+        const envelope = Math.cos(nx * Math.PI / 2);
+        const wave = Math.sin(nx * h.fundamental * 0.02 + t * 2) * 0.3;
+        const y = height - (peakHeight * envelope * (1 + wave));
+        if (dx === -spread / 2) cctx.moveTo(xPos + dx, height);
+        cctx.lineTo(xPos + dx, y);
+      }
+      cctx.lineTo(xPos + spread / 2, height);
+      cctx.closePath();
+      cctx.fill();
+
+      // Peak line
+      cctx.strokeStyle = h.color + '60';
+      cctx.lineWidth = 1.5;
+      cctx.beginPath();
+      for (let dx = -spread / 2; dx < spread / 2; dx += 2) {
+        const nx = dx / (spread / 2);
+        const envelope = Math.cos(nx * Math.PI / 2);
+        const wave = Math.sin(nx * h.fundamental * 0.02 + t * 2) * 0.3;
+        const y = height - (peakHeight * envelope * (1 + wave));
+        if (dx === -spread / 2) cctx.moveTo(xPos + dx, y);
+        else cctx.lineTo(xPos + dx, y);
+      }
+      cctx.stroke();
+    });
+
+    // Hover indicator
+    if (hoverFreq !== null) {
+      cctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      cctx.lineWidth = 1;
+      cctx.setLineDash([4, 4]);
+      cctx.beginPath();
+      cctx.moveTo(hoverFreq, 0);
+      cctx.lineTo(hoverFreq, height);
+      cctx.stroke();
+      cctx.setLineDash([]);
+    }
+
+    animFrame = requestAnimationFrame(draw);
+  }
+
+  function init() {
+    resize();
+    window.addEventListener('resize', resize);
+    draw();
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      hoverFreq = x;
+
+      // Find closest harmonic and play it
+      if (harmonicHistory.length > 0) {
+        const idx = Math.round((x / width) * (harmonicHistory.length - 1));
+        const h = harmonicHistory[Math.max(0, Math.min(idx, harmonicHistory.length - 1))];
+        if (h) AudioEngine.spectralHover(h.fundamental);
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => { hoverFreq = null; });
+  }
+
+  return { init, addHarmonic };
+})();
+
+// ═══════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════
+
+const creators = [
+  { name: 'Sarah Chen', handle: '@sarahchen', platform: 'x', color: '#5b8df8' },
+  { name: 'DJ Pulse', handle: '@djpulse', platform: 'tiktok', color: '#ff3366' },
+  { name: 'Alex Rivera', handle: '@arivera', platform: 'x', color: '#7c6bf8' },
+];
+
+const sampleUrls = [
+  'https://x.com/sarahchen/status/1892345678',
+  'https://tiktok.com/@djpulse/video/7234567890',
+  'https://x.com/arivera/status/1893456789',
+  'https://tiktok.com/@djpulse/video/7234567891',
+  'https://x.com/sarahchen/status/1892345679',
+  'https://x.com/arivera/status/1893456790',
+];
+
+let jobs = [];
+let jobIdCounter = 0;
+let activityItems = [];
+let settings = { x: true, tiktok: true };
+
+function createInitialJobs() {
+  const statuses = ['completed', 'completed', 'running', 'queued', 'failed', 'running'];
+  const progresses = [100, 100, 45, 0, 100, 72];
+
+  statuses.forEach((status, i) => {
+    const creator = creators[i % creators.length];
+    jobs.push({
+      id: ++jobIdCounter,
+      url: sampleUrls[i],
+      creator: creator,
+      platform: creator.platform,
+      status: status,
+      progress: progresses[i],
+      createdAt: Date.now() - (statuses.length - i) * 30000,
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════
+
+function renderJobs() {
+  const list = document.getElementById('jobList');
+  list.innerHTML = '';
+  document.getElementById('jobsCount').textContent = `${jobs.length} total`;
+  document.getElementById('dashCount').textContent = jobs.length;
+
+  jobs.forEach(job => {
+    const card = document.createElement('div');
+    card.className = 'job-card';
+    card.dataset.status = job.status;
+    card.dataset.id = job.id;
+
+    const statusSoundBars = job.status === 'running'
+      ? '<span class="status-sound"><span></span><span></span><span></span></span>'
+      : '';
+
+    const actions = [];
+    if (job.status === 'failed') {
+      actions.push(`<button class="jc-btn" onclick="retryJob(${job.id})" aria-label="Retry job">Retry</button>`);
+    }
+    if (job.status !== 'running') {
+      actions.push(`<button class="jc-btn danger" onclick="deleteJob(${job.id})" aria-label="Delete job">Delete</button>`);
+    }
+
+    card.innerHTML = `
+      <div class="jc-platform ${job.platform}">${job.platform === 'x' ? '𝕏' : '♪'}</div>
+      <div class="jc-info">
+        <div class="jc-user">${job.creator.name}</div>
+        <div class="jc-url">${job.url}</div>
+      </div>
+      <span class="jc-status ${job.status}">${job.status}${statusSoundBars}</span>
+      <div class="jc-actions">${actions.join('')}</div>
+      <div class="jc-wave"><div class="jc-wave-inner" style="width:${job.progress}%"></div></div>
+    `;
+
+    // Hover sound
+    card.addEventListener('mouseenter', () => AudioEngine.hover());
+
+    list.appendChild(card);
+  });
+}
+
+function renderContacts() {
+  const grid = document.getElementById('contactsGrid');
+  grid.innerHTML = '';
+
+  creators.forEach(c => {
+    const cJobs = jobs.filter(j => j.creator.handle === c.handle);
+    const completed = cJobs.filter(j => j.status === 'completed').length;
+    const card = document.createElement('div');
+    card.className = 'contact-card';
+    card.tabIndex = 0;
+
+    // Generate waveform bars for this creator
+    const bars = Array.from({ length: 20 }, () =>
+      `<span style="height:${4 + Math.random() * 16}px"></span>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="cc-top">
+        <div class="cc-avatar" style="background:${c.color}">${c.name[0]}</div>
+        <div>
+          <div class="cc-name">${c.name}</div>
+          <div class="cc-handle">${c.handle}</div>
+        </div>
+      </div>
+      <div class="cc-stats">
+        <div>
+          <div class="cc-stat-label">Downloads</div>
+          <div class="cc-stat-val">${cJobs.length}</div>
+        </div>
+        <div>
+          <div class="cc-stat-label">Completed</div>
+          <div class="cc-stat-val">${completed}</div>
+        </div>
+      </div>
+      <div class="cc-waveform" aria-hidden="true">${bars}</div>
+    `;
+
+    card.addEventListener('mouseenter', () => AudioEngine.hover());
+    card.addEventListener('click', () => AudioEngine.navigate());
+    grid.appendChild(card);
+  });
+}
+
+function addActivity(text, level = 'info') {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  activityItems.unshift({ text, level, time });
+  if (activityItems.length > 50) activityItems.pop();
+
+  const list = document.getElementById('activityList');
+  const item = document.createElement('div');
+  item.className = 'activity-item';
+  item.innerHTML = `
+    <span class="ai-time">${time}</span>
+    <span class="ai-level ${level}"></span>
+    <span class="ai-text">${text}</span>
+  `;
+  list.prepend(item);
+
+  // Trim DOM
+  while (list.children.length > 30) list.removeChild(list.lastChild);
+
+  // Sound
+  AudioEngine.activityBlip(level);
+}
+
+// ═══════════════════════════════════════════════════════
+// INTERACTIONS
+// ═══════════════════════════════════════════════════════
+
+// Unmute banner
+document.getElementById('unmuteBanner').addEventListener('click', () => {
+  AudioEngine.enable();
+  AudioEngine.welcome();
+  document.getElementById('unmuteBanner').classList.add('hidden');
+});
+
+// Sound control toggle
+document.getElementById('soundCtrl').addEventListener('click', () => {
+  const ctrl = document.getElementById('soundCtrl');
+  if (!AudioEngine.isEnabled()) {
+    AudioEngine.enable();
+    AudioEngine.welcome();
+    document.getElementById('unmuteBanner').classList.add('hidden');
+    ctrl.classList.remove('muted');
+  } else {
+    ctrl.classList.toggle('muted');
+    AudioEngine.setVolume(ctrl.classList.contains('muted') ? 0 : parseFloat(document.getElementById('volumeSlider').value) / 100);
+  }
+});
+
+// Volume slider
+document.getElementById('volumeSlider').addEventListener('input', (e) => {
+  const v = parseInt(e.target.value);
+  document.getElementById('volumeVal').textContent = v + '%';
+  AudioEngine.setVolume(v / 100);
+  AudioEngine.hover();
+});
+
+// Navigation
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const section = btn.dataset.section;
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+      b.tabIndex = -1;
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    btn.tabIndex = 0;
+
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + section).classList.add('active');
+
+    AudioEngine.navigate();
+  });
+});
+
+// Keyboard navigation for tabs
+document.querySelector('.nav-row').addEventListener('keydown', (e) => {
+  const tabs = [...document.querySelectorAll('.nav-btn')];
+  const idx = tabs.indexOf(document.activeElement);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    tabs[(idx + 1) % tabs.length].click();
+    tabs[(idx + 1) % tabs.length].focus();
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    tabs[(idx - 1 + tabs.length) % tabs.length].click();
+    tabs[(idx - 1 + tabs.length) % tabs.length].focus();
+  }
+});
+
+// Intake form
+const intakeInput = document.getElementById('intakeInput');
+const intakeSubmit = document.getElementById('intakeSubmit');
+const intakeFeedback = document.getElementById('intakeFeedback');
+const intakeForm = document.getElementById('intakeForm');
+
+intakeInput.addEventListener('focus', () => intakeForm.classList.add('focused'));
+intakeInput.addEventListener('blur', () => intakeForm.classList.remove('focused'));
+
+let lastKeystrokeTime = 0;
+intakeInput.addEventListener('input', () => {
+  const now = Date.now();
+  if (now - lastKeystrokeTime > 60) {
+    AudioEngine.keystroke();
+    lastKeystrokeTime = now;
+  }
+
+  const val = intakeInput.value.trim();
+  if (!val) {
+    intakeFeedback.textContent = '';
+    intakeFeedback.className = 'intake-feedback';
+    return;
+  }
+
+  const isXUrl = /^https?:\/\/(x\.com|twitter\.com)\/.+\/status\/\d+/i.test(val);
+  const isTikTokUrl = /^https?:\/\/(www\.)?tiktok\.com\/@.+\/video\/\d+/i.test(val);
+
+  if (isXUrl) {
+    intakeFeedback.textContent = 'X (Twitter) video detected';
+    intakeFeedback.className = 'intake-feedback valid';
+    AudioEngine.urlValid();
+  } else if (isTikTokUrl) {
+    intakeFeedback.textContent = 'TikTok video detected';
+    intakeFeedback.className = 'intake-feedback valid';
+    AudioEngine.urlValid();
+  } else if (val.length > 10) {
+    intakeFeedback.textContent = 'Not a recognized video URL';
+    intakeFeedback.className = 'intake-feedback invalid';
+  } else {
+    intakeFeedback.textContent = '';
+    intakeFeedback.className = 'intake-feedback';
+  }
+});
+
+intakeInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitUrl();
+});
+
+intakeSubmit.addEventListener('click', submitUrl);
+
+function submitUrl() {
+  const val = intakeInput.value.trim();
+  if (!val) return;
+
+  const isXUrl = /^https?:\/\/(x\.com|twitter\.com)\/.+\/status\/\d+/i.test(val);
+  const isTikTokUrl = /^https?:\/\/(www\.)?tiktok\.com\/@.+\/video\/\d+/i.test(val);
+
+  if (!isXUrl && !isTikTokUrl) {
+    AudioEngine.urlInvalid();
+    intakeFeedback.textContent = 'Please enter a valid X or TikTok URL';
+    intakeFeedback.className = 'intake-feedback invalid';
+    return;
+  }
+
+  AudioEngine.submit();
+
+  const platform = isXUrl ? 'x' : 'tiktok';
+  const creator = creators[Math.floor(Math.random() * creators.length)];
+  const job = {
+    id: ++jobIdCounter,
+    url: val,
+    creator: creator,
+    platform: platform,
+    status: 'queued',
+    progress: 0,
+    createdAt: Date.now(),
+  };
+  jobs.unshift(job);
+
+  intakeInput.value = '';
+  intakeFeedback.textContent = 'Queued for download';
+  intakeFeedback.className = 'intake-feedback valid';
+  setTimeout(() => {
+    intakeFeedback.textContent = '';
+    intakeFeedback.className = 'intake-feedback';
+  }, 2000);
+
+  renderJobs();
+  addActivity(`Job #${job.id} queued — ${creator.name}`, 'info');
+  AudioEngine.queued();
+
+  // Animate the new card
+  const firstCard = document.querySelector('.job-card');
+  if (firstCard) firstCard.classList.add('entering');
+
+  // Start job lifecycle
+  startJobLifecycle(job);
+}
+
+function deleteJob(id) {
+  AudioEngine.deleteSound();
+  jobs = jobs.filter(j => j.id !== id);
+  AudioEngine.stopRunning(id);
+  renderJobs();
+  addActivity(`Job #${id} deleted`, 'warn');
+}
+
+function retryJob(id) {
+  AudioEngine.retry();
+  const job = jobs.find(j => j.id === id);
+  if (job) {
+    job.status = 'queued';
+    job.progress = 0;
+    renderJobs();
+    addActivity(`Job #${id} retrying`, 'info');
+    startJobLifecycle(job);
+  }
+}
+
+// Settings toggles
+function setupToggle(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => {
+    settings[key] = !settings[key];
+    el.classList.toggle('on', settings[key]);
+    el.setAttribute('aria-checked', settings[key]);
+    if (settings[key]) {
+      AudioEngine.toggleOn();
+      addActivity(`${key.charAt(0).toUpperCase() + key.slice(1)} platform enabled`, 'success');
+    } else {
+      AudioEngine.toggleOff();
+      addActivity(`${key.charAt(0).toUpperCase() + key.slice(1)} platform disabled`, 'warn');
+    }
+  });
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+  });
+}
+setupToggle('toggleX', 'x');
+setupToggle('toggleTikTok', 'tiktok');
+
+// Tone legend preview
+document.querySelectorAll('.tl-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const tone = item.dataset.tone;
+    const fn = {
+      navigate: () => AudioEngine.navigate(),
+      submit: () => AudioEngine.submit(),
+      queued: () => AudioEngine.queued(),
+      running: () => { AudioEngine.playTone(220, 0.08, 'sine', 0.06); },
+      completed: () => AudioEngine.completed(),
+      failed: () => AudioEngine.failed(),
+      delete: () => AudioEngine.deleteSound(),
+      hover: () => AudioEngine.hover(),
+      toggle: () => AudioEngine.toggleOn(),
+    };
+    if (fn[tone]) fn[tone]();
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// JOB LIFECYCLE SIMULATION
+// ═══════════════════════════════════════════════════════
+
+function startJobLifecycle(job) {
+  // queued -> running (3-5s)
+  const queueDelay = 3000 + Math.random() * 2000;
+  setTimeout(() => {
+    if (job.status !== 'queued') return;
+    job.status = 'running';
+    job.progress = 0;
+    renderJobs();
+    addActivity(`Job #${job.id} started — extracting media`, 'info');
+    AudioEngine.startRunning(job.id);
+
+    // Progress simulation
+    const progressInterval = setInterval(() => {
+      if (job.status !== 'running') { clearInterval(progressInterval); return; }
+      job.progress = Math.min(job.progress + 5 + Math.random() * 10, 95);
+      const wave = document.querySelector(`.job-card[data-id="${job.id}"] .jc-wave-inner`);
+      if (wave) wave.style.width = job.progress + '%';
+
+      // Activity events during running
+      const events = [
+        'Playwright navigating to page',
+        'Intercepting network requests',
+        'Extracting video candidates',
+        'Selecting best quality stream',
+        'Downloading media file',
+        'Processing with ffmpeg',
+      ];
+      if (Math.random() < 0.3) {
+        addActivity(`Job #${job.id}: ${events[Math.floor(Math.random() * events.length)]}`, 'info');
+      }
+    }, 1500);
+
+    // running -> completed/failed (8-15s)
+    const runDelay = 8000 + Math.random() * 7000;
+    setTimeout(() => {
+      if (job.status !== 'running') return;
+      clearInterval(progressInterval);
+      AudioEngine.stopRunning(job.id);
+
+      // 85% chance completed, 15% failed
+      if (Math.random() < 0.85) {
+        job.status = 'completed';
+        job.progress = 100;
+        const harmonics = AudioEngine.completed();
+        SpectralMemory.addHarmonic({
+          fundamental: harmonics.fundamental,
+          harmonics: harmonics.harmonics,
+          color: job.creator.color
+        });
+        addActivity(`Job #${job.id} completed — ${job.creator.name}`, 'success');
+      } else {
+        job.status = 'failed';
+        job.progress = 100;
+        AudioEngine.failed();
+        addActivity(`Job #${job.id} failed — extraction timeout`, 'error');
+      }
+      renderJobs();
+    }, runDelay);
+  }, queueDelay);
+}
+
+// ═══════════════════════════════════════════════════════
+// INITIALIZATION
+// ═══════════════════════════════════════════════════════
+
+createInitialJobs();
+renderJobs();
+renderContacts();
+
+// Start lifecycle for initial running/queued jobs
+jobs.forEach(job => {
+  if (job.status === 'running') {
+    AudioEngine.startRunning(job.id);
+    // Will complete after some time
+    const remaining = 5000 + Math.random() * 8000;
+    setTimeout(() => {
+      if (job.status !== 'running') return;
+      AudioEngine.stopRunning(job.id);
+      job.status = 'completed';
+      job.progress = 100;
+      const harmonics = AudioEngine.completed();
+      SpectralMemory.addHarmonic({
+        fundamental: harmonics.fundamental,
+        harmonics: harmonics.harmonics,
+        color: job.creator.color
+      });
+      addActivity(`Job #${job.id} completed — ${job.creator.name}`, 'success');
+      renderJobs();
+    }, remaining);
+
+    // Progress updates
+    const pInt = setInterval(() => {
+      if (job.status !== 'running') { clearInterval(pInt); return; }
+      job.progress = Math.min(job.progress + 3 + Math.random() * 8, 95);
+      const wave = document.querySelector(`.job-card[data-id="${job.id}"] .jc-wave-inner`);
+      if (wave) wave.style.width = job.progress + '%';
+    }, 1500);
+  } else if (job.status === 'queued') {
+    startJobLifecycle(job);
+  }
+});
+
+// Add initial completed jobs to spectral memory
+jobs.filter(j => j.status === 'completed').forEach(j => {
+  SpectralMemory.addHarmonic({
+    fundamental: 261.63 + Math.random() * 200,
+    harmonics: [329.63, 392.00],
+    color: j.creator.color
+  });
+});
+
+SpectralMemory.init();
+
+// Periodic activity events
+setInterval(() => {
+  const events = [
+    ['Worker heartbeat — idle', 'info'],
+    ['Queue poll — no pending jobs', 'info'],
+    ['Browser context healthy', 'info'],
+    ['Telemetry buffer: ' + (20 + Math.floor(Math.random() * 80)) + ' events', 'info'],
+  ];
+  const [text, level] = events[Math.floor(Math.random() * events.length)];
+  addActivity(text, level);
+}, 3000 + Math.random() * 2000);
+
+// Initial activity entries
+addActivity('Media Vault started — Resonance mode active', 'success');
+addActivity('Worker online — polling queue', 'info');
+addActivity('Playwright context initialized', 'info');
+addActivity('MongoDB connected — Atlas cluster', 'success');
+</script>
+</body>
+</html>

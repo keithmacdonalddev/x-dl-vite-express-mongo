@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Masterwork 4: Panorama</title>
+<!--
+  Media Vault — Masterwork
+  Agent: 4
+  Concept: Panorama — Everything visible, nothing hidden, calm density
+-->
+<!-- SPECIAL FEATURE: Tidal Focus — A luminous gradient follows the cursor across the interface, subtly brightening panel borders and lifting nearby content's opacity while distant regions settle to a softer baseline. Everything remains visible always — nothing hides — but your attention creates a gentle "tide" of emphasis that makes the dense layout feel navigable without any information ever leaving the screen. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #0a0e14;
+  --surface: #111820;
+  --surface-2: #161d28;
+  --surface-3: #1c2535;
+  --ink: #c8d4e4;
+  --ink-hi: #e8edf5;
+  --muted: #5c7390;
+  --faint: #344256;
+  --ghost: #243040;
+  --border: rgba(140,170,210,.07);
+  --border-hi: rgba(140,170,210,.14);
+  --accent: #5a9cf0;
+  --accent-soft: rgba(90,156,240,.10);
+  --accent-glow: rgba(90,156,240,.18);
+  --done: #3cc97a;
+  --done-soft: rgba(60,201,122,.10);
+  --fail: #e85c5c;
+  --fail-soft: rgba(232,92,92,.10);
+  --warn: #d9a840;
+  --warn-soft: rgba(217,168,64,.10);
+  --neutral: #6e8399;
+  --neutral-soft: rgba(110,131,153,.10);
+  --violet: #8b7cf0;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', 'SF Mono', Consolas, monospace;
+}
+
+html {
+  font-family: var(--font);
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 8% 12%, rgba(90,156,240,.04) 0%, transparent 45%),
+    radial-gradient(ellipse at 92% 85%, rgba(60,201,122,.025) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(139,124,240,.02) 0%, transparent 60%),
+    linear-gradient(180deg, #0c1019 0%, #0a0e14 100%);
+}
+
+/* ─── TIDAL FOCUS LIGHT ─── */
+#tidal {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9990;
+  will-change: transform;
+}
+#tidal-inner {
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(90,156,240,.045) 0%,
+    rgba(90,156,240,.02) 30%,
+    rgba(139,124,240,.01) 50%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%);
+}
+
+/* ─── PANORAMA GRID ─── */
+.panorama {
+  display: grid;
+  grid-template-columns: 260px 1fr 290px;
+  grid-template-rows: auto 1fr;
+  gap: 5px;
+  padding: 5px;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ─── TOP BAR ─── */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, rgba(17,24,32,.95), rgba(17,24,32,.85));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  gap: 12px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 800;
+  font-size: 13.5px;
+  letter-spacing: -.2px;
+  color: var(--ink-hi);
+  flex-shrink: 0;
+}
+
+.logo-gem {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent), var(--violet));
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--bg);
+  box-shadow: 0 2px 8px rgba(90,156,240,.25);
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-hi);
+  flex-shrink: 0;
+}
+
+.topbar-stats {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+}
+
+.t-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.t-stat-n {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.t-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Settings inline */
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.plat-sw {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.plat-sw-label {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.plat-track {
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--faint);
+  position: relative;
+  transition: background .2s;
+}
+
+.plat-sw.on .plat-track { background: var(--accent) }
+
+.plat-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+
+.plat-sw.on .plat-knob { transform: translateX(12px) }
+
+/* ─── COLUMNS ─── */
+.col-l, .col-c, .col-r {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+}
+
+/* ─── PANEL ─── */
+.pnl {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color .6s ease, box-shadow .6s ease;
+  position: relative;
+}
+
+/* Top-edge light line */
+.pnl::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.04) 30%, rgba(255,255,255,.06) 50%, rgba(255,255,255,.04) 70%, transparent);
+  pointer-events: none;
+}
+
+.pnl-h {
+  padding: 9px 12px 7px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pnl-t {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+.pnl-c {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.pnl-b {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 6px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80,100,130,.3) transparent;
+}
+
+.pnl-b::-webkit-scrollbar { width: 3px }
+.pnl-b::-webkit-scrollbar-thumb { background: rgba(80,100,130,.3); border-radius: 2px }
+.pnl-b::-webkit-scrollbar-track { background: transparent }
+
+/* ─── INTAKE — CENTER OF GRAVITY ─── */
+.intake-pnl {
+  flex-shrink: 0;
+  background:
+    linear-gradient(180deg, rgba(90,156,240,.03) 0%, var(--surface) 100%);
+}
+
+.intake-inner {
+  padding: 16px 14px 14px;
+}
+
+.intake-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--accent);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.intake-label-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-soft 2.5s ease-in-out infinite;
+}
+
+.intake-row {
+  display: flex;
+  gap: 6px;
+}
+
+.intake-field {
+  flex: 1;
+  position: relative;
+}
+
+.intake-input {
+  width: 100%;
+  padding: 12px 14px 12px 38px;
+  border: 1.5px solid var(--border-hi);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-hi);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color .2s, box-shadow .25s, background .2s;
+}
+
+.intake-input::placeholder {
+  color: var(--faint);
+  font-weight: 420;
+}
+
+.intake-input:focus {
+  border-color: rgba(90,156,240,.5);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 16px rgba(90,156,240,.08);
+  background: var(--surface-3);
+}
+
+.intake-input.valid {
+  border-color: rgba(90,156,240,.6);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 16px rgba(90,156,240,.1);
+}
+
+.intake-input.invalid {
+  border-color: rgba(232,92,92,.4);
+  box-shadow: 0 0 0 3px var(--fail-soft);
+}
+
+.intake-glyph {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--faint);
+  font-size: 13px;
+  pointer-events: none;
+  transition: color .2s;
+}
+
+.intake-input:focus ~ .intake-glyph { color: var(--accent) }
+.intake-input.valid ~ .intake-glyph { color: var(--accent) }
+
+.intake-btn {
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--violet));
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(90,156,240,.2);
+  letter-spacing: .02em;
+}
+
+.intake-btn:hover { opacity: .9 }
+.intake-btn:active { transform: scale(.97) }
+.intake-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none }
+
+.intake-btn.submitting {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.intake-btn.submitting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .5s linear infinite;
+}
+
+.intake-hint {
+  margin-top: 7px;
+  font-size: 10.5px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 16px;
+}
+
+.intake-plat-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── STATUS RIBBON ─── */
+.status-ribbon {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px 8px;
+  height: 6px;
+}
+
+.sr-seg {
+  height: 3px;
+  border-radius: 1.5px;
+  transition: flex .5s ease;
+}
+
+.sr-seg.done { background: var(--done) }
+.sr-seg.run { background: var(--accent) }
+.sr-seg.queue { background: var(--neutral); opacity: .4 }
+.sr-seg.fail { background: var(--fail) }
+
+/* ─── CONTACTS ─── */
+.contacts-pnl { flex: 1; min-height: 0 }
+
+.ct {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background .12s;
+  margin-bottom: 1px;
+}
+
+.ct:hover { background: rgba(255,255,255,.03) }
+.ct.sel { background: var(--accent-soft) }
+
+.ct-av {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--bg);
+}
+
+.ct-body { flex: 1; min-width: 0 }
+
+.ct-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-handle {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.ct-n {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--faint);
+  background: var(--surface-3);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Contact detail — inline above contacts when selected */
+.ct-detail {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ct-d-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ct-d-av {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--bg);
+}
+
+.ct-d-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-hi);
+}
+
+.ct-d-sub {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.ct-d-stats {
+  display: flex;
+  gap: 10px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.ct-d-stats strong {
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── JOBS ─── */
+.jobs-pnl { flex: 1; min-height: 0 }
+
+.jrow {
+  display: grid;
+  grid-template-columns: 44px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border-radius: 7px;
+  margin-bottom: 2px;
+  transition: background .12s;
+}
+
+.jrow:hover { background: rgba(255,255,255,.018) }
+
+.j-thumb {
+  width: 44px;
+  height: 30px;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.j-thumb-bg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Running ring indicator */
+.j-thumb.is-run::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 7px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  animation: spin 1.2s linear infinite;
+}
+
+.j-body { min-width: 0 }
+
+.j-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.j-meta {
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+}
+
+.j-plat {
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  color: var(--muted);
+  line-height: 16px;
+}
+
+.j-err {
+  font-size: 10px;
+  color: var(--fail);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.j-status {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.j-status.queued { color: var(--neutral) }
+.j-status.running { color: var(--accent) }
+.j-status.completed { color: var(--done) }
+.j-status.failed { color: var(--fail) }
+.j-status.canceled { color: var(--faint) }
+
+.j-prog {
+  width: 40px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: var(--ghost);
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.j-prog-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  background: var(--accent);
+  transition: width .4s ease;
+}
+
+.j-acts {
+  display: flex;
+  gap: 2px;
+}
+
+.j-btn {
+  border: none;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font);
+  transition: color .12s, background .12s;
+  line-height: 1;
+}
+
+.j-btn:hover { color: var(--ink); background: var(--surface-3) }
+.j-btn.dng:hover { color: var(--fail); background: var(--fail-soft) }
+.j-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+
+/* ─── WORKER WAVE ─── */
+.wave-pnl { flex: 0 0 auto }
+
+.wave-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1.5px;
+  padding: 0 12px 10px;
+  height: 32px;
+}
+
+.w-bar {
+  flex: 1;
+  background: var(--accent);
+  border-radius: 1px;
+  opacity: .15;
+  transition: height .3s ease;
+  min-height: 2px;
+}
+
+.w-bar.live { opacity: .45 }
+
+/* ─── ACTIVITY ─── */
+.act-pnl { flex: 1; min-height: 0 }
+
+.aev {
+  display: flex;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  align-items: flex-start;
+  margin-bottom: 1px;
+}
+
+.aev:nth-child(even) { background: rgba(255,255,255,.008) }
+
+.aev-t {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  padding-top: 1px;
+}
+
+.aev-l {
+  flex-shrink: 0;
+  width: 3px;
+  height: 12px;
+  border-radius: 1.5px;
+  margin-top: 2px;
+}
+
+.aev-l.info { background: var(--accent) }
+.aev-l.warn { background: var(--warn) }
+.aev-l.error { background: var(--fail) }
+.aev-l.success { background: var(--done) }
+
+.aev-m {
+  flex: 1;
+  color: var(--muted);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.aev-m strong { color: var(--ink); font-weight: 600 }
+
+/* ─── EMPTY ─── */
+.empty {
+  text-align: center;
+  padding: 20px 10px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+/* ─── KEYFRAMES ─── */
+@keyframes spin { to { transform: rotate(360deg) } }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1 }
+  50% { opacity: .35 }
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.02), 0 0 0 transparent }
+  50% { box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 24px rgba(90,156,240,.02) }
+}
+
+.pnl { animation: breathe 10s ease-in-out infinite }
+.col-l .pnl { animation-delay: 0s }
+.col-c .pnl:nth-child(1) { animation-delay: 2.5s }
+.col-c .pnl:nth-child(2) { animation-delay: 5s }
+.col-c .pnl:nth-child(3) { animation-delay: 7.5s }
+.col-r .pnl:nth-child(1) { animation-delay: 1.5s }
+.col-r .pnl:nth-child(2) { animation-delay: 4s }
+
+/* ─── FOCUS STATES ─── */
+button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── REDUCED MOTION ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  #tidal { display: none }
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 980px) {
+  .panorama {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+  }
+  .col-l, .col-r {
+    max-height: 30vh;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="tidal"><div id="tidal-inner"></div></div>
+
+<div class="panorama">
+  <!-- ═══ TOP BAR ═══ -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-gem">V</div>
+      <span>Media Vault</span>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-stats" id="topbar-stats"></div>
+    <div class="topbar-sep"></div>
+    <div class="settings-inline" id="settings-area">
+      <div class="plat-sw on" data-p="x" tabindex="0" role="switch" aria-checked="true" aria-label="Enable X (Twitter)">
+        <span class="plat-sw-label">X</span>
+        <div class="plat-track"><div class="plat-knob"></div></div>
+      </div>
+      <div class="plat-sw on" data-p="tiktok" tabindex="0" role="switch" aria-checked="true" aria-label="Enable TikTok">
+        <span class="plat-sw-label">TikTok</span>
+        <div class="plat-track"><div class="plat-knob"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ LEFT: CONTACTS ═══ -->
+  <div class="col-l">
+    <div class="pnl contacts-pnl" data-pnl>
+      <div id="ct-detail-area"></div>
+      <div class="pnl-h">
+        <span class="pnl-t">Contacts</span>
+        <span class="pnl-c" id="ct-count"></span>
+      </div>
+      <div class="pnl-b" id="ct-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══ CENTER: INTAKE + JOBS ═══ -->
+  <div class="col-c">
+    <!-- Intake -->
+    <div class="pnl intake-pnl" data-pnl>
+      <div class="intake-inner">
+        <div class="intake-label">
+          <span class="intake-label-pulse"></span>
+          New Download
+        </div>
+        <form class="intake-row" id="intake-form" autocomplete="off">
+          <div class="intake-field">
+            <input type="url" class="intake-input" id="intake-input"
+              placeholder="Paste a video URL from X or TikTok..."
+              aria-label="Video URL" spellcheck="false" />
+            <span class="intake-glyph" aria-hidden="true">&#9654;</span>
+          </div>
+          <button type="submit" class="intake-btn" id="intake-btn" disabled>Download</button>
+        </form>
+        <div class="intake-hint" id="intake-hint"></div>
+      </div>
+    </div>
+
+    <!-- Jobs header + status ribbon -->
+    <div class="pnl" data-pnl style="flex:0 0 auto">
+      <div class="pnl-h">
+        <span class="pnl-t">Downloads</span>
+        <span class="pnl-c" id="jobs-count"></span>
+      </div>
+      <div class="status-ribbon" id="status-ribbon"></div>
+    </div>
+
+    <!-- Jobs list -->
+    <div class="pnl jobs-pnl" data-pnl>
+      <div class="pnl-b" id="jobs-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT: WORKER + ACTIVITY ═══ -->
+  <div class="col-r">
+    <div class="pnl wave-pnl" data-pnl>
+      <div class="pnl-h">
+        <span class="pnl-t">Worker</span>
+        <span class="pnl-c" id="worker-label">idle</span>
+      </div>
+      <div class="wave-row" id="wave-row"></div>
+    </div>
+
+    <div class="pnl act-pnl" data-pnl>
+      <div class="pnl-h">
+        <span class="pnl-t">Activity</span>
+        <span class="pnl-c" id="act-count"></span>
+      </div>
+      <div class="pnl-b" id="act-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA
+   ═══════════════════════════════════════════════════════════ */
+
+const C = [
+  { s:'elonmusk', n:'Elon Musk', h:'@elonmusk', p:'x', c:'#5a9cf0' },
+  { s:'mkbhd', n:'MKBHD', h:'@MKBHD', p:'x', c:'#3cc97a' },
+  { s:'charlidamelio', n:'Charli D\'Amelio', h:'@charlidamelio', p:'tiktok', c:'#d9a840' },
+  { s:'nasa', n:'NASA', h:'@NASA', p:'x', c:'#8b7cf0' },
+  { s:'khloekardashian', n:'Khloé K.', h:'@khloekardashian', p:'tiktok', c:'#e85c5c' },
+];
+
+let jid = 100;
+const nid = () => 'j' + (jid++);
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+function fakeTitle(c) {
+  return pick([
+    c.n+' — viral moment', c.n+' live reaction', c.n+': behind the scenes',
+    'New drop from '+c.n, c.n+' interview clip', c.n+' highlights reel',
+    c.n+' trending video', c.n+' announcement',
+  ]);
+}
+
+function fakeUrl(c) {
+  return c.p==='tiktok'
+    ? `https://www.tiktok.com/@${c.s}/video/${Math.floor(Math.random()*9e12)}`
+    : `https://x.com/${c.s}/status/${Math.floor(Math.random()*9e18)}`;
+}
+
+// Seed jobs
+let jobs = [
+  { c:C[0], st:'completed', pr:100 },
+  { c:C[1], st:'running', pr:62 },
+  { c:C[2], st:'queued', pr:0 },
+  { c:C[3], st:'completed', pr:100 },
+  { c:C[0], st:'failed', pr:45 },
+  { c:C[4], st:'running', pr:28 },
+  { c:C[1], st:'completed', pr:100 },
+  { c:C[3], st:'queued', pr:0 },
+].map(d => ({
+  id: nid(), contact: d.c, title: fakeTitle(d.c), url: fakeUrl(d.c),
+  platform: d.c.p, status: d.st, progress: d.pr,
+  created: Date.now() - Math.floor(Math.random()*3.6e6),
+  error: d.st==='failed' ? 'Network timeout — 403 Forbidden' : null,
+}));
+
+let selContact = null;
+let events = [];
+let plats = { x: true, tiktok: true };
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY TEMPLATES
+   ═══════════════════════════════════════════════════════════ */
+
+const AT = {
+  info: [
+    j => `Job <strong>${j.id}</strong> claimed by worker`,
+    j => `Navigating to <strong>${j.contact.h}</strong>`,
+    j => `Playwright intercepted <strong>video/mp4</strong>`,
+    j => `Downloading from <strong>${j.platform}</strong> CDN`,
+    j => `Candidate: <strong>1080p direct MP4</strong>`,
+    j => `File: <strong>${j.contact.s}/${j.id}.mp4</strong>`,
+    j => `HLS stream — <strong>ffmpeg</strong> selected`,
+    j => `Browser context reused — <strong>singleton</strong>`,
+  ],
+  warn: [
+    j => `Rate limit near for <strong>${j.platform}</strong>`,
+    j => `Slow response from <strong>${j.contact.h}</strong>`,
+    j => `Retrying request — <strong>attempt 2/3</strong>`,
+  ],
+  error: [
+    j => `403 Forbidden — <strong>${j.platform}</strong>`,
+    j => `Extraction timeout: <strong>${j.id}</strong>`,
+  ],
+};
+
+function genActivity(j) {
+  const r = Math.random();
+  let pool, lv;
+  if (r<.6) { pool=AT.info; lv='info'; }
+  else if (r<.85) { pool=AT.info; lv='success'; }
+  else if (r<.95) { pool=AT.warn; lv='warn'; }
+  else { pool=AT.error; lv='error'; }
+  return { t: new Date(), m: pick(pool)(j), lv, jid: j.id };
+}
+
+function pushEv(ev) {
+  events.push(ev);
+  if (events.length > 200) events = events.slice(-150);
+}
+
+const fmt = d => d.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+function ago(ts) {
+  const s = Math.floor((Date.now()-ts)/1000);
+  if (s<60) return s+'s';
+  if (s<3600) return Math.floor(s/60)+'m';
+  return Math.floor(s/3600)+'h';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════════════════ */
+
+function rStats() {
+  const cn = { queued:0, running:0, completed:0, failed:0, canceled:0 };
+  jobs.forEach(j => cn[j.status]++);
+  document.getElementById('topbar-stats').innerHTML = [
+    ['done',cn.completed,'--done'], ['active',cn.running,'--accent'],
+    ['queued',cn.queued,'--neutral'], ['failed',cn.failed,'--fail'],
+  ].map(([l,n,c]) =>
+    `<div class="t-stat"><div class="t-dot" style="background:var(${c})"></div><span class="t-stat-n">${n}</span>${l}</div>`
+  ).join('');
+}
+
+function rRibbon() {
+  const cn = { completed:0, running:0, queued:0, failed:0 };
+  jobs.forEach(j => { if(cn[j.status]!==undefined) cn[j.status]++ });
+  const cl = { completed:'done', running:'run', queued:'queue', failed:'fail' };
+  document.getElementById('status-ribbon').innerHTML =
+    Object.entries(cn).filter(([,v])=>v>0)
+      .map(([k,v])=>`<div class="sr-seg ${cl[k]}" style="flex:${v}" title="${v} ${k}" role="img" aria-label="${v} ${k}"></div>`)
+      .join('');
+  document.getElementById('jobs-count').textContent = jobs.length + ' jobs';
+}
+
+function rContacts() {
+  const cj = {};
+  jobs.forEach(j => { cj[j.contact.s] = (cj[j.contact.s]||0)+1 });
+  const el = document.getElementById('ct-list');
+  el.innerHTML = C.map(c => `
+    <div class="ct ${selContact===c.s?'sel':''}" data-s="${c.s}" tabindex="0" role="button" aria-label="${c.n}">
+      <div class="ct-av" style="background:${c.c}">${c.n[0]}</div>
+      <div class="ct-body">
+        <div class="ct-name">${c.n}</div>
+        <div class="ct-handle">${c.h}</div>
+      </div>
+      <span class="ct-n">${cj[c.s]||0}</span>
+    </div>
+  `).join('');
+  document.getElementById('ct-count').textContent = C.length+' creators';
+
+  el.querySelectorAll('.ct').forEach(item => {
+    const handler = () => {
+      selContact = selContact === item.dataset.s ? null : item.dataset.s;
+      rContacts(); rDetail(); rJobs();
+    };
+    item.addEventListener('click', handler);
+    item.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); handler() }});
+  });
+}
+
+function rDetail() {
+  const el = document.getElementById('ct-detail-area');
+  if (!selContact) { el.innerHTML = ''; return; }
+  const c = C.find(x=>x.s===selContact);
+  const cj = jobs.filter(j=>j.contact.s===selContact);
+  const dn = cj.filter(j=>j.status==='completed').length;
+  const fl = cj.filter(j=>j.status==='failed').length;
+  el.innerHTML = `
+    <div class="ct-detail">
+      <div class="ct-d-head">
+        <div class="ct-d-av" style="background:${c.c}">${c.n[0]}</div>
+        <div>
+          <div class="ct-d-name">${c.n}</div>
+          <div class="ct-d-sub">${c.h} &middot; ${c.p}</div>
+        </div>
+      </div>
+      <div class="ct-d-stats">
+        <span><strong>${cj.length}</strong> total</span>
+        <span><strong style="color:var(--done)">${dn}</strong> done</span>
+        <span><strong style="color:var(--fail)">${fl}</strong> failed</span>
+      </div>
+    </div>
+  `;
+}
+
+function rJobs() {
+  const list = selContact ? jobs.filter(j=>j.contact.s===selContact) : jobs;
+  const el = document.getElementById('jobs-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">No downloads yet</div>'; return; }
+
+  el.innerHTML = list.map(j => {
+    const sLabel = j.status==='running' ? j.progress+'%' : j.status;
+    const err = j.error ? `<div class="j-err">${j.error}</div>` : '';
+    let acts = '';
+    if (j.status==='failed') acts += `<button class="j-btn" data-a="retry" data-id="${j.id}" aria-label="Retry">&#8635;</button>`;
+    if (j.status==='running'||j.status==='queued') acts += `<button class="j-btn" data-a="cancel" data-id="${j.id}" aria-label="Cancel">&#10005;</button>`;
+    if (j.status==='completed'||j.status==='failed'||j.status==='canceled') acts += `<button class="j-btn dng" data-a="delete" data-id="${j.id}" aria-label="Delete">&#128465;</button>`;
+
+    const prog = j.status==='running'
+      ? `<div class="j-prog"><div class="j-prog-fill" style="width:${j.progress}%"></div></div>`
+      : '';
+
+    return `
+      <div class="jrow">
+        <div class="j-thumb ${j.status==='running'?'is-run':''}">
+          <div class="j-thumb-bg" style="background:linear-gradient(135deg,${j.contact.c}20,${j.contact.c}08)"></div>
+        </div>
+        <div class="j-body">
+          <div class="j-title">${j.title}</div>
+          <div class="j-meta">
+            <span class="j-plat">${j.platform==='tiktok'?'TT':'X'}</span>
+            ${j.contact.h}
+            <span style="opacity:.4">&middot;</span>
+            ${ago(j.created)}
+          </div>
+          ${err}
+          ${prog}
+        </div>
+        <span class="j-status ${j.status}">${sLabel}</span>
+        <div class="j-acts">${acts}</div>
+      </div>
+    `;
+  }).join('');
+
+  el.querySelectorAll('.j-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const a = b.dataset.a, id = b.dataset.id;
+      if (a==='retry') { const j=jobs.find(x=>x.id===id); if(j){j.status='queued';j.progress=0;j.error=null; pushEv({t:new Date(),m:`Retrying <strong>${id}</strong>`,lv:'info'})} }
+      if (a==='cancel') { const j=jobs.find(x=>x.id===id); if(j){j.status='canceled'; pushEv({t:new Date(),m:`Canceled <strong>${id}</strong>`,lv:'warn'})} }
+      if (a==='delete') { jobs=jobs.filter(x=>x.id!==id); pushEv({t:new Date(),m:`Deleted <strong>${id}</strong>`,lv:'info'}) }
+      rAll();
+    });
+  });
+}
+
+function rActivity() {
+  const vis = events.slice(-80).reverse();
+  document.getElementById('act-count').textContent = events.length + ' events';
+  document.getElementById('act-list').innerHTML = vis.map(e => `
+    <div class="aev">
+      <span class="aev-t">${fmt(e.t)}</span>
+      <div class="aev-l ${e.lv}"></div>
+      <span class="aev-m">${e.m}</span>
+    </div>
+  `).join('');
+}
+
+function rWave() {
+  const strip = document.getElementById('wave-row');
+  const running = jobs.filter(j=>j.status==='running').length;
+  const n = 32;
+  if (!strip.children.length) {
+    strip.innerHTML = Array.from({length:n},()=>'<div class="w-bar"></div>').join('');
+  }
+  const bars = strip.children;
+  for (let i=0; i<bars.length; i++) {
+    if (running > 0) {
+      const h = 3 + Math.sin(Date.now()/500 + i*.45)*10 + Math.random()*2;
+      bars[i].style.height = Math.max(2, h)+'px';
+      bars[i].classList.add('live');
+    } else {
+      bars[i].style.height = '2px';
+      bars[i].classList.remove('live');
+    }
+  }
+  document.getElementById('worker-label').textContent = running > 0 ? running+' active' : 'idle';
+}
+
+function rAll() { rStats(); rRibbon(); rContacts(); rDetail(); rJobs(); rActivity() }
+
+/* ═══════════════════════════════════════════════════════════
+   SIMULATION
+   ═══════════════════════════════════════════════════════════ */
+
+function simTick() {
+  jobs.forEach(j => {
+    if (j.status==='queued' && Math.random()<.12) {
+      j.status='running'; j.progress=0;
+      pushEv(genActivity(j));
+    } else if (j.status==='running') {
+      j.progress = Math.min(100, j.progress + 2 + Math.floor(Math.random()*7));
+      if (Math.random()<.25) pushEv(genActivity(j));
+      if (j.progress >= 100) {
+        if (Math.random()<.82) {
+          j.status='completed';
+          pushEv({t:new Date(),m:`<strong>${j.contact.h}</strong> saved — <strong>${j.contact.s}/${j.id}.mp4</strong>`,lv:'success'});
+        } else {
+          j.status='failed'; j.error='Network timeout — 403 Forbidden';
+          pushEv({t:new Date(),m:`<strong>${j.id}</strong> failed: 403`,lv:'error'});
+        }
+      }
+    }
+  });
+}
+
+function maybeAdd() {
+  if (jobs.length < 14 && Math.random()<.25) {
+    const c = pick(C);
+    const j = { id:nid(), contact:c, title:fakeTitle(c), url:fakeUrl(c), platform:c.p, status:'queued', progress:0, created:Date.now(), error:null };
+    jobs.unshift(j);
+    pushEv({t:new Date(),m:`Queued <strong>${j.id}</strong> for <strong>${c.h}</strong>`,lv:'info'});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INTAKE
+   ═══════════════════════════════════════════════════════════ */
+
+const iIn = document.getElementById('intake-input');
+const iBtn = document.getElementById('intake-btn');
+const iHint = document.getElementById('intake-hint');
+
+function validUrl(v) {
+  try { const u=new URL(v); return u.hostname.includes('x.com')||u.hostname.includes('twitter.com')||u.hostname.includes('tiktok.com') }
+  catch { return false }
+}
+
+iIn.addEventListener('input', () => {
+  const v = iIn.value.trim();
+  const ok = validUrl(v);
+  iIn.classList.toggle('valid', ok);
+  iIn.classList.toggle('invalid', v.length>10 && !ok);
+  iBtn.disabled = !ok;
+  if (ok) {
+    const p = v.includes('tiktok') ? 'TikTok' : 'X';
+    const cl = v.includes('tiktok') ? 'var(--warn)' : 'var(--accent)';
+    iHint.innerHTML = `<span class="intake-plat-dot" style="background:${cl}"></span><strong style="color:${cl};font-weight:600">${p}</strong> detected`;
+  } else {
+    iHint.innerHTML = '';
+  }
+});
+
+document.getElementById('intake-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = iIn.value.trim();
+  if (!validUrl(v)) return;
+  iBtn.classList.add('submitting');
+  iBtn.disabled = true;
+  setTimeout(() => {
+    const p = v.includes('tiktok') ? 'tiktok' : 'x';
+    if (!plats[p]) { iBtn.classList.remove('submitting'); iBtn.disabled=true; iHint.innerHTML='<span style="color:var(--fail)">Platform disabled</span>'; return }
+    const c = C.find(x=>x.p===p) || pick(C);
+    const j = { id:nid(), contact:c, title:fakeTitle(c), url:v, platform:p, status:'queued', progress:0, created:Date.now(), error:null };
+    jobs.unshift(j);
+    pushEv({t:new Date(),m:`Queued <strong>${j.id}</strong> for <strong>${c.h}</strong>`,lv:'info'});
+    iIn.value=''; iIn.classList.remove('valid','invalid');
+    iBtn.classList.remove('submitting'); iBtn.disabled=true;
+    iHint.innerHTML='<span style="color:var(--done);font-weight:600">Queued!</span>';
+    setTimeout(()=>{ iHint.innerHTML='' }, 2000);
+    rAll();
+  }, 500);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SETTINGS TOGGLES
+   ═══════════════════════════════════════════════════════════ */
+
+document.querySelectorAll('.plat-sw').forEach(sw => {
+  const handler = () => {
+    const p = sw.dataset.p;
+    plats[p] = !plats[p];
+    sw.classList.toggle('on', plats[p]);
+    sw.setAttribute('aria-checked', plats[p]);
+    pushEv({t:new Date(),m:`<strong>${p}</strong> ${plats[p]?'enabled':'disabled'}`,lv:plats[p]?'info':'warn'});
+    rActivity();
+  };
+  sw.addEventListener('click', handler);
+  sw.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); handler() }});
+});
+
+/* ═══════════════════════════════════════════════════════════
+   TIDAL FOCUS (SPECIAL FEATURE)
+   ═══════════════════════════════════════════════════════════ */
+
+const tidal = document.getElementById('tidal');
+let mx = innerWidth/2, my = innerHeight/2;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+});
+
+// Smooth follow with lerp
+let tx = mx, ty = my;
+function tickTidal() {
+  tx += (mx - tx) * .08;
+  ty += (my - ty) * .08;
+  tidal.style.transform = `translate(${tx}px, ${ty}px)`;
+
+  // Proximity-based border brightness
+  document.querySelectorAll('[data-pnl]').forEach(p => {
+    const r = p.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+    const d = Math.hypot(mx-cx, my-cy);
+    const nearness = Math.max(0, 1 - d/450);
+    const alpha = (.06 + nearness * .1).toFixed(3);
+    p.style.borderColor = `rgba(140,170,210,${alpha})`;
+    // Subtle inner glow for nearest panel
+    if (nearness > .5) {
+      p.style.boxShadow = `inset 0 0 30px rgba(90,156,240,${(nearness*.03).toFixed(3)})`;
+    } else {
+      p.style.boxShadow = '';
+    }
+  });
+
+  requestAnimationFrame(tickTidal);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════ */
+
+// Seed activity history
+for (let i=0; i<15; i++) {
+  const j = pick(jobs);
+  const ev = genActivity(j);
+  ev.t = new Date(Date.now() - (15-i)*2500);
+  events.push(ev);
+}
+
+rAll();
+requestAnimationFrame(tickTidal);
+
+// Wave animation
+(function waveLoop() { rWave(); requestAnimationFrame(waveLoop) })();
+
+// Simulation ticks
+setInterval(() => { simTick(); rAll() }, 1500);
+setInterval(maybeAdd, 7000);
+setInterval(() => {
+  const running = jobs.filter(j=>j.status==='running');
+  if (running.length) { pushEv(genActivity(pick(running))); rActivity() }
+}, 2200);
+
+</script>
+</body>
+</html>

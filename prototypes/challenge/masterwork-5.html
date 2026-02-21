@@ -1,0 +1,936 @@
+<!--
+  Media Vault — Masterwork
+  Agent: 5
+  Concept: Jewel Box — a 420x420 watchface-inspired miniature with rotating bezel navigation
+-->
+<!-- SPECIAL FEATURE: Radial Bezel Navigation — a draggable rotating ring around the viewport with knurled texture and notched detent positions that snap to sections like a luxury watch crown, with inertial momentum and haptic-feel CSS feedback -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=420, initial-scale=1">
+<title>Media Vault — Jewel Box</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0s!important;transition-duration:0s!important}
+}
+
+:root{
+  --size:420px;
+  --bg:#0b0d13;
+  --sf1:#12151e;
+  --sf2:#181c28;
+  --sf3:#1f2435;
+  --bd:#262c42;
+  --bdg:#384060;
+  --tx:#e4e9f2;
+  --tx2:#8690a8;
+  --tx3:#525e78;
+  --ac:#6888ff;
+  --ac2:#5070ee;
+  --acg:rgba(104,136,255,0.14);
+  --ok:#38b868;
+  --no:#dc4e4e;
+  --run:#dea030;
+  --qu:#6882a0;
+  --ff:'Segoe UI',system-ui,sans-serif;
+  --mn:'SF Mono','Cascadia Code','Fira Code',monospace;
+}
+
+html,body{
+  margin:0;padding:0;
+  background:#060810;
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;
+  font-family:var(--ff);color:var(--tx);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ═══════════════════════════════════════════
+   VAULT — the circular watchface container
+   ═══════════════════════════════════════════ */
+.V{
+  width:var(--size);height:var(--size);
+  position:relative;
+  background:var(--bg);
+  overflow:hidden;
+  border-radius:50%;
+  box-shadow:
+    0 0 0 2px #1c2035,
+    0 0 0 4px #0a0c14,
+    0 0 0 6px #0e1018,
+    0 2px 40px rgba(0,0,0,0.6),
+    0 0 80px rgba(104,136,255,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.V:focus{outline:2px solid var(--ac);outline-offset:4px}
+
+/* ═══════════════════════════════════════════
+   BEZEL — the outer ring (SPECIAL FEATURE)
+   ═══════════════════════════════════════════ */
+.bz{
+  position:absolute;inset:-1px;
+  border-radius:50%;
+  pointer-events:none;z-index:50;
+}
+/* Knurled ring texture via repeating conic gradient */
+.bz-ring{
+  position:absolute;inset:0;
+  border-radius:50%;
+  border:16px solid transparent;
+  background:repeating-conic-gradient(
+    from var(--bz-a,0deg),
+    #1e2338 0deg 3deg,#282e48 3deg 6deg
+  ) border-box;
+  -webkit-mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+}
+/* Outer bevel highlight */
+.bz::before{
+  content:'';position:absolute;inset:-1px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,0.04);
+  pointer-events:none;
+}
+/* Inner bevel shadow */
+.bz::after{
+  content:'';position:absolute;inset:15px;
+  border-radius:50%;
+  border:1px solid rgba(0,0,0,0.3);
+  pointer-events:none;
+}
+
+/* Notch marks around the bezel */
+.bz-n{position:absolute;inset:0;border-radius:50%}
+.bz-nk{
+  position:absolute;width:2px;height:8px;
+  background:#3a4260;
+  left:50%;top:3px;
+  transform-origin:50% 210px;
+  border-radius:1px;
+}
+.bz-nk[data-m]{height:11px;width:3px;background:#4a5478}
+.bz-nk.on{background:var(--ac);box-shadow:0 0 6px rgba(104,136,255,0.6)}
+
+/* Section labels on bezel */
+.bz-lb{
+  position:absolute;inset:0;border-radius:50%;
+  pointer-events:none;z-index:52;
+}
+.bz-l{
+  position:absolute;
+  font-size:7.5px;font-weight:700;
+  letter-spacing:0.09em;
+  text-transform:uppercase;
+  color:var(--tx3);
+  text-align:center;
+  width:48px;left:50%;margin-left:-24px;
+  top:20px;
+  transform-origin:50% 192px;
+  pointer-events:auto;
+  cursor:pointer;
+  transition:color 0.25s;
+  user-select:none;
+}
+.bz-l:hover,.bz-l.on{color:var(--ac)}
+.bz-l:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:2px}
+
+/* Drag zone — only the outer ring responds */
+.bz-dz{
+  position:absolute;inset:0;
+  border-radius:50%;z-index:45;
+  cursor:grab;
+  -webkit-mask:radial-gradient(circle,transparent 175px,#000 178px);
+  mask:radial-gradient(circle,transparent 175px,#000 178px);
+}
+.bz-dz:active{cursor:grabbing}
+
+/* ═══════════════════════════════════════════
+   FACE — the inner dial
+   ═══════════════════════════════════════════ */
+.face{
+  position:absolute;inset:30px;
+  border-radius:50%;
+  background:
+    radial-gradient(ellipse at 45% 25%,rgba(104,136,255,0.03) 0%,transparent 50%),
+    radial-gradient(ellipse at 55% 75%,rgba(128,96,204,0.02) 0%,transparent 50%),
+    radial-gradient(ellipse at 50% 40%,#141820 0%,var(--bg) 80%);
+  overflow:hidden;z-index:10;
+  /* Subtle inner shadow for depth */
+  box-shadow:inset 0 2px 8px rgba(0,0,0,0.3),inset 0 -1px 4px rgba(0,0,0,0.15);
+}
+.face::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(255,255,255,0.03);
+  pointer-events:none;
+}
+.face-in{
+  position:absolute;inset:6px;
+  border-radius:50%;
+  overflow:hidden;
+}
+
+/* ═══════════════════════════════════════════
+   PANELS — each section's content
+   ═══════════════════════════════════════════ */
+.P{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  opacity:0;transform:scale(0.9) rotate(-4deg);
+  transition:opacity 0.4s cubic-bezier(.4,0,.2,1),transform 0.4s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;
+  padding:14px 18px;
+  overflow-y:auto;
+  scrollbar-width:none;
+}
+.P::-webkit-scrollbar{display:none}
+.P.on{opacity:1;transform:scale(1) rotate(0deg);pointer-events:auto}
+
+/* ═══════════════════════════════════════════
+   INTAKE — the crown jewel, center panel
+   ═══════════════════════════════════════════ */
+.I{
+  align-items:center;justify-content:center;
+  text-align:center;
+  padding:24px 22px;
+}
+.I-icon{
+  width:40px;height:40px;margin-bottom:8px;
+  color:var(--ac);opacity:0.5;
+}
+.I h1{
+  font-size:15px;font-weight:700;
+  letter-spacing:0.02em;
+  color:var(--tx);
+  margin-bottom:1px;
+  line-height:1.2;
+}
+.I .sub{
+  font-size:8.5px;color:var(--tx3);
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  margin-bottom:16px;
+  font-weight:500;
+}
+.I-wrap{width:100%;max-width:250px;position:relative}
+.I-in{
+  width:100%;
+  background:var(--sf2);
+  border:1.5px solid var(--bd);
+  border-radius:20px;
+  padding:10px 42px 10px 14px;
+  font:inherit;font-size:11px;
+  color:var(--tx);outline:none;
+  transition:border-color 0.2s,box-shadow 0.25s;
+}
+.I-in::placeholder{color:var(--tx3);font-size:10px}
+.I-in:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acg),0 0 20px rgba(104,136,255,0.06)}
+.I-in.ok{border-color:var(--ok);box-shadow:0 0 0 3px rgba(56,184,104,0.12)}
+.I-in.no{border-color:var(--no)}
+.I-go{
+  position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;
+  border-radius:50%;border:none;
+  background:linear-gradient(135deg,var(--ac),var(--ac2));
+  color:#fff;font-size:14px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform 0.15s,box-shadow 0.2s;
+  box-shadow:0 2px 8px rgba(104,136,255,0.3);
+}
+.I-go:hover{transform:translateY(-50%) scale(1.08);box-shadow:0 4px 16px rgba(104,136,255,0.4)}
+.I-go:active{transform:translateY(-50%) scale(0.94)}
+.I-go:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+.I-go:disabled{opacity:0.3;cursor:not-allowed;box-shadow:none}
+.I-go svg{pointer-events:none}
+.I-toast{
+  margin-top:10px;font-size:9px;
+  color:var(--ok);opacity:0;
+  transition:opacity 0.3s;height:14px;
+  font-weight:600;
+}
+.I-toast.show{opacity:1}
+.I-stats{
+  display:flex;gap:20px;margin-top:14px;
+}
+.I-st{text-align:center}
+.I-st .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--tx);line-height:1}
+.I-st .l{font-size:7.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px;font-weight:600}
+
+/* Decorative ring around intake */
+.I-ring{
+  position:absolute;
+  width:180px;height:180px;
+  border-radius:50%;
+  border:1px solid rgba(104,136,255,0.05);
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  pointer-events:none;
+  animation:spin-slow 40s linear infinite;
+}
+.I-ring::before{
+  content:'';position:absolute;
+  width:4px;height:4px;border-radius:50%;
+  background:var(--ac);opacity:0.3;
+  top:-2px;left:50%;margin-left:-2px;
+}
+@keyframes spin-slow{to{transform:translate(-50%,-50%) rotate(360deg)}}
+
+/* ═══════════════════════════════════════════
+   SHARED PANEL STYLES
+   ═══════════════════════════════════════════ */
+.pt{
+  font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.11em;
+  color:var(--tx2);
+  margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.pt .c{
+  font-size:8px;background:var(--sf3);
+  padding:1px 6px;border-radius:8px;
+  font-variant-numeric:tabular-nums;color:var(--tx3);
+}
+
+/* ═══════════════════════════════════════════
+   JOBS
+   ═══════════════════════════════════════════ */
+.J{padding:10px 12px}
+.ji{
+  display:flex;align-items:center;gap:7px;
+  padding:6px 7px;
+  background:var(--sf1);
+  border:1px solid var(--bd);
+  border-radius:9px;
+  margin-bottom:4px;
+  transition:border-color 0.2s,background 0.15s;
+  position:relative;overflow:hidden;
+}
+.ji:hover{border-color:var(--bdg);background:var(--sf2)}
+.ji:focus-within{border-color:var(--ac);box-shadow:0 0 0 2px var(--acg)}
+.jp{
+  width:20px;height:20px;border-radius:5px;
+  background:var(--sf3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;flex-shrink:0;
+}
+.jf{flex:1;min-width:0}
+.ju{font-size:9.5px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jm{font-size:7.5px;color:var(--tx3);display:flex;gap:5px;margin-top:1px}
+.js{
+  font-size:7px;font-weight:700;
+  padding:2px 5px;border-radius:5px;
+  text-transform:uppercase;letter-spacing:0.04em;
+  flex-shrink:0;
+}
+.js.completed{background:rgba(56,184,104,0.1);color:var(--ok)}
+.js.running{background:rgba(222,160,48,0.1);color:var(--run)}
+.js.queued{background:rgba(104,130,160,0.1);color:var(--qu)}
+.js.failed{background:rgba(220,78,78,0.1);color:var(--no)}
+.js.canceled{background:rgba(82,94,120,0.1);color:var(--tx3)}
+.j-bar{
+  position:absolute;bottom:0;left:0;height:2px;
+  background:linear-gradient(90deg,var(--run),#e8c060);
+  border-radius:0 1px 0 0;
+  transition:width 0.6s ease;
+}
+.ja{
+  display:flex;gap:2px;
+  opacity:0;transition:opacity 0.12s;flex-shrink:0;
+}
+.ji:hover .ja{opacity:1}
+.jab{
+  width:18px;height:18px;border-radius:4px;
+  border:none;background:var(--sf3);
+  color:var(--tx3);font-size:9px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background 0.1s,color 0.1s;
+}
+.jab:hover{background:var(--ac);color:#fff}
+.jab.dg:hover{background:var(--no);color:#fff}
+.jab:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+
+/* ═══════════════════════════════════════════
+   CONTACTS
+   ═══════════════════════════════════════════ */
+.C{padding:10px 12px}
+.ci{
+  display:flex;align-items:center;gap:7px;
+  padding:6px 7px;
+  background:var(--sf1);
+  border:1px solid var(--bd);
+  border-radius:9px;
+  margin-bottom:4px;
+  cursor:pointer;
+  transition:border-color 0.2s;
+}
+.ci:hover{border-color:var(--bdg)}
+.ci:focus-visible{border-color:var(--ac);outline:none;box-shadow:0 0 0 2px var(--acg)}
+.ca{
+  width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.cn{font-size:9.5px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd{font-size:7.5px;color:var(--tx3);margin-top:1px}
+.cc{font-size:12px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums;flex-shrink:0}
+.cx{
+  padding:5px 7px;background:var(--sf2);border-radius:7px;
+  margin:-1px 0 4px;border:1px solid var(--bd);
+}
+.cx-r{display:flex;justify-content:space-between;font-size:7.5px;color:var(--tx3);padding:1.5px 0}
+.cx-v{color:var(--tx2);font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ═══════════════════════════════════════════
+   ACTIVITY
+   ═══════════════════════════════════════════ */
+.A{padding:10px 12px}
+.ae{
+  padding:4px 7px;
+  border-left:2px solid var(--bd);
+  margin-bottom:3px;
+  transition:border-color 0.2s;
+}
+.ae.i{border-left-color:var(--ac)}
+.ae.s{border-left-color:var(--ok)}
+.ae.w{border-left-color:var(--run)}
+.ae.e{border-left-color:var(--no)}
+.at{font-size:7px;color:var(--tx3);font-family:var(--mn);font-variant-numeric:tabular-nums}
+.am{font-size:8.5px;color:var(--tx2);margin-top:1px;line-height:1.3}
+.ag{
+  display:inline-block;font-size:6.5px;font-weight:600;
+  padding:1px 4px;border-radius:3px;
+  background:var(--sf3);color:var(--tx3);margin-top:2px;
+}
+.ld{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--ok);display:inline-block;
+  animation:pld 1.5s ease-in-out infinite;
+}
+@keyframes pld{0%,100%{opacity:1}50%{opacity:0.25}}
+
+/* ═══════════════════════════════════════════
+   SETTINGS
+   ═══════════════════════════════════════════ */
+.S{padding:14px 16px}
+.sg{margin-bottom:10px}
+.sgt{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--tx3);margin-bottom:6px}
+.sr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 8px;background:var(--sf1);
+  border:1px solid var(--bd);border-radius:9px;margin-bottom:4px;
+}
+.sl{font-size:9.5px;color:var(--tx);display:flex;align-items:center;gap:5px}
+.si{font-size:11px}
+.sd{font-size:7.5px;color:var(--tx3);margin-top:1px}
+.tg{
+  width:32px;height:17px;border-radius:9px;
+  background:var(--sf3);border:1.5px solid var(--bd);
+  position:relative;cursor:pointer;
+  transition:background 0.2s,border-color 0.2s;
+  flex-shrink:0;
+}
+.tg:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.tg.on{background:var(--ac);border-color:var(--ac2)}
+.tg-k{
+  width:11px;height:11px;border-radius:50%;
+  background:#fff;position:absolute;top:1.5px;left:1.5px;
+  transition:transform 0.2s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 1px 3px rgba(0,0,0,0.25);
+}
+.tg.on .tg-k{transform:translateX(14px)}
+
+/* ═══════════════════════════════════════════
+   AMBIENT EFFECTS
+   ═══════════════════════════════════════════ */
+.glow{
+  position:absolute;width:180px;height:180px;
+  border-radius:50%;pointer-events:none;z-index:5;
+  filter:blur(50px);opacity:0.08;
+  transition:opacity 0.8s,background 0.8s;
+}
+.glow.a{top:-50px;left:-40px;background:#6080ff}
+.glow.b{bottom:-50px;right:-50px;background:#8060cc}
+
+/* Center jewel dot */
+.cj{
+  position:absolute;width:6px;height:6px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#a0b8ff,var(--ac));
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:60;pointer-events:none;
+  box-shadow:0 0 6px var(--ac),0 0 16px rgba(104,136,255,0.2);
+  transition:opacity 0.3s;
+}
+.cj.h{opacity:0}
+
+/* Breathing inner ring */
+.br{
+  position:absolute;inset:28px;border-radius:50%;
+  border:1px solid rgba(104,136,255,0.04);
+  pointer-events:none;z-index:8;
+  animation:bth 5s ease-in-out infinite;
+}
+@keyframes bth{0%,100%{opacity:0.2;transform:scale(1)}50%{opacity:0.5;transform:scale(1.005)}}
+
+/* Section dots at bottom */
+.sd-i{
+  position:absolute;bottom:36px;left:50%;transform:translateX(-50%);
+  z-index:55;display:flex;gap:6px;
+}
+.sd-d{
+  width:4px;height:4px;border-radius:50%;
+  background:var(--tx3);opacity:0.25;
+  transition:opacity 0.25s,background 0.25s,transform 0.25s;
+}
+.sd-d.on{opacity:1;background:var(--ac);transform:scale(1.4)}
+
+/* Keyboard hint */
+.kh{
+  position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+  font-size:6.5px;color:var(--tx3);opacity:0.3;
+  z-index:55;white-space:nowrap;letter-spacing:0.05em;
+}
+
+/* ═══════════════════════════════════════════
+   MICRO DETAIL: subtle hash marks on face
+   ═══════════════════════════════════════════ */
+.face::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:repeating-conic-gradient(
+    transparent 0deg 4.5deg,rgba(255,255,255,0.005) 4.5deg 5deg
+  );
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<div class="V" id="V" role="application" aria-label="Media Vault — 420x420 Jewel Box Interface" tabindex="0">
+  <div class="glow a"></div>
+  <div class="glow b"></div>
+  <div class="br" aria-hidden="true"></div>
+
+  <!-- Bezel -->
+  <div class="bz" aria-hidden="true">
+    <div class="bz-ring" id="bzR"></div>
+    <div class="bz-n" id="bzN"></div>
+  </div>
+  <div class="bz-lb" id="bzL"></div>
+  <div class="bz-dz" id="bzD" aria-hidden="true"></div>
+
+  <!-- Center jewel -->
+  <div class="cj" id="cj"></div>
+
+  <!-- Face -->
+  <div class="face">
+    <div class="face-in" id="fI">
+
+      <!-- Intake -->
+      <div class="P I on" id="p0" role="region" aria-label="Submit URL">
+        <div class="I-ring" aria-hidden="true"></div>
+        <svg class="I-icon" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <path d="M20 6L27 16L34 10L30 28H10L6 10L13 16L20 6Z" stroke="currentColor" stroke-width="1.2" fill="none"/>
+          <rect x="10" y="28" width="20" height="3" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.5"/>
+        </svg>
+        <h1>Media Vault</h1>
+        <div class="sub">Paste a video URL</div>
+        <div class="I-wrap">
+          <input class="I-in" id="iIn" type="url" placeholder="https://x.com/user/status/..." aria-label="Video URL" spellcheck="false" autocomplete="off">
+          <button class="I-go" id="iGo" aria-label="Download video" title="Download" disabled>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2.5v7M4 7L7 10l3-3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 12h7" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="I-toast" id="iT"></div>
+        <div class="I-stats">
+          <div class="I-st"><div class="v" id="sT">0</div><div class="l">Total</div></div>
+          <div class="I-st"><div class="v" id="sD">0</div><div class="l">Done</div></div>
+          <div class="I-st"><div class="v" id="sA">0</div><div class="l">Active</div></div>
+        </div>
+      </div>
+
+      <!-- Jobs -->
+      <div class="P J" id="p1" role="region" aria-label="Download Jobs">
+        <div class="pt">Jobs <span class="c" id="jC">0</span></div>
+        <div id="jL"></div>
+      </div>
+
+      <!-- Contacts -->
+      <div class="P C" id="p2" role="region" aria-label="Contacts">
+        <div class="pt">Contacts <span class="c" id="cC">0</span></div>
+        <div id="cL"></div>
+      </div>
+
+      <!-- Activity -->
+      <div class="P A" id="p3" role="region" aria-label="Activity Feed">
+        <div class="pt"><span class="ld" aria-hidden="true"></span> Live Activity</div>
+        <div id="aL"></div>
+      </div>
+
+      <!-- Settings -->
+      <div class="P S" id="p4" role="region" aria-label="Settings">
+        <div class="pt">Settings</div>
+        <div class="sg">
+          <div class="sgt">Platforms</div>
+          <div class="sr">
+            <div>
+              <div class="sl"><span class="si">&Xopf;</span> X (Twitter)</div>
+              <div class="sd">Video downloads from X</div>
+            </div>
+            <div class="tg on" id="tX" role="switch" aria-checked="true" aria-label="Enable X" tabindex="0"><div class="tg-k"></div></div>
+          </div>
+          <div class="sr">
+            <div>
+              <div class="sl"><span class="si">&#9835;</span> TikTok</div>
+              <div class="sd">TikTok video downloads</div>
+            </div>
+            <div class="tg on" id="tT" role="switch" aria-checked="true" aria-label="Enable TikTok" tabindex="0"><div class="tg-k"></div></div>
+          </div>
+        </div>
+        <div class="sg">
+          <div class="sgt">System</div>
+          <div class="sr">
+            <div>
+              <div class="sl">Worker</div>
+              <div class="sd">Queue processor</div>
+            </div>
+            <span style="font-size:8px;color:var(--ok);font-weight:600;display:flex;align-items:center;gap:3px"><span class="ld"></span> Online</span>
+          </div>
+          <div class="sr">
+            <div>
+              <div class="sl">Browser</div>
+              <div class="sd">Playwright context</div>
+            </div>
+            <span style="font-size:8px;color:var(--ok);font-weight:600;display:flex;align-items:center;gap:3px"><span class="ld"></span> Ready</span>
+          </div>
+          <div class="sr">
+            <div><div class="sl">Version</div></div>
+            <span style="font-size:8px;color:var(--tx3);font-variant-numeric:tabular-nums">1.0.0</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Section dots -->
+  <div class="sd-i" id="sDI" aria-hidden="true"></div>
+
+  <!-- Hint -->
+  <div class="kh" aria-hidden="true">&larr; &rarr; or drag bezel</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ── Sections ── */
+const SEC=[
+  {id:'p0',lbl:'Vault',a:0},
+  {id:'p1',lbl:'Jobs',a:72},
+  {id:'p2',lbl:'Contacts',a:144},
+  {id:'p3',lbl:'Activity',a:216},
+  {id:'p4',lbl:'Config',a:288},
+];
+let cur=0,bzA=0;
+
+/* ── Bezel setup ── */
+const bzR=document.getElementById('bzR');
+const bzN=document.getElementById('bzN');
+const bzL=document.getElementById('bzL');
+
+// 60 knurled notches
+for(let i=0;i<60;i++){
+  const n=document.createElement('div');
+  n.className='bz-nk';
+  n.style.transform='rotate('+i*6+'deg)';
+  if(i%12===0) n.dataset.m='1';
+  bzN.appendChild(n);
+}
+
+// Section labels
+SEC.forEach((s,i)=>{
+  const l=document.createElement('button');
+  l.className='bz-l'+(i===0?' on':'');
+  l.textContent=s.lbl;
+  l.style.transform='rotate('+s.a+'deg)';
+  l.setAttribute('aria-label','Go to '+s.lbl);
+  l.tabIndex=0;
+  l.addEventListener('click',()=>go(i));
+  bzL.appendChild(l);
+});
+
+// Section indicator dots
+const sDI=document.getElementById('sDI');
+SEC.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='sd-d'+(i===0?' on':'');
+  sDI.appendChild(d);
+});
+
+function go(idx){
+  if(idx===cur) return;
+  document.getElementById(SEC[cur].id).classList.remove('on');
+  cur=idx;
+  document.getElementById(SEC[cur].id).classList.add('on');
+  bzA=-SEC[idx].a;
+  bzR.style.setProperty('--bz-a',bzA+'deg');
+  sDI.querySelectorAll('.sd-d').forEach((d,i)=>d.classList.toggle('on',i===idx));
+  bzL.querySelectorAll('.bz-l').forEach((l,i)=>l.classList.toggle('on',i===idx));
+  bzN.querySelectorAll('.bz-nk').forEach(n=>n.classList.remove('on'));
+  const mk=bzN.children[idx*12];
+  if(mk) mk.classList.add('on');
+  document.getElementById('cj').classList.toggle('h',idx!==0);
+}
+
+/* ── Bezel drag with inertia ── */
+const bzD=document.getElementById('bzD');
+let drag=false,dSA=0,dSB=0,vel=0,lastA=0,lastT=0;
+
+function angle(e){
+  const r=bzD.getBoundingClientRect();
+  const cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-cx;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-cy;
+  return Math.atan2(y,x)*180/Math.PI;
+}
+
+bzD.addEventListener('mousedown',e=>{drag=true;dSA=angle(e);dSB=bzA;vel=0;lastA=dSA;lastT=Date.now();e.preventDefault()});
+bzD.addEventListener('touchstart',e=>{drag=true;dSA=angle(e);dSB=bzA;vel=0;lastA=dSA;lastT=Date.now()},{passive:true});
+
+function onMove(e){
+  if(!drag) return;
+  const a=angle(e);
+  let d=a-dSA;
+  if(d>180) d-=360;if(d<-180) d+=360;
+  bzA=dSB+d;
+  bzR.style.setProperty('--bz-a',bzA+'deg');
+  const now=Date.now();
+  const dt=now-lastT;
+  if(dt>0){
+    let dv=a-lastA;
+    if(dv>180) dv-=360;if(dv<-180) dv+=360;
+    vel=dv/dt;
+  }
+  lastA=a;lastT=now;
+}
+window.addEventListener('mousemove',onMove);
+window.addEventListener('touchmove',onMove);
+
+function snap(){
+  if(!drag) return;
+  drag=false;
+  // Apply momentum
+  bzA+=vel*80;
+  let norm=((-bzA)%360+360)%360;
+  let near=0,minD=Infinity;
+  SEC.forEach((s,i)=>{
+    let d=Math.abs(s.a-norm);
+    if(d>180) d=360-d;
+    if(d<minD){minD=d;near=i;}
+  });
+  // Always snap to nearest
+  go(near);
+}
+window.addEventListener('mouseup',snap);
+window.addEventListener('touchend',snap);
+
+/* ── Keyboard nav ── */
+document.getElementById('V').addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();go((cur+1)%5)}
+  else if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();go((cur+4)%5)}
+  else if(e.key>='1'&&e.key<='5'){e.preventDefault();go(+e.key-1)}
+});
+
+/* ── Data ── */
+const CR=[
+  {h:'@artstation_hq',p:'x',c:'#4878e8',ini:'AH'},
+  {h:'@dance.viral',p:'tiktok',c:'#d84888',ini:'DV'},
+  {h:'@techreviews',p:'x',c:'#30a870',ini:'TR'},
+  {h:'@comedy.clips',p:'tiktok',c:'#c88030',ini:'CC'},
+];
+
+let jobs=[],jid=0,acts=[];
+
+function mkJob(cr,st,pg){
+  return{id:++jid,cr:cr||CR[Math.random()*CR.length|0],st:st||'queued',pg:pg||0,t:Date.now()-Math.random()*3e5};
+}
+
+jobs=[
+  mkJob(CR[0],'completed',100),
+  mkJob(CR[1],'running',62),
+  mkJob(CR[2],'completed',100),
+  mkJob(CR[0],'running',28),
+  mkJob(CR[3],'queued',0),
+  mkJob(CR[2],'failed',0),
+  mkJob(CR[1],'completed',100),
+];
+
+/* ── Render Jobs ── */
+function rJ(){
+  const l=document.getElementById('jL');
+  l.innerHTML='';
+  document.getElementById('jC').textContent=jobs.length;
+  jobs.forEach(j=>{
+    const d=document.createElement('div');
+    d.className='ji';d.tabIndex=0;
+    const ico=j.cr.p==='tiktok'?'&#9835;':'&#120143;';
+    d.innerHTML=`<div class="jp">${ico}</div><div class="jf"><div class="ju">${j.cr.h}</div><div class="jm"><span>${j.cr.p}</span><span>${ago(j.t)}</span></div></div><span class="js ${j.st}" aria-label="Status: ${j.st}">${j.st}</span><div class="ja">${j.st==='failed'?'<button class="jab" data-a="r" data-i="'+j.id+'" title="Retry" aria-label="Retry">&#x21bb;</button>':''}<button class="jab dg" data-a="d" data-i="${j.id}" title="Delete" aria-label="Delete">&times;</button></div>${j.st==='running'?'<div class="j-bar" style="width:'+j.pg+'%"></div>':''}`;
+    l.appendChild(d);
+  });
+  l.querySelectorAll('.jab').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id=+b.dataset.i;
+    if(b.dataset.a==='d'){jobs=jobs.filter(j=>j.id!==id);pA('i','Job #'+id+' deleted','sys');rJ();rC();uS()}
+    else{const j=jobs.find(j=>j.id===id);if(j){j.st='queued';j.pg=0}pA('i','Retrying #'+id,'q');rJ()}
+  }));
+  uS();
+}
+
+/* ── Render Contacts ── */
+function rC(){
+  const l=document.getElementById('cL');
+  l.innerHTML='';
+  const cd=CR.map(c=>({...c,n:jobs.filter(j=>j.cr.h===c.h).length,ok:jobs.filter(j=>j.cr.h===c.h&&j.st==='completed').length,no:jobs.filter(j=>j.cr.h===c.h&&j.st==='failed').length}));
+  document.getElementById('cC').textContent=cd.length;
+  cd.forEach(c=>{
+    const w=document.createElement('div');
+    const d=document.createElement('div');
+    d.className='ci';d.tabIndex=0;d.setAttribute('role','button');
+    d.setAttribute('aria-label',c.h+', '+c.n+' jobs');
+    d.innerHTML=`<div class="ca" style="background:${c.c}">${c.ini}</div><div style="flex:1;min-width:0"><div class="cn">${c.h}</div><div class="cd">${c.p}</div></div><div class="cc">${c.n}</div>`;
+    let open=false;
+    d.addEventListener('click',()=>{
+      open=!open;
+      const ex=w.querySelector('.cx');
+      if(ex){ex.remove();return}
+      const x=document.createElement('div');
+      x.className='cx';
+      x.innerHTML=`<div class="cx-r"><span>Completed</span><span class="cx-v">${c.ok}</span></div><div class="cx-r"><span>Failed</span><span class="cx-v">${c.no}</span></div><div class="cx-r"><span>Platform</span><span class="cx-v">${c.p}</span></div>`;
+      w.appendChild(x);
+    });
+    w.appendChild(d);l.appendChild(w);
+  });
+}
+
+/* ── Activity ── */
+const TMPL=[
+  {l:'i',m:'Worker polling for queued jobs',g:'queue'},
+  {l:'i',m:'Job claimed by worker thread',g:'queue'},
+  {l:'i',m:'Playwright extraction launched',g:'extract'},
+  {l:'i',m:'Network interception armed',g:'net'},
+  {l:'s',m:'Media URL extracted',g:'extract'},
+  {l:'i',m:'Downloading direct MP4 stream',g:'dl'},
+  {l:'i',m:'Processing HLS manifest',g:'dl'},
+  {l:'s',m:'File saved to disk',g:'dl'},
+  {l:'w',m:'Rate limit, backing off 5s',g:'net'},
+  {l:'e',m:'Extraction timeout (180s)',g:'extract'},
+  {l:'i',m:'Thumbnail generated',g:'post'},
+  {l:'s',m:'Job completed',g:'sys'},
+];
+
+function pA(l,m,g){
+  acts.unshift({l,m,g,t:Date.now()});
+  if(acts.length>25) acts.length=25;
+  rA();
+}
+function rA(){
+  const el=document.getElementById('aL');
+  el.innerHTML='';
+  acts.slice(0,12).forEach(a=>{
+    const d=document.createElement('div');
+    d.className='ae '+a.l;
+    d.innerHTML=`<div class="at">${ft(a.t)}</div><div class="am">${a.m}</div><span class="ag">${a.g}</span>`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Helpers ── */
+function ago(t){const s=(Date.now()-t)/1e3|0;return s<60?s+'s':s<3600?(s/60|0)+'m':(s/3600|0)+'h'}
+function ft(t){const d=new Date(t);return d.toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function uS(){
+  document.getElementById('sT').textContent=jobs.length;
+  document.getElementById('sD').textContent=jobs.filter(j=>j.st==='completed').length;
+  document.getElementById('sA').textContent=jobs.filter(j=>j.st==='running'||j.st==='queued').length;
+}
+
+/* ── Intake ── */
+const iIn=document.getElementById('iIn'),iGo=document.getElementById('iGo'),iT=document.getElementById('iT');
+function vURL(u){return/^https?:\/\/(x\.com|twitter\.com|tiktok\.com|www\.tiktok\.com)\//i.test(u)}
+
+iIn.addEventListener('input',()=>{
+  const v=iIn.value.trim();
+  iIn.classList.remove('ok','no');
+  if(v.length>10) iIn.classList.add(vURL(v)?'ok':'no');
+  iGo.disabled=!vURL(v);
+});
+
+function submit(){
+  const u=iIn.value.trim();if(!vURL(u)) return;
+  const tk=/tiktok/i.test(u);
+  const cr=CR.find(c=>c.p===(tk?'tiktok':'x'))||CR[0];
+  const j=mkJob(cr,'queued',0);
+  jobs.unshift(j);
+  iIn.value='';iIn.classList.remove('ok','no');iGo.disabled=true;
+  iT.textContent='Job #'+j.id+' queued';iT.classList.add('show');
+  setTimeout(()=>iT.classList.remove('show'),2500);
+  pA('i','Submitted: '+cr.h,'intake');
+  rJ();rC();
+}
+iGo.addEventListener('click',submit);
+iIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit()}});
+
+/* ── Toggles ── */
+document.querySelectorAll('.tg').forEach(t=>{
+  t.addEventListener('click',()=>{
+    const on=t.classList.toggle('on');
+    t.setAttribute('aria-checked',on);
+    pA('i',(t.id==='tX'?'X':'TikTok')+' '+(on?'enabled':'disabled'),'cfg');
+  });
+  t.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();t.click()}});
+});
+
+/* ── Simulation ── */
+// Advance running jobs
+setInterval(()=>{
+  let ch=false;
+  jobs.forEach(j=>{
+    if(j.st==='running'){
+      j.pg=Math.min(100,j.pg+2+Math.random()*6);
+      if(j.pg>=100){
+        j.st=Math.random()>0.12?'completed':'failed';
+        j.pg=j.st==='completed'?100:0;
+        pA(j.st==='completed'?'s':'e',
+          j.st==='completed'?'#'+j.id+' completed':'#'+j.id+' failed',
+          j.st==='completed'?'dl':'extract');
+      }
+      ch=true;
+    }
+  });
+  if(ch){rJ();rC()}
+},1100);
+
+// Start queued jobs
+setInterval(()=>{
+  const q=jobs.find(j=>j.st==='queued');
+  if(q){q.st='running';q.pg=0;pA('i','Claimed #'+q.id,'queue');rJ()}
+},3500);
+
+// Random telemetry
+setInterval(()=>{
+  const t=TMPL[Math.random()*TMPL.length|0];
+  pA(t.l,t.m,t.g);
+},2800);
+
+/* ── Init ── */
+rJ();rC();uS();
+pA('i','Worker started','sys');
+pA('s','Playwright ready','extract');
+pA('i','MongoDB connected','sys');
+bzN.children[0].classList.add('on');
+document.getElementById('V').focus();
+
+})();
+</script>
+</body>
+</html>

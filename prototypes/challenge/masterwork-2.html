@@ -1,0 +1,1701 @@
+<!--
+  Media Vault — Masterwork
+  Agent: 2
+  Concept: Crystalline Hive — A hexagonal lattice interface where every container is a facet of a living crystal
+-->
+<!-- SPECIAL FEATURE: Prismatic Refraction — When a job changes status, a chromatic light wave ripples outward through neighboring hexagonal cells, refracting color like light through a crystal prism, creating a living stained-glass effect across the entire hive -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Vault — Crystalline Hive</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #0a0b14;
+  --cell: rgba(16,19,35,0.85);
+  --cell-hover: rgba(22,26,48,0.92);
+  --ink: #e2e6f0;
+  --muted: #7b86a8;
+  --dim: #4a5278;
+  --border: rgba(120,140,200,0.12);
+  --accent: #6c8cff;
+  --accent-glow: rgba(108,140,255,0.2);
+  --completed: #4ade80;
+  --completed-glow: rgba(74,222,128,0.15);
+  --running: #60a5fa;
+  --running-glow: rgba(96,165,250,0.2);
+  --failed: #f87171;
+  --failed-glow: rgba(248,113,113,0.15);
+  --queued: #a78bfa;
+  --queued-glow: rgba(167,139,250,0.15);
+  --canceled: #6b7280;
+  --warm: #fbbf24;
+  --warm-glow: rgba(251,191,36,0.12);
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(108,140,255,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 70%, rgba(167,139,250,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(74,222,128,0.03) 0%, transparent 60%),
+    var(--bg);
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════════════════
+   HEXAGON FOUNDATION
+   ══════════════════════════════════════════ */
+
+.hex-clip {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.hex-clip-flat {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+.diamond-clip {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.pentagon-clip {
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
+
+.octagon-clip {
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+.chevron-clip {
+  clip-path: polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%);
+}
+
+.trapezoid-clip {
+  clip-path: polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%);
+}
+
+.ellipse-container {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════
+   LAYOUT SHELL — HONEYCOMB ARCHITECTURE
+   ══════════════════════════════════════════ */
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+
+/* Top bar — chevron shaped */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 40px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(16,19,35,0.9), rgba(22,28,52,0.85));
+  clip-path: polygon(0% 0%, 92% 0%, 100% 50%, 92% 100%, 0% 100%, 4% 50%);
+  border: none;
+  position: relative;
+}
+
+.top-bar::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  clip-path: polygon(0% 0%, 92% 0%, 100% 50%, 92% 100%, 0% 100%, 4% 50%);
+  background: linear-gradient(135deg, rgba(108,140,255,0.06), transparent 60%);
+  pointer-events: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-gem {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 900;
+  color: #0a0b14;
+  flex-shrink: 0;
+}
+
+.brand-text {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--ink), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-gems {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.nav-gem {
+  width: 44px;
+  height: 44px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: var(--cell);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--muted);
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+  position: relative;
+  font-family: var(--font);
+}
+
+.nav-gem:hover {
+  background: var(--cell-hover);
+  color: var(--ink);
+  transform: scale(1.08);
+}
+
+.nav-gem.active {
+  background: linear-gradient(135deg, rgba(108,140,255,0.25), rgba(167,139,250,0.2));
+  color: var(--accent);
+}
+
+.nav-gem:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.nav-gem .gem-label {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.nav-gem.active .gem-label { color: var(--accent); }
+
+/* ══════════════════════════════════════════
+   VIEWS — SWITCHABLE SECTIONS
+   ══════════════════════════════════════════ */
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* ══════════════════════════════════════════
+   INTAKE — THE CENTRAL CRYSTAL
+   ══════════════════════════════════════════ */
+
+.intake-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.intake-crystal {
+  width: 520px;
+  max-width: 96vw;
+  aspect-ratio: 1.6;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.intake-outer {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 95% 20%, 100% 55%, 85% 90%, 50% 100%, 15% 90%, 0% 55%, 5% 20%);
+  background: linear-gradient(160deg, rgba(108,140,255,0.1), rgba(167,139,250,0.08), rgba(16,19,35,0.9));
+  transition: background 0.4s;
+}
+
+.intake-crystal:focus-within .intake-outer {
+  background: linear-gradient(160deg, rgba(108,140,255,0.18), rgba(167,139,250,0.14), rgba(16,19,35,0.92));
+}
+
+.intake-inner {
+  position: absolute;
+  inset: 3px;
+  clip-path: polygon(50% 0%, 95% 20%, 100% 55%, 85% 90%, 50% 100%, 15% 90%, 0% 55%, 5% 20%);
+  background: linear-gradient(170deg, rgba(12,14,28,0.95), rgba(18,22,42,0.92));
+}
+
+.intake-glow {
+  position: absolute;
+  inset: -20px;
+  clip-path: polygon(50% 0%, 95% 20%, 100% 55%, 85% 90%, 50% 100%, 15% 90%, 0% 55%, 5% 20%);
+  background: radial-gradient(circle at 50% 40%, rgba(108,140,255,0.08), transparent 70%);
+  animation: intake-breathe 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes intake-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+.intake-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 20px 40px;
+  width: 100%;
+}
+
+.intake-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.intake-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.intake-input {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(108,140,255,0.2);
+  color: var(--ink);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  clip-path: polygon(4% 0%, 96% 0%, 100% 50%, 96% 100%, 4% 100%, 0% 50%);
+  text-align: center;
+}
+
+.intake-input::placeholder {
+  color: var(--dim);
+  font-weight: 450;
+}
+
+.intake-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(108,140,255,0.15);
+}
+
+.intake-input.valid {
+  border-color: var(--completed);
+  box-shadow: 0 0 20px rgba(74,222,128,0.12);
+}
+
+.intake-submit {
+  width: 40px;
+  height: 40px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  border: none;
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  font-family: var(--font);
+  font-weight: 700;
+  transition: transform 0.2s, filter 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.intake-submit:hover { transform: scale(1.1); filter: brightness(1.15); }
+.intake-submit:active { transform: scale(0.95); }
+.intake-submit:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.intake-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.intake-hint {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 10px;
+}
+
+.intake-feedback {
+  font-size: 12px;
+  margin-top: 8px;
+  font-weight: 600;
+  min-height: 18px;
+}
+
+.intake-feedback.success { color: var(--completed); }
+.intake-feedback.error { color: var(--failed); }
+
+/* Platform badge under intake */
+.platform-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.platform-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%);
+  background: rgba(108,140,255,0.1);
+  color: var(--muted);
+}
+
+.platform-badge.detected {
+  background: rgba(108,140,255,0.2);
+  color: var(--accent);
+}
+
+/* ══════════════════════════════════════════
+   HONEYCOMB JOB GRID
+   ══════════════════════════════════════════ */
+
+.hive-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.honeycomb {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.hex-cell {
+  width: 240px;
+  height: 210px;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.25s ease;
+}
+
+.hex-cell:hover { transform: scale(1.04); }
+
+.hex-cell:nth-child(even) {
+  margin-top: 40px;
+}
+
+.hex-bg {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: var(--cell);
+  border: none;
+  transition: background 0.3s;
+}
+
+.hex-cell:hover .hex-bg {
+  background: var(--cell-hover);
+}
+
+.hex-border {
+  position: absolute;
+  inset: -1px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: var(--border);
+  z-index: -1;
+  transition: background 0.3s;
+}
+
+.hex-cell[data-status="completed"] .hex-border { background: rgba(74,222,128,0.25); }
+.hex-cell[data-status="running"] .hex-border { background: rgba(96,165,250,0.3); }
+.hex-cell[data-status="failed"] .hex-border { background: rgba(248,113,113,0.25); }
+.hex-cell[data-status="queued"] .hex-border { background: rgba(167,139,250,0.25); }
+.hex-cell[data-status="canceled"] .hex-border { background: rgba(107,114,128,0.2); }
+
+/* Refraction glow layer */
+.hex-refract {
+  position: absolute;
+  inset: -8px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease-out;
+  z-index: -2;
+}
+
+.hex-refract.active {
+  animation: refraction-pulse 1.2s ease-out forwards;
+}
+
+@keyframes refraction-pulse {
+  0% { opacity: 0.8; transform: scale(1); filter: hue-rotate(0deg); }
+  30% { opacity: 0.6; transform: scale(1.08); filter: hue-rotate(30deg); }
+  60% { opacity: 0.3; transform: scale(1.15); filter: hue-rotate(60deg); }
+  100% { opacity: 0; transform: scale(1.25); filter: hue-rotate(90deg); }
+}
+
+.hex-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px 28px;
+  text-align: center;
+}
+
+.hex-status-gem {
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.hex-status-gem.completed { background: var(--completed); }
+.hex-status-gem.running { background: var(--running); animation: gem-pulse 1.5s ease-in-out infinite; }
+.hex-status-gem.failed { background: var(--failed); }
+.hex-status-gem.queued { background: var(--queued); }
+.hex-status-gem.canceled { background: var(--canceled); }
+
+@keyframes gem-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+.hex-platform {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.hex-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.hex-account {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.hex-status-text {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hex-status-text.completed { color: var(--completed); }
+.hex-status-text.running { color: var(--running); }
+.hex-status-text.failed { color: var(--failed); }
+.hex-status-text.queued { color: var(--queued); }
+.hex-status-text.canceled { color: var(--canceled); }
+
+.hex-progress {
+  width: 60px;
+  height: 4px;
+  clip-path: polygon(5% 0%, 95% 0%, 100% 50%, 95% 100%, 5% 100%, 0% 50%);
+  background: rgba(255,255,255,0.06);
+  margin-top: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hex-progress-fill {
+  height: 100%;
+  background: var(--running);
+  transition: width 0.5s ease;
+}
+
+.hex-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.hex-cell:hover .hex-actions { opacity: 1; }
+
+.hex-action-btn {
+  width: 26px;
+  height: 26px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(255,255,255,0.06);
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--font);
+}
+
+.hex-action-btn:hover { background: rgba(255,255,255,0.12); color: var(--ink); }
+.hex-action-btn.danger:hover { background: rgba(248,113,113,0.2); color: var(--failed); }
+.hex-action-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ══════════════════════════════════════════
+   CONTACTS — PENTAGON PROFILES
+   ══════════════════════════════════════════ */
+
+.contacts-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  padding: 0 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.contact-cell {
+  width: 280px;
+  height: 300px;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.25s;
+}
+
+.contact-cell:hover { transform: scale(1.03); }
+
+.contact-bg {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+  background: var(--cell);
+  transition: background 0.3s;
+}
+
+.contact-cell:hover .contact-bg { background: var(--cell-hover); }
+
+.contact-border {
+  position: absolute;
+  inset: -1px;
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+  background: var(--border);
+  z-index: -1;
+}
+
+.contact-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 30px 30px;
+  text-align: center;
+}
+
+.contact-avatar {
+  width: 56px;
+  height: 56px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0a0b14;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.contact-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.contact-handle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.contact-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.contact-stat {
+  text-align: center;
+}
+
+.contact-stat-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.contact-stat-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+}
+
+.contact-jobs-list {
+  margin-top: 10px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.contact-job-pip {
+  width: 8px;
+  height: 8px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.contact-job-pip.completed { background: var(--completed); }
+.contact-job-pip.running { background: var(--running); }
+.contact-job-pip.failed { background: var(--failed); }
+.contact-job-pip.queued { background: var(--queued); }
+
+/* ══════════════════════════════════════════
+   ACTIVITY FEED — ARC SEGMENTS
+   ══════════════════════════════════════════ */
+
+.activity-container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.activity-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 520px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(108,140,255,0.2) transparent;
+}
+
+.activity-event {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 10px 28px;
+  clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+  background: var(--cell);
+  transition: background 0.2s, transform 0.2s;
+  min-height: 44px;
+  position: relative;
+}
+
+.activity-event:hover {
+  background: var(--cell-hover);
+  transform: translateX(4px);
+}
+
+.activity-event::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.activity-event.level-info::before { background: var(--accent); }
+.activity-event.level-success::before { background: var(--completed); }
+.activity-event.level-error::before { background: var(--failed); }
+.activity-event.level-warn::before { background: var(--warm); }
+
+.activity-time {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  flex-shrink: 0;
+}
+
+.activity-msg {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-level-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%);
+}
+
+.activity-level-label.info { background: rgba(108,140,255,0.15); color: var(--accent); }
+.activity-level-label.success { background: var(--completed-glow); color: var(--completed); }
+.activity-level-label.error { background: var(--failed-glow); color: var(--failed); }
+.activity-level-label.warn { background: var(--warm-glow); color: var(--warm); }
+
+/* New event entry animation */
+.activity-event.entering {
+  animation: event-slide-in 0.35s ease-out;
+}
+
+@keyframes event-slide-in {
+  from { opacity: 0; transform: translateX(-20px); clip-path: polygon(0% 0%, 0% 0%, 0% 50%, 0% 100%, 0% 100%, 0% 50%); }
+  to { opacity: 1; transform: translateX(0); clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%); }
+}
+
+/* ══════════════════════════════════════════
+   SETTINGS — OCTAGON PANELS
+   ══════════════════════════════════════════ */
+
+.settings-zone {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.settings-cell {
+  width: 240px;
+  height: 240px;
+  position: relative;
+}
+
+.settings-bg {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+  background: var(--cell);
+}
+
+.settings-border {
+  position: absolute;
+  inset: -1px;
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+  background: var(--border);
+  z-index: -1;
+}
+
+.settings-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  text-align: center;
+}
+
+.settings-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.settings-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.settings-desc {
+  font-size: 10px;
+  color: var(--dim);
+  margin-bottom: 14px;
+}
+
+/* Toggle — diamond shaped */
+.toggle-wrap {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+  background: rgba(255,255,255,0.08);
+  transition: background 0.25s;
+}
+
+.toggle-track.on { background: rgba(74,222,128,0.25); }
+
+.toggle-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: var(--muted);
+  transition: transform 0.25s, background 0.25s;
+}
+
+.toggle-track.on + .toggle-knob {
+  transform: translateX(24px);
+  background: var(--completed);
+}
+
+.toggle-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+}
+
+.toggle-label.on { color: var(--completed); }
+.toggle-label.off { color: var(--dim); }
+
+/* ══════════════════════════════════════════
+   AMBIENT CRYSTAL LATTICE BACKGROUND
+   ══════════════════════════════════════════ */
+
+.lattice-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -10;
+  overflow: hidden;
+}
+
+.lattice-hex {
+  position: absolute;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(108,140,255,0.02);
+  animation: lattice-drift 20s ease-in-out infinite;
+}
+
+@keyframes lattice-drift {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* ══════════════════════════════════════════
+   REFRACTION OVERLAY (SPECIAL FEATURE)
+   ══════════════════════════════════════════ */
+
+.refraction-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.prism-ray {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@keyframes prism-expand {
+  0% { opacity: 0.5; transform: scale(0.3); filter: hue-rotate(0deg) blur(0px); }
+  40% { opacity: 0.35; transform: scale(1.2); filter: hue-rotate(60deg) blur(2px); }
+  70% { opacity: 0.15; transform: scale(2); filter: hue-rotate(120deg) blur(6px); }
+  100% { opacity: 0; transform: scale(3); filter: hue-rotate(180deg) blur(12px); }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — STACK ON NARROW SCREENS
+   ══════════════════════════════════════════ */
+
+@media (max-width: 800px) {
+  .hex-cell { width: 200px; height: 175px; }
+  .hex-content { padding: 28px 16px 22px; }
+  .hex-cell:nth-child(even) { margin-top: 28px; }
+  .contact-cell { width: 240px; height: 260px; }
+  .intake-crystal { width: 400px; }
+  .top-bar { padding: 12px 24px; clip-path: polygon(0% 0%, 94% 0%, 100% 50%, 94% 100%, 0% 100%, 3% 50%); }
+}
+
+/* ══════════════════════════════════════════
+   SR-ONLY FOR ACCESSIBILITY
+   ══════════════════════════════════════════ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Status count summary — diamond chips */
+.status-summary {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%);
+  background: rgba(255,255,255,0.04);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.status-chip .chip-dot {
+  width: 7px;
+  height: 7px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.chip-dot.completed { background: var(--completed); }
+.chip-dot.running { background: var(--running); }
+.chip-dot.failed { background: var(--failed); }
+.chip-dot.queued { background: var(--queued); }
+
+.chip-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Empty state */
+.empty-crystal {
+  text-align: center;
+  padding: 40px;
+  color: var(--dim);
+}
+
+.empty-crystal .empty-hex {
+  width: 80px;
+  height: 80px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(108,140,255,0.05);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+</style>
+</head>
+<body>
+
+<div class="lattice-bg" id="latticeBg" aria-hidden="true"></div>
+<div class="refraction-overlay" id="refractionOverlay" aria-hidden="true"></div>
+
+<div class="app">
+  <!-- TOP BAR — CHEVRON SHAPE -->
+  <div class="top-bar" role="navigation" aria-label="Main navigation">
+    <div class="brand">
+      <div class="brand-gem" aria-hidden="true">MV</div>
+      <div class="brand-text">Media Vault</div>
+    </div>
+    <div class="nav-gems">
+      <button class="nav-gem active" data-view="dashboard" aria-label="Dashboard" aria-current="page">
+        <span aria-hidden="true">&#9694;</span>
+        <span class="gem-label">Vault</span>
+      </button>
+      <button class="nav-gem" data-view="contacts" aria-label="Contacts">
+        <span aria-hidden="true">&#9672;</span>
+        <span class="gem-label">Creators</span>
+      </button>
+      <button class="nav-gem" data-view="activity" aria-label="Activity feed">
+        <span aria-hidden="true">&#9830;</span>
+        <span class="gem-label">Activity</span>
+      </button>
+      <button class="nav-gem" data-view="settings" aria-label="Settings">
+        <span aria-hidden="true">&#9881;</span>
+        <span class="gem-label">Config</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════ DASHBOARD VIEW ═══════════ -->
+  <div class="view active" id="view-dashboard" role="main">
+    <!-- INTAKE — CENTRAL CRYSTAL -->
+    <div class="intake-zone">
+      <div class="intake-crystal">
+        <div class="intake-glow" aria-hidden="true"></div>
+        <div class="intake-outer"></div>
+        <div class="intake-inner"></div>
+        <div class="intake-content">
+          <div class="intake-label">Download Media</div>
+          <div class="intake-input-wrap">
+            <label for="urlInput" class="sr-only">Paste a video URL from X or TikTok</label>
+            <input type="url" id="urlInput" class="intake-input" placeholder="Paste X or TikTok URL..." autocomplete="off" spellcheck="false" />
+            <button class="intake-submit" id="submitBtn" aria-label="Submit URL" disabled>&#10148;</button>
+          </div>
+          <div class="platform-badges" aria-live="polite">
+            <span class="platform-badge" id="badge-x">X</span>
+            <span class="platform-badge" id="badge-tiktok">TikTok</span>
+          </div>
+          <div class="intake-hint">Supports x.com, twitter.com, tiktok.com</div>
+          <div class="intake-feedback" id="intakeFeedback" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS SUMMARY -->
+    <div class="status-summary" id="statusSummary" aria-label="Job status counts"></div>
+
+    <!-- HONEYCOMB JOB GRID -->
+    <div class="hive-section-label">Active Downloads</div>
+    <div class="honeycomb" id="honeycomb" role="list" aria-label="Download jobs"></div>
+  </div>
+
+  <!-- ═══════════ CONTACTS VIEW ═══════════ -->
+  <div class="view" id="view-contacts">
+    <div class="hive-section-label" style="margin-top:8px">Creator Profiles</div>
+    <div class="contacts-grid" id="contactsGrid" role="list" aria-label="Creator profiles"></div>
+  </div>
+
+  <!-- ═══════════ ACTIVITY VIEW ═══════════ -->
+  <div class="view" id="view-activity">
+    <div class="hive-section-label" style="margin-top:8px">Live Telemetry Stream</div>
+    <div class="activity-container">
+      <div class="activity-stream" id="activityStream" role="log" aria-label="Activity events" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SETTINGS VIEW ═══════════ -->
+  <div class="view" id="view-settings">
+    <div class="hive-section-label" style="margin-top:8px">Platform Configuration</div>
+    <div class="settings-zone" id="settingsZone">
+      <div class="settings-cell">
+        <div class="settings-border"></div>
+        <div class="settings-bg"></div>
+        <div class="settings-content">
+          <div class="settings-icon" aria-hidden="true">&#120143;</div>
+          <div class="settings-name">X (Twitter)</div>
+          <div class="settings-desc">Download videos from x.com</div>
+          <div class="toggle-wrap" role="switch" aria-checked="true" aria-label="Toggle X platform" tabindex="0" data-platform="x" id="toggle-x">
+            <div class="toggle-track on"></div>
+            <div class="toggle-knob"></div>
+          </div>
+          <div class="toggle-label on" id="toggle-x-label">Enabled</div>
+        </div>
+      </div>
+      <div class="settings-cell">
+        <div class="settings-border"></div>
+        <div class="settings-bg"></div>
+        <div class="settings-content">
+          <div class="settings-icon" aria-hidden="true">&#9835;</div>
+          <div class="settings-name">TikTok</div>
+          <div class="settings-desc">Download videos from tiktok.com</div>
+          <div class="toggle-wrap" role="switch" aria-checked="true" aria-label="Toggle TikTok platform" tabindex="0" data-platform="tiktok" id="toggle-tiktok">
+            <div class="toggle-track on"></div>
+            <div class="toggle-knob"></div>
+          </div>
+          <div class="toggle-label on" id="toggle-tiktok-label">Enabled</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SIMULATION ENGINE
+// ══════════════════════════════════════════
+
+const CREATORS = [
+  { slug: 'elonmusk', name: 'Elon Musk', handle: '@elonmusk', platform: 'x', color: '#6c8cff' },
+  { slug: 'maboroshi_music', name: 'Maboroshi', handle: '@maboroshi_music', platform: 'tiktok', color: '#a78bfa' },
+  { slug: 'mkbhd', name: 'MKBHD', handle: '@mkbhd', platform: 'x', color: '#4ade80' },
+  { slug: 'charlidamelio', name: "Charli D'Amelio", handle: '@charlidamelio', platform: 'tiktok', color: '#f472b6' },
+  { slug: 'nasa', name: 'NASA', handle: '@NASA', platform: 'x', color: '#60a5fa' },
+];
+
+const STATUS_FLOW = ['queued', 'running', 'completed'];
+const FAIL_CHANCE = 0.15;
+
+let jobIdCounter = 0;
+let jobs = [];
+let activityEvents = [];
+let platforms = { x: true, tiktok: true };
+
+function genId() { return 'j-' + (++jobIdCounter); }
+
+function randomCreator() { return CREATORS[Math.floor(Math.random() * CREATORS.length)]; }
+
+function createJob(url, creator) {
+  const c = creator || randomCreator();
+  const isX = c.platform === 'x';
+  const id = genId();
+  return {
+    id,
+    url: url || (isX ? `https://x.com/${c.slug}/status/${Date.now()}` : `https://tiktok.com/@${c.slug}/video/${Date.now()}`),
+    platform: c.platform,
+    creator: c,
+    status: 'queued',
+    progress: 0,
+    createdAt: Date.now(),
+    title: isX ? `Post by ${c.name}` : `Video by ${c.name}`,
+  };
+}
+
+// Initialize with simulated jobs
+function seedJobs() {
+  const statuses = ['completed', 'completed', 'running', 'queued', 'failed', 'completed', 'running', 'queued'];
+  statuses.forEach((status, i) => {
+    const j = createJob();
+    j.status = status;
+    j.progress = status === 'completed' ? 100 : status === 'running' ? Math.floor(Math.random() * 70) + 10 : status === 'failed' ? Math.floor(Math.random() * 50) : 0;
+    jobs.push(j);
+  });
+}
+
+// ══════════════════════════════════════════
+// ACTIVITY EVENTS
+// ══════════════════════════════════════════
+
+const EVENT_TEMPLATES = {
+  info: [
+    'Queue worker scanning for pending jobs',
+    'Browser context initialized for extraction',
+    'Network interception enabled on page',
+    'Media candidates discovered: {n} URLs',
+    'HLS manifest parsed, {n} segments identified',
+    'Download stream opened successfully',
+    'Thumbnail extraction queued',
+  ],
+  success: [
+    'Job {id} completed — {creator} media saved',
+    'Video downloaded: {size}MB ({duration}s)',
+    'Thumbnail generated for {creator}',
+    'File integrity verified — SHA256 match',
+  ],
+  error: [
+    'Extraction timeout on {creator} page',
+    'HTTP 403 — rate limit encountered',
+    'ffmpeg exited with code 1 on segment {n}',
+    'Browser navigation failed: connection reset',
+  ],
+  warn: [
+    'Cloudflare challenge detected, waiting...',
+    'Retrying download after transient failure',
+    'Rate limit approaching — throttling requests',
+    'HLS segment {n} required retry',
+  ],
+};
+
+function generateEvent() {
+  const levels = ['info', 'info', 'info', 'success', 'success', 'error', 'warn', 'info'];
+  const level = levels[Math.floor(Math.random() * levels.length)];
+  const templates = EVENT_TEMPLATES[level];
+  let msg = templates[Math.floor(Math.random() * templates.length)];
+  msg = msg.replace('{id}', 'j-' + Math.floor(Math.random() * jobIdCounter + 1));
+  msg = msg.replace('{creator}', CREATORS[Math.floor(Math.random() * CREATORS.length)].name);
+  msg = msg.replace('{n}', Math.floor(Math.random() * 12) + 1);
+  msg = msg.replace('{size}', (Math.random() * 80 + 5).toFixed(1));
+  msg = msg.replace('{duration}', (Math.random() * 120 + 10).toFixed(0));
+
+  return {
+    id: 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    level,
+    message: msg,
+    time: new Date(),
+  };
+}
+
+// ══════════════════════════════════════════
+// RENDERING
+// ══════════════════════════════════════════
+
+function renderHoneycomb() {
+  const el = document.getElementById('honeycomb');
+  if (jobs.length === 0) {
+    el.innerHTML = `<div class="empty-crystal"><div class="empty-hex">&#9694;</div><div>No downloads yet.<br>Paste a URL above to begin.</div></div>`;
+    return;
+  }
+
+  el.innerHTML = jobs.map(j => `
+    <div class="hex-cell" data-status="${j.status}" data-id="${j.id}" role="listitem" aria-label="${j.title}, status: ${j.status}">
+      <div class="hex-border"></div>
+      <div class="hex-refract" style="background: radial-gradient(circle, ${statusColor(j.status)}, transparent 70%)"></div>
+      <div class="hex-bg"></div>
+      <div class="hex-content">
+        <div class="hex-status-gem ${j.status}" aria-hidden="true"></div>
+        <div class="hex-platform">${j.platform === 'x' ? 'X (Twitter)' : 'TikTok'}</div>
+        <div class="hex-title" title="${j.title}">${j.title}</div>
+        <div class="hex-account">${j.creator.handle}</div>
+        <div class="hex-status-text ${j.status}">${j.status}${j.status === 'running' ? ' ' + j.progress + '%' : ''}</div>
+        ${j.status === 'running' ? `<div class="hex-progress"><div class="hex-progress-fill" style="width:${j.progress}%"></div></div>` : ''}
+        <div class="hex-actions">
+          ${j.status === 'failed' ? `<button class="hex-action-btn" onclick="retryJob('${j.id}')" aria-label="Retry job" title="Retry">&#8635;</button>` : ''}
+          ${j.status !== 'running' ? `<button class="hex-action-btn danger" onclick="deleteJob('${j.id}')" aria-label="Delete job" title="Delete">&#10005;</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  renderStatusSummary();
+}
+
+function statusColor(s) {
+  const map = { completed: 'rgba(74,222,128,0.4)', running: 'rgba(96,165,250,0.4)', failed: 'rgba(248,113,113,0.4)', queued: 'rgba(167,139,250,0.4)', canceled: 'rgba(107,114,128,0.3)' };
+  return map[s] || map.queued;
+}
+
+function renderStatusSummary() {
+  const counts = {};
+  jobs.forEach(j => { counts[j.status] = (counts[j.status] || 0) + 1; });
+  const el = document.getElementById('statusSummary');
+  el.innerHTML = ['completed', 'running', 'queued', 'failed'].filter(s => counts[s]).map(s =>
+    `<div class="status-chip"><span class="chip-dot ${s}" aria-hidden="true"></span><span class="chip-count">${counts[s]}</span> <span>${s}</span></div>`
+  ).join('');
+}
+
+function renderContacts() {
+  const el = document.getElementById('contactsGrid');
+  const contactData = CREATORS.map(c => {
+    const cJobs = jobs.filter(j => j.creator.slug === c.slug);
+    return { ...c, total: cJobs.length, completed: cJobs.filter(j => j.status === 'completed').length, jobs: cJobs };
+  });
+
+  el.innerHTML = contactData.map(c => `
+    <div class="contact-cell" role="listitem" aria-label="${c.name}, ${c.total} downloads">
+      <div class="contact-border"></div>
+      <div class="contact-bg"></div>
+      <div class="contact-content">
+        <div class="contact-avatar" style="background: ${c.color}" aria-hidden="true">${c.name.charAt(0)}</div>
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-handle">${c.handle}</div>
+        <div class="contact-stats">
+          <div class="contact-stat">
+            <div class="contact-stat-value">${c.total}</div>
+            <div class="contact-stat-label">Total</div>
+          </div>
+          <div class="contact-stat">
+            <div class="contact-stat-value">${c.completed}</div>
+            <div class="contact-stat-label">Done</div>
+          </div>
+        </div>
+        <div class="contact-jobs-list">
+          ${c.jobs.slice(0, 12).map(j => `<div class="contact-job-pip ${j.status}" title="${j.status}"></div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderActivity() {
+  const stream = document.getElementById('activityStream');
+  const shouldAutoScroll = stream.scrollTop + stream.clientHeight >= stream.scrollHeight - 30;
+
+  // Only render last 50
+  const visible = activityEvents.slice(-50);
+  stream.innerHTML = visible.map((e, i) => `
+    <div class="activity-event level-${e.level}${i === visible.length - 1 ? ' entering' : ''}">
+      <span class="activity-time">${formatTime(e.time)}</span>
+      <span class="activity-msg">${e.message}</span>
+      <span class="activity-level-label ${e.level}">${e.level}</span>
+    </div>
+  `).join('');
+
+  if (shouldAutoScroll) {
+    stream.scrollTop = stream.scrollHeight;
+  }
+}
+
+function formatTime(d) {
+  return d.toTimeString().slice(0, 8);
+}
+
+// ══════════════════════════════════════════
+// PRISMATIC REFRACTION — SPECIAL FEATURE
+// ══════════════════════════════════════════
+
+function triggerRefraction(jobId, newStatus) {
+  const cell = document.querySelector(`.hex-cell[data-id="${jobId}"]`);
+  if (!cell) return;
+
+  const rect = cell.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const color = statusColor(newStatus);
+
+  // Activate the refraction layer on the cell itself
+  const refractEl = cell.querySelector('.hex-refract');
+  if (refractEl) {
+    refractEl.classList.remove('active');
+    void refractEl.offsetWidth; // force reflow
+    refractEl.classList.add('active');
+    setTimeout(() => refractEl.classList.remove('active'), 1200);
+  }
+
+  // Create prismatic rays that expand outward
+  const overlay = document.getElementById('refractionOverlay');
+  const numRays = 3;
+  for (let i = 0; i < numRays; i++) {
+    const ray = document.createElement('div');
+    ray.className = 'prism-ray';
+    ray.style.left = (cx - 100) + 'px';
+    ray.style.top = (cy - 100) + 'px';
+    ray.style.background = `radial-gradient(circle, ${color}, transparent 60%)`;
+    ray.style.animationDelay = (i * 0.15) + 's';
+    ray.style.animation = `prism-expand 1.4s ${i * 0.15}s ease-out forwards`;
+    overlay.appendChild(ray);
+    setTimeout(() => ray.remove(), 1600 + i * 150);
+  }
+
+  // Ripple through neighboring cells
+  const allCells = document.querySelectorAll('.hex-cell');
+  allCells.forEach(otherCell => {
+    if (otherCell === cell) return;
+    const oRect = otherCell.getBoundingClientRect();
+    const dist = Math.hypot(oRect.left + oRect.width/2 - cx, oRect.top + oRect.height/2 - cy);
+    if (dist < 400) {
+      const delay = dist * 1.5;
+      const oRefract = otherCell.querySelector('.hex-refract');
+      if (oRefract) {
+        setTimeout(() => {
+          oRefract.style.background = `radial-gradient(circle, ${color}, transparent 70%)`;
+          oRefract.classList.remove('active');
+          void oRefract.offsetWidth;
+          oRefract.classList.add('active');
+          setTimeout(() => oRefract.classList.remove('active'), 1200);
+        }, delay);
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// JOB ACTIONS
+// ══════════════════════════════════════════
+
+function retryJob(id) {
+  const j = jobs.find(j => j.id === id);
+  if (j) {
+    j.status = 'queued';
+    j.progress = 0;
+    renderHoneycomb();
+    pushActivity('info', `Retrying job ${id} — re-queued for processing`);
+  }
+}
+
+function deleteJob(id) {
+  jobs = jobs.filter(j => j.id !== id);
+  renderHoneycomb();
+  renderContacts();
+  pushActivity('info', `Job ${id} deleted from vault`);
+}
+
+function pushActivity(level, message) {
+  const evt = { id: 'evt-' + Date.now(), level, message, time: new Date() };
+  activityEvents.push(evt);
+  if (activityEvents.length > 100) activityEvents = activityEvents.slice(-80);
+  renderActivity();
+}
+
+// ══════════════════════════════════════════
+// INTAKE LOGIC
+// ══════════════════════════════════════════
+
+const urlInput = document.getElementById('urlInput');
+const submitBtn = document.getElementById('submitBtn');
+const feedback = document.getElementById('intakeFeedback');
+const badgeX = document.getElementById('badge-x');
+const badgeTT = document.getElementById('badge-tiktok');
+
+function detectPlatform(url) {
+  if (/x\.com|twitter\.com/i.test(url)) return 'x';
+  if (/tiktok\.com/i.test(url)) return 'tiktok';
+  return null;
+}
+
+function isValidUrl(url) {
+  try { new URL(url); return true; } catch { return false; }
+}
+
+urlInput.addEventListener('input', () => {
+  const val = urlInput.value.trim();
+  const plat = detectPlatform(val);
+  const valid = val && isValidUrl(val) && plat;
+
+  submitBtn.disabled = !valid;
+  urlInput.classList.toggle('valid', !!valid);
+
+  badgeX.classList.toggle('detected', plat === 'x');
+  badgeTT.classList.toggle('detected', plat === 'tiktok');
+
+  if (val && !valid && val.length > 10) {
+    feedback.textContent = 'Enter a valid X or TikTok URL';
+    feedback.className = 'intake-feedback error';
+  } else {
+    feedback.textContent = '';
+    feedback.className = 'intake-feedback';
+  }
+});
+
+function submitUrl() {
+  const val = urlInput.value.trim();
+  const plat = detectPlatform(val);
+  if (!plat || !isValidUrl(val)) return;
+
+  if (!platforms[plat]) {
+    feedback.textContent = `${plat === 'x' ? 'X' : 'TikTok'} platform is disabled`;
+    feedback.className = 'intake-feedback error';
+    return;
+  }
+
+  const creator = CREATORS.find(c => c.platform === plat) || randomCreator();
+  const job = createJob(val, creator);
+  jobs.unshift(job);
+  renderHoneycomb();
+  renderContacts();
+  pushActivity('info', `New job ${job.id} queued — ${plat} download from ${creator.name}`);
+
+  feedback.textContent = 'Download queued successfully';
+  feedback.className = 'intake-feedback success';
+  urlInput.value = '';
+  urlInput.classList.remove('valid');
+  submitBtn.disabled = true;
+  badgeX.classList.remove('detected');
+  badgeTT.classList.remove('detected');
+
+  setTimeout(() => { feedback.textContent = ''; feedback.className = 'intake-feedback'; }, 3000);
+}
+
+submitBtn.addEventListener('click', submitUrl);
+urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitUrl(); });
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+
+document.querySelectorAll('.nav-gem[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-gem').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); });
+    btn.classList.add('active');
+    btn.setAttribute('aria-current', 'page');
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById('view-' + btn.dataset.view);
+    if (target) target.classList.add('active');
+
+    // Re-render the view when switching
+    if (btn.dataset.view === 'contacts') renderContacts();
+    if (btn.dataset.view === 'activity') renderActivity();
+  });
+});
+
+// ══════════════════════════════════════════
+// SETTINGS TOGGLES
+// ══════════════════════════════════════════
+
+document.querySelectorAll('.toggle-wrap').forEach(wrap => {
+  const handler = () => {
+    const plat = wrap.dataset.platform;
+    platforms[plat] = !platforms[plat];
+    const track = wrap.querySelector('.toggle-track');
+    const label = document.getElementById(`toggle-${plat}-label`);
+    const isOn = platforms[plat];
+
+    track.classList.toggle('on', isOn);
+    wrap.setAttribute('aria-checked', isOn);
+    label.textContent = isOn ? 'Enabled' : 'Disabled';
+    label.className = 'toggle-label ' + (isOn ? 'on' : 'off');
+    pushActivity('info', `Platform ${plat} ${isOn ? 'enabled' : 'disabled'}`);
+  };
+
+  wrap.addEventListener('click', handler);
+  wrap.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }});
+});
+
+// ══════════════════════════════════════════
+// AMBIENT LATTICE BACKGROUND
+// ══════════════════════════════════════════
+
+function buildLattice() {
+  const bg = document.getElementById('latticeBg');
+  for (let i = 0; i < 12; i++) {
+    const hex = document.createElement('div');
+    hex.className = 'lattice-hex';
+    const size = 60 + Math.random() * 100;
+    hex.style.width = size + 'px';
+    hex.style.height = size + 'px';
+    hex.style.left = Math.random() * 100 + '%';
+    hex.style.top = Math.random() * 100 + '%';
+    hex.style.animationDuration = (15 + Math.random() * 20) + 's';
+    hex.style.animationDelay = (Math.random() * 10) + 's';
+    bg.appendChild(hex);
+  }
+}
+
+// ══════════════════════════════════════════
+// SIMULATION LOOP
+// ══════════════════════════════════════════
+
+function simulateJobs() {
+  let changed = false;
+  jobs.forEach(j => {
+    if (j.status === 'queued') {
+      if (Math.random() < 0.08) {
+        j.status = 'running';
+        j.progress = 0;
+        changed = true;
+        pushActivity('info', `Job ${j.id} started — extracting from ${j.creator.name}`);
+        triggerRefraction(j.id, 'running');
+      }
+    } else if (j.status === 'running') {
+      j.progress += Math.floor(Math.random() * 12) + 3;
+      if (j.progress >= 100) {
+        j.progress = 100;
+        if (Math.random() < FAIL_CHANCE) {
+          j.status = 'failed';
+          pushActivity('error', `Job ${j.id} failed — ${j.creator.name} extraction error`);
+          triggerRefraction(j.id, 'failed');
+        } else {
+          j.status = 'completed';
+          pushActivity('success', `Job ${j.id} completed — ${j.creator.name} media saved`);
+          triggerRefraction(j.id, 'completed');
+        }
+        changed = true;
+      } else {
+        changed = true;
+      }
+    }
+  });
+  if (changed) {
+    renderHoneycomb();
+    renderContacts();
+  }
+}
+
+function simulateActivity() {
+  const evt = generateEvent();
+  activityEvents.push(evt);
+  if (activityEvents.length > 100) activityEvents = activityEvents.slice(-80);
+  renderActivity();
+}
+
+// Periodically add new queued jobs
+function simulateNewJobs() {
+  if (jobs.filter(j => j.status === 'queued' || j.status === 'running').length < 3) {
+    const j = createJob();
+    jobs.push(j);
+    renderHoneycomb();
+    renderContacts();
+    pushActivity('info', `Auto-queued new job ${j.id} for ${j.creator.name}`);
+  }
+}
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+
+seedJobs();
+buildLattice();
+renderHoneycomb();
+renderContacts();
+
+// Seed initial activity events
+for (let i = 0; i < 8; i++) {
+  const e = generateEvent();
+  e.time = new Date(Date.now() - (8 - i) * 3000);
+  activityEvents.push(e);
+}
+renderActivity();
+
+// Simulation intervals
+setInterval(simulateJobs, 1500);
+setInterval(simulateActivity, 2500);
+setInterval(simulateNewJobs, 12000);
+</script>
+</body>
+</html>
