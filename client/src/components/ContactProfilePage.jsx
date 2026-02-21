@@ -10,6 +10,7 @@ import { useJobsPolling } from '../hooks/useJobsPolling'
 import {
   buildContacts,
   compareByPublishedAtDesc,
+  formatShortDate,
   formatTimestamp,
   getPublishedAtValue,
   makeContactSlug,
@@ -264,8 +265,8 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           <p><strong>Platform:</strong> {contact?.platform || 'unknown'}</p>
           <p><strong>Total jobs:</strong> {contact?.totalJobs || 0}</p>
           <p><strong>Completed:</strong> {contact?.completedJobs || 0}</p>
-          <p><strong>First seen:</strong> {formatTimestamp(contact?.firstSeenAt)}</p>
-          <p><strong>Latest:</strong> {formatTimestamp(contact?.latestAt)}</p>
+          <p><strong>First seen:</strong> {formatShortDate(contact?.firstSeenAt)}</p>
+          <p><strong>Latest:</strong> {formatShortDate(contact?.latestAt)}</p>
           <form className="edit-form" onSubmit={saveContactEdit}>
             <label htmlFor="contact-display-name">Edit display name</label>
             <input

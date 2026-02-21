@@ -254,7 +254,7 @@ h1 {
 }
 
 .profile-layout {
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 240px 1fr;
 }
 
 .profile-summary {
@@ -271,12 +271,22 @@ h1 {
 }
 
 .profile-avatar {
-  width: 100%;
+  width: 80px;
   aspect-ratio: 1 / 1;
-  border-radius: 14px;
+  border-radius: 50%;
   object-fit: cover;
   background: #d9e6ee;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+.profile-summary h2 {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+}
+
+.profile-summary p {
+  margin: 2px 0;
+  font-size: 13px;
 }
 
 .refresh-btn {
@@ -464,8 +474,8 @@ h1 {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
 
 .discovered-card {
@@ -512,7 +522,7 @@ h1 {
 
 .discovered-card-thumb {
   width: 100%;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
   background: #d7e3ee;
   display: block;
@@ -523,12 +533,12 @@ h1 {
 }
 
 .discovered-card-body {
-  padding: 8px;
+  padding: 6px;
 }
 
 .discovered-card-title {
-  margin: 0 0 6px;
-  font-size: 12px;
+  margin: 0 0 4px;
+  font-size: 11px;
   color: var(--ink);
   display: -webkit-box;
   -webkit-line-clamp: 2;
