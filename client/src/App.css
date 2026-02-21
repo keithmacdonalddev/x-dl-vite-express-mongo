@@ -210,6 +210,13 @@ h1 {
   align-self: start;
 }
 
+.profile-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-self: start;
+}
+
 .profile-avatar {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -375,7 +382,6 @@ h1 {
 /* Discovered Grid */
 
 .discovered-section {
-  grid-column: 2;
   margin-top: 8px;
 }
 
@@ -570,10 +576,6 @@ h1 {
 
   .profile-summary {
     position: static;
-  }
-
-  .discovered-section {
-    grid-column: 1;
   }
 
   .modal-actions {

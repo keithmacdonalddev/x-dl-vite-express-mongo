@@ -304,6 +304,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           {errorMessage && <p className="error">{errorMessage}</p>}
         </aside>
 
+        <div className="profile-right">
         <section className="card">
           <div className="jobs-header">
             <h2>Posts</h2>
@@ -405,6 +406,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           downloadingPostIds={downloadingPostIds}
           onDownload={handleDownloadDiscovered}
         />
+        </div>
       </section>
 
       <ConfirmModal
