@@ -201,7 +201,6 @@ h1 {
 }
 
 .ghost-btn {
-  margin-top: 12px;
   border: 1px solid #b9c9d6;
   border-radius: 10px;
   background: #f6fbff;
@@ -681,5 +680,16 @@ h1 {
 
   .modal-actions {
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero,
+  .contact-chip,
+  .ghost-btn,
+  .danger-btn,
+  .back-breadcrumb,
+  .discovered-card {
+    transition: none !important;
   }
 }

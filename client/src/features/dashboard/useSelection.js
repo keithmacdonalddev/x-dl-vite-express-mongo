@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 export function useSelection(allJobIds) {
   const [selectedJobIds, setSelectedJobIds] = useState({})
@@ -8,6 +8,19 @@ export function useSelection(allJobIds) {
     [selectedJobIds, allJobIds]
   )
   const selectedCount = selectedIds.length
+
+  useEffect(() => {
+    const validSet = new Set(allJobIds)
+    setSelectedJobIds((current) => {
+      const keys = Object.keys(current)
+      if (!keys.some((id) => !validSet.has(id))) return current
+      const next = {}
+      for (const id of keys) {
+        if (validSet.has(id)) next[id] = current[id]
+      }
+      return next
+    })
+  }, [allJobIds])
 
   function toggleSelection(jobId) {
     setSelectedJobIds((current) => ({

@@ -11,6 +11,8 @@ import { ConfirmModal } from './ConfirmModal'
 import { getContactChipClassName } from '../lib/contactChipPresentation'
 
 const MAX_TELEMETRY_EVENTS = 800
+const INITIAL_TELEMETRY_HISTORY_LIMIT = 300
+const INITIAL_TELEMETRY_HISTORY_MAX_AGE_MS = 20 * 60 * 1000
 const JOB_ROW_ID_PREFIX = 'job-row-'
 
 /**
@@ -18,10 +20,18 @@ const JOB_ROW_ID_PREFIX = 'job-row-'
  * telemetry in the ring buffer.  Filter them so the Activity Panel only shows
  * meaningful job-lifecycle events.
  */
-const NOISE_EVENT_PREFIX = 'http.request.'
+const NOISE_EVENT_PREFIXES = ['http.request.', 'auth.status.']
 
 function isNoiseTelemetry(entry) {
-  return typeof entry.event === 'string' && entry.event.startsWith(NOISE_EVENT_PREFIX)
+  if (!entry || typeof entry.event !== 'string') return false
+  return NOISE_EVENT_PREFIXES.some((prefix) => entry.event.startsWith(prefix))
+}
+
+function isRecentTelemetry(entry, nowMs = Date.now()) {
+  if (!entry || typeof entry.ts !== 'string') return true
+  const tsMs = new Date(entry.ts).getTime()
+  if (!Number.isFinite(tsMs)) return true
+  return (nowMs - tsMs) <= INITIAL_TELEMETRY_HISTORY_MAX_AGE_MS
 }
 
 function upsertTelemetryEvent(list, next) {
@@ -40,6 +50,7 @@ export function JobsPage({ onOpenContact }) {
   const [isActivityOpen, setIsActivityOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [highlightedJobId, setHighlightedJobId] = useState('')
+  const [selectMode, setSelectMode] = useState(false)
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
@@ -67,10 +78,11 @@ export function JobsPage({ onOpenContact }) {
 
     async function loadHistory() {
       try {
-        const payload = await listTelemetry({ limit: 2000 })
+        const payload = await listTelemetry({ limit: INITIAL_TELEMETRY_HISTORY_LIMIT })
         if (cancelled) return
         const raw = Array.isArray(payload.events) ? payload.events : []
-        const events = raw.filter((e) => !isNoiseTelemetry(e))
+        const nowMs = Date.now()
+        const events = raw.filter((e) => !isNoiseTelemetry(e) && isRecentTelemetry(e, nowMs))
         setTelemetryEvents(events.slice(Math.max(events.length - MAX_TELEMETRY_EVENTS, 0)))
       } catch { /* best-effort */ }
     }
@@ -133,6 +145,13 @@ export function JobsPage({ onOpenContact }) {
         row.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
     }, 80)
+  }
+
+  function toggleSelectMode() {
+    setSelectMode((v) => {
+      if (v) selection.clearSelection()
+      return !v
+    })
   }
 
   const errorMessage = actions.actionError || pollError
@@ -210,6 +229,8 @@ export function JobsPage({ onOpenContact }) {
             onRetry={actions.handleRetry}
             onOpenContact={onOpenContact}
             highlightedJobId={highlightedJobId}
+            selectMode={selectMode}
+            onToggleSelectMode={toggleSelectMode}
           />
         </section>
       </section>

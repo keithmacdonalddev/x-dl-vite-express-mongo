@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   bulkDeleteJobs,
   createJob,
-  createManualRetryJob,
   deleteJob,
   updateJob,
 } from '../../api/jobsApi'
@@ -12,8 +11,6 @@ export function useJobActions({ refresh }) {
   const [actionError, setActionError] = useState('')
   const [editingJobId, setEditingJobId] = useState('')
   const [editDraftByJobId, setEditDraftByJobId] = useState({})
-  const [manualMediaByJobId, setManualMediaByJobId] = useState({})
-  const [manualSubmittingJobId, setManualSubmittingJobId] = useState('')
   const [hiddenJobIds, setHiddenJobIds] = useState({})
 
   function startEdit(job) {
@@ -106,43 +103,6 @@ export function useJobActions({ refresh }) {
     }
   }
 
-  async function handleManualRetry(event, jobId) {
-    event.preventDefault()
-    const mediaUrl = (manualMediaByJobId[jobId] || '').trim()
-    if (!mediaUrl) return
-
-    setManualSubmittingJobId(jobId)
-    setActionError('')
-    try {
-      await createManualRetryJob(jobId, mediaUrl)
-      setManualMediaByJobId((current) => ({ ...current, [jobId]: '' }))
-      await refresh()
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setManualSubmittingJobId('')
-    }
-  }
-
-  async function handleCandidateRetry(jobId, mediaUrl) {
-    if (!mediaUrl) return
-
-    setManualSubmittingJobId(jobId)
-    setActionError('')
-    try {
-      await createManualRetryJob(jobId, mediaUrl)
-      await refresh()
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setManualSubmittingJobId('')
-    }
-  }
-
-  function setManualMediaUrl(jobId, value) {
-    setManualMediaByJobId((current) => ({ ...current, [jobId]: value }))
-  }
-
   async function handleRetry(tweetUrl) {
     if (!tweetUrl) return
     setIsMutating(true)
@@ -176,8 +136,6 @@ export function useJobActions({ refresh }) {
     setActionError,
     editingJobId,
     editDraftByJobId,
-    manualMediaByJobId,
-    manualSubmittingJobId,
     hiddenJobIds,
     startEdit,
     cancelEdit,
@@ -186,9 +144,6 @@ export function useJobActions({ refresh }) {
     handleDeleteJob,
     handleBulkDelete,
     handleRetry,
-    handleManualRetry,
-    handleCandidateRetry,
-    setManualMediaUrl,
     cleanupHiddenIds,
   }
 }
