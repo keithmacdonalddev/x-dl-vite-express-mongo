@@ -49,6 +49,31 @@ function groupEventsByJob(events) {
   return { groups: Array.from(groups.values()), noJobEvents }
 }
 
+function SystemEventsGroup({ events }) {
+  if (!Array.isArray(events) || events.length === 0) return null
+  const recent = events.slice(Math.max(events.length - 120, 0))
+
+  return (
+    <div className="activity-job-group activity-system-group is-active">
+      <div className="activity-job-label">
+        <span className="activity-pulse" />
+        <strong>System</strong>
+      </div>
+      <ul className="activity-event-list">
+        {recent.map((entry, i) => {
+          const { text, icon } = translateEvent(entry)
+          return (
+            <li key={`${entry.id || i}-${entry.ts || i}`} className="activity-event-row">
+              <span className="activity-icon">{icon}</span>
+              <span>{text}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 function formatJobForClipboard(group) {
   const handle = group.handle ? `@${group.handle}` : 'unknown'
   const lines = [
@@ -205,7 +230,7 @@ function JobGroup({ group, isSticky, onArchive }) {
 export function ActivityPanel({ telemetryEvents, isOpen, onToggle }) {
   const prefersReducedMotion = useReducedMotion()
 
-  const { groups } = useMemo(() => groupEventsByJob(telemetryEvents), [telemetryEvents])
+  const { groups, noJobEvents } = useMemo(() => groupEventsByJob(telemetryEvents), [telemetryEvents])
 
   // Track which finished jobs should stay "sticky" in the Active tab
   const [stickyJobIds, setStickyJobIds] = useState(() => new Set())
@@ -374,7 +399,7 @@ export function ActivityPanel({ telemetryEvents, isOpen, onToggle }) {
               <div className="activity-panel-content" role="tabpanel">
                 {activeTab === 'active' && (
                   <>
-                    {activeGroups.length > 0 ? (
+                    {activeGroups.length > 0 || noJobEvents.length > 0 ? (
                       <div className="activity-section activity-section-full">
                         {activeGroups.map((group) => (
                           <JobGroup
@@ -384,6 +409,7 @@ export function ActivityPanel({ telemetryEvents, isOpen, onToggle }) {
                             onArchive={() => archiveJob(group.jobId)}
                           />
                         ))}
+                        <SystemEventsGroup events={noJobEvents} />
                       </div>
                     ) : (
                       <p className="activity-empty">No active jobs right now.</p>

@@ -105,6 +105,42 @@ const translations = {
   'worker.job.thumbnail.completed': () => ({ text: 'Thumbnail generated', icon: '\u2713' }),
   'worker.job.thumbnail.failed': (m) => ({ text: `Thumbnail failed: ${m.message || '?'}`, icon: '\u26a0' }),
 
+  // --- Discovery (profile + thumbnail integration) ---
+  'discovery.trigger.started': (m) => ({ text: `Profile discovery started for ${m.handle || m.slug || 'creator'}...`, icon: '\u2192' }),
+  'discovery.trigger.no_handle': () => ({ text: 'Profile discovery skipped: account handle could not be resolved', icon: '\u26a0' }),
+  'discovery.trigger.no_items': () => ({ text: 'Discovery finished with no profile posts found', icon: '\u26a0' }),
+  'discovery.trigger.all_known': (m) => ({ text: `Discovery found only already-known posts${m.totalScraped ? ` (${m.totalScraped})` : ''}`, icon: '\u2713' }),
+  'discovery.trigger.new_items': (m) => ({ text: `Discovery found ${m.newCount ?? '?'} new post${m.newCount === 1 ? '' : 's'}${m.totalScraped ? ` (${m.totalScraped} scanned)` : ''}`, icon: '\u2713' }),
+  'discovery.trigger.completed': (m) => ({ text: `Discovery completed${m.newCount != null ? ` (${m.newCount} new)` : ''}${m.durationMs ? ` in ${fmtSec(m.durationMs)}` : ''}`, icon: '\u2713' }),
+  'discovery.trigger.failed': (m) => ({ text: `Discovery failed: ${m.message || '?'}`, icon: '\u2717' }),
+
+  'discovery.scrape.started': (m) => ({ text: `Opening profile page for ${m.handle || 'creator'}...`, icon: '\u2192' }),
+  'discovery.scrape.captcha_detected': () => ({ text: 'Discovery blocked by captcha/challenge \u2014 waiting for solve...', icon: '\u26a0' }),
+  'discovery.scrape.captcha_solved': (m) => ({ text: `Captcha/challenge solved${m.attempts ? ` after ${m.attempts} checks` : ''}`, icon: '\u2713' }),
+  'discovery.scrape.captcha_timeout': () => ({ text: 'Discovery challenge timed out before profile became accessible', icon: '\u2717' }),
+  'discovery.scrape.scrolled': (m) => ({ text: `Scrolled profile feed${m.step != null ? ` (step ${m.step})` : ''} to load more posts`, icon: '\u2192' }),
+  'discovery.scrape.scroll_timeout_guard': (m) => ({ text: `Scroll stopped early${m.elapsedMs ? ` (${fmtSec(m.elapsedMs)} elapsed)` : ''} — timeout guard`, icon: '\u26a0' }),
+  'discovery.scrape.scroll_stagnated': (m) => ({ text: `Profile feed stopped growing${m.stagnantCount ? ` (${m.stagnantCount} consecutive)` : ''}`, icon: '\u26a0' }),
+  'discovery.scrape.end_of_feed': () => ({ text: 'Reached end of profile feed', icon: '\u2713' }),
+  'discovery.scrape.screenshot': () => ({ text: 'Captured discovery debug screenshot', icon: '\u2192' }),
+  'discovery.scrape.screenshot_failed': () => ({ text: 'Could not capture discovery debug screenshot', icon: '\u26a0' }),
+  'discovery.scrape.dom_debug': () => ({ text: 'Captured discovery DOM diagnostics (no posts detected)', icon: '\u26a0' }),
+  'discovery.scrape.completed': (m) => ({ text: `Profile scrape complete${m.itemCount != null ? ` (${m.itemCount} posts)` : ''}`, icon: '\u2713' }),
+  'discovery.scrape.failed': (m) => ({ text: `Profile scrape failed: ${m.message || '?'}`, icon: '\u2717' }),
+
+  'discovery.thumbnail.fetch_failed': (m) => ({ text: `Discovery thumbnail fetch failed: ${m.message || '?'}`, icon: '\u26a0' }),
+  'discovery.thumbnail.fetch_non_image': (m) => ({ text: `Discovery thumbnail URL returned ${m.contentType || 'non-image'} content`, icon: '\u26a0' }),
+  'discovery.thumbnail.auth_non_image': (m) => ({ text: `Auth thumbnail fetch returned ${m.contentType || 'non-image'} content`, icon: '\u26a0' }),
+  'discovery.thumbnail.failed': (m) => ({ text: `Discovery thumbnail download failed: ${m.message || '?'}`, icon: '\u2717' }),
+  'discovery.create.failed': (m) => ({ text: `Failed to persist discovered post: ${m.message || m.postUrl || '?'}`, icon: '\u2717' }),
+
+  'discovery.download.created': () => ({ text: 'Created download job from discovered post', icon: '\u2713' }),
+  'discovery.download.deduplicated': () => ({ text: 'Download skipped — job already exists for this URL', icon: '\u2713' }),
+  'discovery.download.race-resolved': () => ({ text: 'Download skipped — duplicate job created concurrently', icon: '\u2713' }),
+  'discovery.download.failed': (m) => ({ text: `Failed to queue discovered post: ${m.message || '?'}`, icon: '\u2717' }),
+  'discovery.list.failed': (m) => ({ text: `Failed to list discovered posts: ${m.message || '?'}`, icon: '\u2717' }),
+  'discovery.refresh.failed': (m) => ({ text: `Discovery refresh failed: ${m.message || '?'}`, icon: '\u2717' }),
+
   // --- Final status ---
   'worker.job.completed': (m) => {
     const parts = ['Done!']

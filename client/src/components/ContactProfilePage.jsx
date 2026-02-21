@@ -38,7 +38,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   const [editContactName, setEditContactName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [discoveredPosts, setDiscoveredPosts] = useState([])
-  const [isDiscoveryDownloading, setIsDiscoveryDownloading] = useState(false)
+  const [downloadingPostIds, setDownloadingPostIds] = useState(new Set())
   const [isDiscoveryRefreshing, setIsDiscoveryRefreshing] = useState(false)
   const [discoveryRefreshStatus, setDiscoveryRefreshStatus] = useState({ tone: '', text: '' })
   const [expandedJobId, setExpandedJobId] = useState('')
@@ -97,15 +97,20 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   }, [normalizedSlug])
 
   async function handleDownloadDiscovered(discoveredPostId) {
-    setIsDiscoveryDownloading(true)
+    setDownloadingPostIds(prev => new Set(prev).add(discoveredPostId))
     try {
       await downloadDiscoveredPost(discoveredPostId)
+      // alreadyExists is also a success — the job exists
       await refresh()
       await fetchDiscoveredPosts()
     } catch (err) {
       actions.setActionError(err instanceof Error ? err.message : String(err))
     } finally {
-      setIsDiscoveryDownloading(false)
+      setDownloadingPostIds(prev => {
+        const next = new Set(prev)
+        next.delete(discoveredPostId)
+        return next
+      })
     }
   }
 
@@ -393,13 +398,11 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           )}
         </section>
 
-        {discoveredPosts.length > 0 && (
-          <DiscoveredGrid
-            posts={discoveredPosts}
-            isDownloading={isDiscoveryDownloading}
-            onDownload={handleDownloadDiscovered}
-          />
-        )}
+        <DiscoveredGrid
+          posts={discoveredPosts}
+          downloadingPostIds={downloadingPostIds}
+          onDownload={handleDownloadDiscovered}
+        />
       </section>
 
       <ConfirmModal

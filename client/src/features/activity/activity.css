@@ -208,6 +208,10 @@
   box-shadow: 0 0 0 1px rgba(121, 174, 224, 0.15);
 }
 
+.activity-system-group {
+  border-style: dashed;
+}
+
 .activity-job-label {
   display: flex;
   align-items: center;
