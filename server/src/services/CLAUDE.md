@@ -15,7 +15,7 @@ This domain owns all files under `server/src/services/`. No agent outside the se
 | `extractor-service.js` | Playwright-based media URL extraction: navigates to post URL, intercepts network responses for video/image URLs, scrapes DOM for TikTok rehydration data, ranks candidates by quality (resolution, bitrate, watermark, codec). Exports `{ extractFromTweet, pickMediaUrl, listCandidateMediaUrls, getMediaCandidateFacts, createExtractorError }`. ~499 lines. |
 | `downloader-service.js` | Media download: direct HTTP fetch with stream pipeline, ffmpeg HLS download, Playwright-authenticated download (cookies), browser navigation download (full TLS fingerprint). Includes signed URL expiry detection. Exports `{ isAuthBlockedStatus, isSignedUrlExpired, chooseDownloadMode, downloadDirect, downloadDirectWithPlaywrightSession, downloadDirectWithBrowserNavigation, downloadHlsWithFfmpeg, downloadMedia }`. ~571 lines. |
 | `playwright-adapter.js` | Singleton persistent Chromium context management: launch with recovery, page factory (creates pages with network interception for media/image URLs + page diagnostics), access state assessment (bot challenge, auth wall), manual solve polling, TikTok rehydration URL extraction. Exports `{ createPlaywrightPageFactory, getPersistentContext, closePersistentContext, getAdapterConfig, assessAccessState, extractTikTokRehydrationUrls, hasPersistentContext }`. ~728 lines. |
-| `profile-discovery-service.js` | TikTok profile discovery: scrapes a user's profile page for video posts, deduplicates against existing Jobs and DiscoveredPosts, creates DiscoveredPost documents, downloads thumbnails. **Exception to statelessness rule**: imports `Job` model for deduplication queries (read-only `distinct()`) and `DiscoveredPost` model for persistence. Exports `{ triggerProfileDiscovery, scrapeProfileVideos, extractHandleFromTikTokUrl }`. ~255 lines. |
+| `profile-discovery-service.js` | TikTok profile discovery: scrapes a user's profile page for video posts, deduplicates against existing Jobs and DiscoveredPosts, creates DiscoveredPost documents, downloads thumbnails. Also extracts and saves the target profile's avatar from `__UNIVERSAL_DATA_FOR_REHYDRATION__` or DOM. **Exception to statelessness rule**: imports `Job` model for deduplication queries (read-only `distinct()`) and `DiscoveredPost` model for persistence. Exports `{ triggerProfileDiscovery, scrapeProfileVideos, extractHandleFromTikTokUrl }`. ~795 lines. |
 
 **File count:** 4 source files in 1 directory.
 
@@ -141,7 +141,7 @@ module.exports = {
 // profile-discovery-service.js
 module.exports = {
   triggerProfileDiscovery,     // async ({ tweetUrl, accountSlug, traceId }) => void
-  scrapeProfileVideos,         // async (handle, { traceId }) => Array<{ postUrl, canonicalUrl, thumbnailUrl, title, videoId }>
+  scrapeProfileVideos,         // async (handle, { traceId }) => { posts: Array<{ postUrl, canonicalUrl, thumbnailUrl, title, videoId }>, avatarUrl: string }
   extractHandleFromTikTokUrl,  // (tweetUrl: string) => string
 }
 ```
