@@ -13,6 +13,7 @@ const {
 const { isHttpUrl } = require('../core/utils/validation');
 const { platformNeeds403Refresh } = require('../core/platforms/registry');
 const { routeJobByDomain } = require('../core/dispatch/route-job-by-domain');
+const { resolvePublishedAt } = require('../core/utils/published-at');
 const { claimNextQueuedJob } = require('./queue');
 const { logger } = require('../core/lib/logger');
 
@@ -302,6 +303,13 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
     job.candidateUrls = candidateUrls;
     job.imageUrls = imageUrls;
     job.metadata = metadata;
+    job.publishedAt = resolvePublishedAt({
+      publishedAt: job.publishedAt,
+      metadataPublishedAt: metadata && metadata.publishedAt,
+      tweetUrl: job.tweetUrl,
+      canonicalUrl: job.canonicalUrl,
+      createdAtFallback: job.createdAt,
+    });
     job.accountPlatform = accountPlatform || 'unknown';
     job.accountHandle = accountHandle;
     job.accountDisplayName = accountDisplayName;
@@ -705,7 +713,12 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
         traceId: job.traceId || '',
       }).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
-        logger.error('discovery.trigger.failed', { traceId: job.traceId, message: msg });
+        logger.error('discovery.trigger.failed', {
+          traceId: job.traceId,
+          jobId,
+          sourceJobId: jobId,
+          message: msg,
+        });
       });
     }
 
