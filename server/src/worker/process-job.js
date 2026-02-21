@@ -27,15 +27,33 @@ function buildThumbnailPath(jobId, accountSlug, thumbnailUrl) {
   return path.join('downloads', safeSlug, 'thumbnails', `${jobId}${extension}`);
 }
 
+function isTikTokAvatarUrl(url) {
+  return /avt-\d+/.test(url) || /tiktok_web_login_static/.test(url);
+}
+
 function chooseThumbnailUrl(imageUrls, metadata) {
+  // 1. Platform-specific cover (TikTok rehydration JSON — most accurate)
+  if (metadata && isHttpUrl(metadata.coverUrl)) {
+    return metadata.coverUrl;
+  }
+
+  // 2. og:image meta tag (works correctly for X/Twitter)
   if (metadata && isHttpUrl(metadata.thumbnailUrl)) {
     return metadata.thumbnailUrl;
   }
 
+  // 3. Network-intercepted images, filtered to remove TikTok avatar/login assets
   if (Array.isArray(imageUrls)) {
-    const firstImage = imageUrls.find((value) => isHttpUrl(value));
-    if (firstImage) {
-      return firstImage;
+    const filtered = imageUrls.filter(
+      (url) => typeof url === 'string' && isHttpUrl(url) && !isTikTokAvatarUrl(url)
+    );
+    if (filtered.length) {
+      return filtered[0];
+    }
+    // Ultimate fallback: unfiltered (in case all were filtered out)
+    const first = imageUrls.find((value) => isHttpUrl(value));
+    if (first) {
+      return first;
     }
   }
 
@@ -681,6 +699,7 @@ async function processOneCycle(extractor = productionExtractor, downloader = dow
       triggerProfileDiscovery({
         tweetUrl: job.tweetUrl,
         accountSlug: job.accountSlug || '',
+        accountHandle: job.accountHandle || '',
         traceId: job.traceId || '',
       }).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
