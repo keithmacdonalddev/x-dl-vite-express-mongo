@@ -15,6 +15,7 @@ const {
   getUrlFacts,
   isValidObjectId,
   deleteJobFiles,
+  hasJobOutputFile,
   normalizeBulkDeleteIds,
   sanitizeDisplayName,
   ensureEnabledPlatform,
@@ -39,13 +40,6 @@ function buildDuplicateJobError(existingJobStatus) {
   };
 }
 
-function getTimeMs(value) {
-  if (!value) return 0;
-  const d = new Date(value);
-  const ms = d.getTime();
-  return Number.isFinite(ms) ? ms : 0;
-}
-
 function normalizeJobPublishedAt(job) {
   const resolvedPublishedAt = resolvePublishedAt({
     publishedAt: job && job.publishedAt,
@@ -58,16 +52,34 @@ function normalizeJobPublishedAt(job) {
   return {
     ...(job || {}),
     publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
+    isRemovedFromSource: Boolean(job && job.removedFromSourceAt),
+    isProfileRemovedFromSource: Boolean(job && job.profileRemovedFromSourceAt),
   };
 }
 
-function compareJobsByPublishedAtDesc(left, right) {
-  const lp = getTimeMs(left && left.publishedAt);
-  const rp = getTimeMs(right && right.publishedAt);
-  if (rp !== lp) return rp - lp;
-  const lc = getTimeMs(left && left.createdAt);
-  const rc = getTimeMs(right && right.createdAt);
-  return rc - lc;
+async function requeueExistingJob(jobId) {
+  if (!jobId) {
+    return null;
+  }
+
+  return Job.findByIdAndUpdate(
+    jobId,
+    {
+      $set: {
+        status: JOB_STATUSES.QUEUED,
+        progressPct: 0,
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        outputPath: '',
+        error: '',
+        errorCode: '',
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  ).lean();
 }
 
 jobsRouter.get('/', async (req, res) => {
@@ -80,10 +92,12 @@ jobsRouter.get('/', async (req, res) => {
   const filter = status ? { status } : {};
 
   try {
-    const jobsRaw = await Job.find(filter).sort({ publishedAt: -1, createdAt: -1 }).limit(limit).lean();
-    const jobs = jobsRaw
-      .map((job) => normalizeJobPublishedAt(job))
-      .sort(compareJobsByPublishedAtDesc);
+    const jobsRaw = await Job.find(filter)
+      .select('tweetUrl canonicalUrl status accountHandle accountDisplayName accountSlug accountPlatform platform publishedAt createdAt downloadPath thumbnailPath outputPath error errorCode sourceType attemptCount imageUrls metadata')
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .limit(limit)
+      .lean();
+    const jobs = jobsRaw.map((job) => normalizeJobPublishedAt(job));
     return res.json({
       ok: true,
       jobs,
@@ -189,6 +203,33 @@ jobsRouter.post('/', async (req, res) => {
       const existingJobStatus = typeof existingJob.status === 'string'
         ? existingJob.status
         : JOB_STATUSES.QUEUED;
+
+      if (
+        existingJobStatus === JOB_STATUSES.COMPLETED &&
+        typeof existingJob.outputPath === 'string' &&
+        existingJob.outputPath.trim()
+      ) {
+        const hasOutputFile = await hasJobOutputFile(existingJob);
+        if (!hasOutputFile) {
+          const requeuedJob = await requeueExistingJob(existingJob._id);
+          if (requeuedJob) {
+            logger.info('jobs.create.requeued_missing_file', {
+              traceId,
+              tweetUrl,
+              canonicalUrl,
+              jobId: existingJobId,
+            });
+
+            return res.status(201).json({
+              ok: true,
+              job: normalizeJobPublishedAt(requeuedJob),
+              traceId,
+              requeued: true,
+            });
+          }
+        }
+      }
+
       const duplicate = buildDuplicateJobError(existingJobStatus);
 
       logger.info(duplicate.event, {
@@ -231,6 +272,33 @@ jobsRouter.post('/', async (req, res) => {
           const existingJobStatus = typeof racedJob.status === 'string'
             ? racedJob.status
             : JOB_STATUSES.QUEUED;
+
+          if (
+            existingJobStatus === JOB_STATUSES.COMPLETED &&
+            typeof racedJob.outputPath === 'string' &&
+            racedJob.outputPath.trim()
+          ) {
+            const hasOutputFile = await hasJobOutputFile(racedJob);
+            if (!hasOutputFile) {
+              const requeuedJob = await requeueExistingJob(racedJob._id);
+              if (requeuedJob) {
+                logger.info('jobs.create.requeued_missing_file_race', {
+                  traceId,
+                  tweetUrl,
+                  canonicalUrl,
+                  jobId: existingJobId,
+                });
+
+                return res.status(201).json({
+                  ok: true,
+                  job: normalizeJobPublishedAt(requeuedJob),
+                  traceId,
+                  requeued: true,
+                });
+              }
+            }
+          }
+
           const duplicate = buildDuplicateJobError(existingJobStatus);
 
           logger.info('jobs.create.duplicate_race_resolved', {
