@@ -943,6 +943,149 @@ async function triggerProfileDiscovery({
       return true;
     });
 
+    // ---------------------------------------------------------------------------
+    // Thumbnail self-heal: update existing posts whose stored thumbnail is a
+    // placeholder (data: URI or empty) but the fresh scrape has a real URL.
+    // ---------------------------------------------------------------------------
+    const discoveredDir = path.join(DOWNLOADS_ROOT, slug, 'discovered');
+    const concurrency = config.DISCOVERY_WRITE_CONCURRENCY;
+
+    const existingItemsWithFreshThumbs = items.filter((item) => {
+      // Item was filtered out (it's already in DB) and has a real thumbnail URL
+      const isExisting = knownUrls.has(item.canonicalUrl) || (item.videoId && knownVideoIds.has(item.videoId));
+      const hasRealThumb = item.thumbnailUrl && !item.thumbnailUrl.startsWith('data:');
+      return isExisting && hasRealThumb;
+    });
+
+    if (existingItemsWithFreshThumbs.length > 0) {
+      try {
+        // Build lookup maps: videoId -> thumbnailUrl, canonicalUrl -> thumbnailUrl
+        const freshThumbByVideoId = new Map();
+        const freshThumbByCanonicalUrl = new Map();
+        for (const item of existingItemsWithFreshThumbs) {
+          if (item.videoId) freshThumbByVideoId.set(item.videoId, item.thumbnailUrl);
+          if (item.canonicalUrl) freshThumbByCanonicalUrl.set(item.canonicalUrl, item.thumbnailUrl);
+        }
+
+        // Find matching DB docs where thumbnailUrl is bad (data: or empty)
+        const videoIdsToCheck = [...freshThumbByVideoId.keys()];
+        const canonicalUrlsToCheck = [...freshThumbByCanonicalUrl.keys()];
+        const docsWithBadThumbs = await DiscoveredPost.find({
+          $or: [
+            { videoId: { $in: videoIdsToCheck } },
+            { canonicalUrl: { $in: canonicalUrlsToCheck } },
+          ],
+          $and: [
+            {
+              $or: [
+                { thumbnailUrl: '' },
+                { thumbnailUrl: { $exists: false } },
+                { thumbnailUrl: /^data:/ },
+              ],
+            },
+          ],
+        }).select('_id videoId canonicalUrl thumbnailUrl thumbnailPath').lean();
+
+        let healedCount = 0;
+        for (let i = 0; i < docsWithBadThumbs.length; i += concurrency) {
+          const chunk = docsWithBadThumbs.slice(i, i + concurrency);
+          await Promise.all(chunk.map(async (doc) => {
+            const freshThumb =
+              (doc.videoId && freshThumbByVideoId.get(doc.videoId)) ||
+              (doc.canonicalUrl && freshThumbByCanonicalUrl.get(doc.canonicalUrl));
+            if (!freshThumb) return;
+
+            try {
+              // Update the stored thumbnailUrl and clear thumbnailPath so it gets re-downloaded
+              await DiscoveredPost.findByIdAndUpdate(doc._id, {
+                $set: { thumbnailUrl: freshThumb, thumbnailPath: '' },
+              });
+              healedCount++;
+
+              // Immediately attempt to download the fresh thumbnail
+              const thumbFilename = `${doc.videoId || doc._id.toString()}.jpg`;
+              const thumbPath = path.join(discoveredDir, thumbFilename);
+              const savedPath = await downloadThumbnail(freshThumb, thumbPath, {
+                traceId,
+                jobId: sourceJobIdString,
+              });
+              if (savedPath) {
+                const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
+                await DiscoveredPost.findByIdAndUpdate(doc._id, { thumbnailPath: relativePath });
+              }
+            } catch (err) {
+              logger.warn('discovery.thumbnails.heal_failed', {
+                ...discoveryLogContext,
+                postId: doc._id.toString(),
+                message: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }));
+        }
+
+        if (healedCount > 0) {
+          logger.info('discovery.thumbnails.healed', {
+            ...discoveryLogContext,
+            count: healedCount,
+            slug,
+          });
+        }
+      } catch (err) {
+        logger.warn('discovery.thumbnails.heal_query_failed', {
+          ...discoveryLogContext,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Re-attempt thumbnails for existing posts with URL but no local file
+    // (runs regardless of whether there are new posts this discovery cycle)
+    // ---------------------------------------------------------------------------
+    try {
+      const postsNeedingThumbs = await DiscoveredPost.find({
+        accountSlug: slug,
+        thumbnailUrl: { $exists: true, $ne: '', $not: /^data:/ },
+        $or: [{ thumbnailPath: '' }, { thumbnailPath: { $exists: false } }],
+      }).lean();
+
+      if (postsNeedingThumbs.length > 0) {
+        logger.info('discovery.trigger.reattempt_thumbnails', {
+          ...discoveryLogContext,
+          count: postsNeedingThumbs.length,
+        });
+
+        for (let i = 0; i < postsNeedingThumbs.length; i += concurrency) {
+          const chunk = postsNeedingThumbs.slice(i, i + concurrency);
+          await Promise.all(chunk.map(async (post) => {
+            try {
+              const thumbFilename = `${post.videoId || post._id.toString()}.jpg`;
+              const thumbPath = path.join(discoveredDir, thumbFilename);
+              const savedPath = await downloadThumbnail(post.thumbnailUrl, thumbPath, {
+                traceId,
+                jobId: sourceJobIdString,
+              });
+              if (savedPath) {
+                const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
+                await DiscoveredPost.findByIdAndUpdate(post._id, { thumbnailPath: relativePath });
+              }
+            } catch (err) {
+              logger.warn('discovery.thumbnail.reattempt_failed', {
+                ...discoveryLogContext,
+                postId: post._id.toString(),
+                message: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }));
+        }
+      }
+    } catch (err) {
+      logger.warn('discovery.trigger.reattempt_thumbnails_failed', {
+        ...discoveryLogContext,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     if (newItems.length === 0) {
       logger.info('discovery.trigger.all_known', {
         ...discoveryLogContext,
@@ -960,12 +1103,6 @@ async function triggerProfileDiscovery({
       newCount: newItems.length,
       totalScraped: items.length,
     });
-
-    // ---------------------------------------------------------------------------
-    // Bounded write concurrency
-    // ---------------------------------------------------------------------------
-    const discoveredDir = path.join(DOWNLOADS_ROOT, slug, 'discovered');
-    const concurrency = config.DISCOVERY_WRITE_CONCURRENCY;
 
     for (let i = 0; i < newItems.length; i += concurrency) {
       const chunk = newItems.slice(i, i + concurrency);
@@ -1016,51 +1153,6 @@ async function triggerProfileDiscovery({
           });
         }
       }));
-    }
-
-    // Re-attempt thumbnails for existing posts with URL but no local file
-    try {
-      const postsNeedingThumbs = await DiscoveredPost.find({
-        accountSlug: slug,
-        thumbnailUrl: { $ne: '' },
-        $or: [{ thumbnailPath: '' }, { thumbnailPath: { $exists: false } }],
-      }).lean();
-
-      if (postsNeedingThumbs.length > 0) {
-        logger.info('discovery.trigger.reattempt_thumbnails', {
-          ...discoveryLogContext,
-          count: postsNeedingThumbs.length,
-        });
-
-        for (let i = 0; i < postsNeedingThumbs.length; i += concurrency) {
-          const chunk = postsNeedingThumbs.slice(i, i + concurrency);
-          await Promise.all(chunk.map(async (post) => {
-            try {
-              const thumbFilename = `${post.videoId || post._id.toString()}.jpg`;
-              const thumbPath = path.join(discoveredDir, thumbFilename);
-              const savedPath = await downloadThumbnail(post.thumbnailUrl, thumbPath, {
-                traceId,
-                jobId: sourceJobIdString,
-              });
-              if (savedPath) {
-                const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
-                await DiscoveredPost.findByIdAndUpdate(post._id, { thumbnailPath: relativePath });
-              }
-            } catch (err) {
-              logger.warn('discovery.thumbnail.reattempt_failed', {
-                ...discoveryLogContext,
-                postId: post._id.toString(),
-                message: err instanceof Error ? err.message : String(err),
-              });
-            }
-          }));
-        }
-      }
-    } catch (err) {
-      logger.warn('discovery.trigger.reattempt_thumbnails_failed', {
-        ...discoveryLogContext,
-        message: err instanceof Error ? err.message : String(err),
-      });
     }
 
     logger.info('discovery.trigger.completed', {
