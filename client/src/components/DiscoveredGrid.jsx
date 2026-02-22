@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toAssetHref } from '../lib/contacts'
+import { OverflowMenu } from './OverflowMenu'
 
 function isPlaceholderSrc(src) {
   return !src || src.startsWith('data:')
@@ -27,6 +28,54 @@ function buildVlcHref(videoHref) {
     return `vlc://${absoluteUrl}`
   } catch {
     return ''
+  }
+}
+
+function getPrimaryPostUrl(post) {
+  if (!post || typeof post !== 'object') {
+    return ''
+  }
+  const postUrl = typeof post.postUrl === 'string' ? post.postUrl.trim() : ''
+  if (postUrl) {
+    return postUrl
+  }
+  const canonicalUrl = typeof post.canonicalUrl === 'string' ? post.canonicalUrl.trim() : ''
+  return canonicalUrl
+}
+
+function formatPublishedLabel(value) {
+  if (!value) return 'n/a'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'n/a'
+  return date.toLocaleString()
+}
+
+function copyTextToClipboard(text) {
+  const value = typeof text === 'string' ? text.trim() : ''
+  if (!value || typeof navigator === 'undefined') {
+    return
+  }
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(value).catch(() => {})
+    return
+  }
+
+  if (typeof document !== 'undefined') {
+    const input = document.createElement('textarea')
+    input.value = value
+    input.setAttribute('readonly', '')
+    input.style.position = 'fixed'
+    input.style.opacity = '0'
+    document.body.appendChild(input)
+    input.focus()
+    input.select()
+    try {
+      document.execCommand('copy')
+    } catch {
+      // Ignore copy fallback failures.
+    }
+    document.body.removeChild(input)
   }
 }
 
@@ -74,11 +123,16 @@ export function DiscoveredGrid({
   downloadingPostIds,
   onDownload,
   onOpenInVlc,
+  initialOpenDownloadedJobId = '',
+  size = 'medium',
   title = 'Discovered Videos',
   emptyMessage = 'No discovered posts yet. Download a TikTok video to trigger profile discovery.',
 }) {
   const safePosts = useMemo(() => (Array.isArray(posts) ? posts : []), [posts])
+  const normalizedSize = size === 'small' || size === 'large' ? size : 'medium'
   const [activeVideoPostId, setActiveVideoPostId] = useState('')
+  const [activeMetaPostId, setActiveMetaPostId] = useState('')
+  const autoOpenedJobIdRef = useRef('')
 
   const playableHrefByPostId = useMemo(() => {
     const hrefById = new Map()
@@ -105,13 +159,30 @@ export function DiscoveredGrid({
   const activeVideoOutputPath = getDownloadOutputPath(activeVideoPost)
   const activeVideoVlcHref = useMemo(() => buildVlcHref(activeVideoHref), [activeVideoHref])
   const canOpenActiveInVlc = Boolean(activeVideoVlcHref || activeVideoOutputPath)
+  const activeMetaPost = safePosts.find((post) => post._id === activeMetaPostId) || null
+  const activeDownloadCount = useMemo(() => {
+    let count = 0
+    for (const post of safePosts) {
+      const hasVerifiedDownloaded = typeof post.isDownloaded === 'boolean'
+      const isAlreadyDownloaded = hasVerifiedDownloaded
+        ? post.isDownloaded
+        : Boolean(post.downloadedJobId)
+      const isLinkedActive = !isAlreadyDownloaded && Boolean(post.downloadedJobId)
+      const isThisDownloading = downloadingPostIds.has(post._id)
+      if (isLinkedActive || isThisDownloading) {
+        count += 1
+      }
+    }
+    return count
+  }, [downloadingPostIds, safePosts])
 
   useEffect(() => {
-    if (!activeVideoPostId) return
+    if (!activeVideoPostId && !activeMetaPostId) return
 
     function onKeyDown(event) {
       if (event.key === 'Escape') {
         setActiveVideoPostId('')
+        setActiveMetaPostId('')
       }
     }
 
@@ -119,10 +190,47 @@ export function DiscoveredGrid({
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [activeVideoPostId])
+  }, [activeVideoPostId, activeMetaPostId])
+
+  useEffect(() => {
+    const targetJobId = typeof initialOpenDownloadedJobId === 'string'
+      ? initialOpenDownloadedJobId.trim()
+      : ''
+
+    if (!targetJobId) {
+      autoOpenedJobIdRef.current = ''
+      return
+    }
+
+    if (autoOpenedJobIdRef.current === targetJobId) {
+      return
+    }
+
+    const matchingPost = safePosts.find((post) => {
+      const downloadedJobId = post && post.downloadedJobId ? String(post.downloadedJobId).trim() : ''
+      return downloadedJobId === targetJobId && playableHrefByPostId.has(post._id)
+    })
+
+    if (!matchingPost) {
+      return
+    }
+
+    const timerId = setTimeout(() => {
+      setActiveVideoPostId(matchingPost._id)
+      autoOpenedJobIdRef.current = targetJobId
+    }, 0)
+
+    return () => {
+      clearTimeout(timerId)
+    }
+  }, [initialOpenDownloadedJobId, playableHrefByPostId, safePosts])
 
   function closePlayerModal() {
     setActiveVideoPostId('')
+  }
+
+  function closeMetadataModal() {
+    setActiveMetaPostId('')
   }
 
   function openVlcWithFallback(outputPath, fallbackHref, event) {
@@ -143,7 +251,7 @@ export function DiscoveredGrid({
 
   if (safePosts.length === 0) {
     return (
-      <section className="discovered-section">
+      <section className={`discovered-section is-size-${normalizedSize}`}>
         <div className="discovered-header">
           <h3>{title}</h3>
         </div>
@@ -153,10 +261,13 @@ export function DiscoveredGrid({
   }
 
   return (
-    <section className="discovered-section">
+    <section className={`discovered-section is-size-${normalizedSize}`}>
       <div className="discovered-header">
         <h3>{title}</h3>
-        <p>{safePosts.length} found on profile</p>
+        <p>
+          {safePosts.length} found on profile
+          {activeDownloadCount > 0 ? ` • ${activeDownloadCount} downloading` : ''}
+        </p>
       </div>
       <ul className="discovered-grid">
         {safePosts.map((post) => {
@@ -180,6 +291,18 @@ export function DiscoveredGrid({
           const canOpenInVlc = Boolean(vlcHref || outputPath)
           const canQueue = !isAlreadyDownloaded && !isLinkedActive && !isThisDownloading
           const canThumbAction = canQueue || canPlayInBrowser
+          const isActiveDownload = isLinkedActive || isThisDownloading
+          const postUrl = getPrimaryPostUrl(post)
+          const canonicalUrl = typeof post.canonicalUrl === 'string' ? post.canonicalUrl.trim() : ''
+          const videoId = typeof post.videoId === 'string' ? post.videoId.trim() : ''
+          const publishedLabel = formatPublishedLabel(post.publishedAt || post.createdAt)
+          const statusLabel = isAlreadyDownloaded
+            ? 'Downloaded'
+            : isLinkedActive
+              ? 'Queued'
+              : isThisDownloading
+                ? 'Queuing'
+                : 'Ready to download'
 
           function handleThumbClick() {
             if (canPlayInBrowser) {
@@ -191,63 +314,113 @@ export function DiscoveredGrid({
             }
           }
 
-          return (
-            <li key={post._id} className={`discovered-card${isThisDownloading ? ' is-downloading' : ''}`}>
-              <button
-                type="button"
-                className="discovered-thumb-btn"
-                onClick={handleThumbClick}
-                disabled={!canThumbAction}
-                title={
-                  canPlayInBrowser
-                    ? 'Play in browser'
-                    : isAlreadyDownloaded
-                      ? 'Downloaded file unavailable'
-                    : isLinkedActive
-                      ? 'Already queued or downloading'
-                      : isThisDownloading
-                        ? 'Queuing...'
-                        : 'Queue this video'
+          const menuItems = [
+            { label: 'View metadata', onClick: () => setActiveMetaPostId(post._id) },
+            {
+              label: 'Open source post',
+              onClick: () => {
+                if (postUrl && typeof window !== 'undefined' && typeof window.open === 'function') {
+                  window.open(postUrl, '_blank', 'noopener,noreferrer')
                 }
-              >
-                <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} videoId={post.videoId} />
-              </button>
+              },
+              hidden: !postUrl,
+            },
+            {
+              label: 'Copy post URL',
+              onClick: () => copyTextToClipboard(postUrl),
+              hidden: !postUrl,
+            },
+            {
+              label: 'Copy canonical URL',
+              onClick: () => copyTextToClipboard(canonicalUrl),
+              hidden: !canonicalUrl || canonicalUrl === postUrl,
+            },
+            {
+              label: 'Copy video ID',
+              onClick: () => copyTextToClipboard(videoId),
+              hidden: !videoId,
+            },
+            {
+              label: `Published: ${publishedLabel}`,
+              onClick: () => {},
+              disabled: true,
+            },
+            {
+              label: `Status: ${statusLabel}`,
+              onClick: () => {},
+              disabled: true,
+            },
+          ]
+
+          return (
+            <li key={post._id} className={`discovered-card${isThisDownloading ? ' is-downloading' : ''}${isActiveDownload ? ' is-active-download' : ''}${isRemovedFromSource ? ' is-removed-from-source' : ''}`}>
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="discovered-thumb-btn"
+                  onClick={handleThumbClick}
+                  disabled={isRemovedFromSource || !canThumbAction}
+                  title={
+                    isRemovedFromSource
+                      ? 'This post has been removed from the source'
+                      : canPlayInBrowser
+                        ? 'Play in browser'
+                        : isAlreadyDownloaded
+                          ? 'Downloaded file unavailable'
+                        : isLinkedActive
+                          ? 'Download in progress'
+                        : isThisDownloading
+                            ? 'Queuing...'
+                            : 'Queue this video'
+                  }
+                >
+                  <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} videoId={post.videoId} />
+                </button>
+                {isRemovedFromSource && (
+                  <span className="discovered-badge-overlay is-removed">Removed</span>
+                )}
+              </div>
               <div className="discovered-card-body">
                 <div className="discovered-card-actions">
-                  {isAlreadyDownloaded ? (
-                    <>
+                  <div className="discovered-main-action">
+                    {isRemovedFromSource ? (
+                      <button className="discovered-btn-unavailable" disabled>Unavailable</button>
+                    ) : isAlreadyDownloaded ? (
+                      <>
+                        <button
+                          type="button"
+                          className="discovered-play-btn"
+                          onClick={() => setActiveVideoPostId(post._id)}
+                          disabled={!canPlayInBrowser}
+                        >
+                          Play
+                        </button>
+                        {canOpenInVlc && (
+                          <a
+                            className="discovered-vlc-link"
+                            href={vlcHref}
+                            aria-label="Open in VLC"
+                            title="Open in VLC"
+                            onClick={(event) => openVlcWithFallback(outputPath, vlcHref, event)}
+                          >
+                            <VlcIcon />
+                          </a>
+                        )}
+                      </>
+                    ) : isLinkedActive ? (
+                      <span className="discovered-badge is-active is-pulse">Downloading</span>
+                    ) : (
                       <button
                         type="button"
-                        className="discovered-play-btn"
-                        onClick={() => setActiveVideoPostId(post._id)}
-                        disabled={!canPlayInBrowser}
+                        className="discovered-download-btn"
+                        onClick={() => onDownload(post._id)}
+                        disabled={isThisDownloading}
                       >
-                        Play
+                        {isThisDownloading ? 'Queuing...' : 'Download'}
                       </button>
-                      {canOpenInVlc && (
-                        <a
-                          className="discovered-vlc-link"
-                          href={vlcHref}
-                          aria-label="Open in VLC"
-                          title="Open in VLC"
-                          onClick={(event) => openVlcWithFallback(outputPath, vlcHref, event)}
-                        >
-                          <VlcIcon />
-                        </a>
-                      )}
-                    </>
-                  ) : isLinkedActive ? (
-                    <span className="discovered-badge is-active">Queued</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="discovered-download-btn"
-                      onClick={() => onDownload(post._id)}
-                      disabled={isThisDownloading}
-                    >
-                      {isThisDownloading ? 'Queuing...' : 'Download'}
-                    </button>
-                  )}
+                    )}
+                  </div>
+                  <OverflowMenu items={menuItems} />
                 </div>
                 {isRemovedFromSource && (
                   <p className="discovered-source-note is-removed">Removed on TikTok</p>
@@ -297,6 +470,62 @@ export function DiscoveredGrid({
                 </a>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {activeMetaPost && (
+        <div
+          className="modal-overlay discovered-meta-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Post metadata"
+          onClick={closeMetadataModal}
+        >
+          <div className="modal-card discovered-meta-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="discovered-player-header">
+              <h3>Post metadata</h3>
+              <button type="button" className="ghost-btn discovered-player-close" onClick={closeMetadataModal}>
+                Close
+              </button>
+            </div>
+            <dl className="discovered-meta-list">
+              <div>
+                <dt>Published</dt>
+                <dd>{formatPublishedLabel(activeMetaPost.publishedAt || activeMetaPost.createdAt)}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>
+                  {activeMetaPost.isDownloaded
+                    ? 'Downloaded'
+                    : activeMetaPost.downloadedJobId
+                      ? 'Queued'
+                      : 'Ready to download'}
+                </dd>
+              </div>
+              <div>
+                <dt>Post URL</dt>
+                <dd>
+                  {getPrimaryPostUrl(activeMetaPost) ? (
+                    <a href={getPrimaryPostUrl(activeMetaPost)} target="_blank" rel="noreferrer">
+                      {getPrimaryPostUrl(activeMetaPost)}
+                    </a>
+                  ) : 'n/a'}
+                </dd>
+              </div>
+              <div>
+                <dt>Canonical URL</dt>
+                <dd>{activeMetaPost.canonicalUrl || 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Video ID</dt>
+                <dd>{activeMetaPost.videoId || 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Output path</dt>
+                <dd>{getDownloadOutputPath(activeMetaPost) || 'n/a'}</dd>
+              </div>
+            </dl>
           </div>
         </div>
       )}

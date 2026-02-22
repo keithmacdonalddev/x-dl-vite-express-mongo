@@ -572,6 +572,11 @@ h1 {
   box-shadow: 0 4px 12px rgba(11, 107, 203, 0.1);
 }
 
+.discovered-card.is-active-download {
+  border-color: #9fc0dc;
+  box-shadow: 0 4px 12px rgba(34, 109, 170, 0.14);
+}
+
 .discovered-card.is-downloading {
   opacity: 0.6;
   pointer-events: none;
@@ -766,6 +771,10 @@ h1 {
   color: #245a8b;
 }
 
+.discovered-badge.is-active.is-pulse {
+  animation: discovered-pulse 1.25s ease-in-out infinite;
+}
+
 .discovered-vlc-link {
   width: 28px;
   height: 28px;
@@ -939,13 +948,15 @@ h1 {
 /* Unavailable button for removed posts */
 
 .discovered-btn-unavailable {
+  width: 100%;
   background: #c4d0d8;
   color: #fff;
   border: 0;
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 5px 8px;
+  font: inherit;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11px;
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -953,6 +964,18 @@ h1 {
 @keyframes discovery-progress-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(350%); }
+}
+
+@keyframes discovered-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
 }
 
 .modal-overlay {
@@ -1046,4 +1069,5 @@ h1 {
 
   .discovery-progress-bar::after { transition: none !important; }
   .discovery-progress-bar.is-indeterminate::after { animation: none !important; }
+  .discovered-badge.is-active.is-pulse { animation: none !important; }
 }
