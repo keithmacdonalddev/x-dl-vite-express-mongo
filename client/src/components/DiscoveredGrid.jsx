@@ -81,10 +81,13 @@ function copyTextToClipboard(text) {
 
 function VlcIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3L16 11H8L12 3Z" fill="currentColor" />
-      <path d="M9.4 12.5H14.6L16.4 17H7.6L9.4 12.5Z" fill="currentColor" opacity="0.8" />
-      <rect x="6" y="18" width="12" height="3" rx="1.5" fill="currentColor" opacity="0.6" />
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <ellipse cx="32" cy="56" rx="18" ry="5.5" fill="#d7dee6" />
+      <path d="M32 6L45 46H19L32 6Z" fill="#f58220" />
+      <path d="M27.6 19.2H36.4L39 27.2H25L27.6 19.2Z" fill="#ffffff" />
+      <path d="M24.2 30.6H39.8L42.5 38.8H21.5L24.2 30.6Z" fill="#ffffff" />
+      <ellipse cx="32" cy="50.5" rx="16.5" ry="5.2" fill="#f58220" />
+      <ellipse cx="32" cy="50.5" rx="10.2" ry="2.7" fill="#ffffff" />
     </svg>
   )
 }
@@ -122,8 +125,10 @@ export function DiscoveredGrid({
   posts,
   downloadingPostIds,
   onDownload,
+  onDelete,
   onOpenInVlc,
   initialOpenDownloadedJobId = '',
+  onInitialOpenConsumed,
   size = 'medium',
   title = 'Discovered Videos',
   emptyMessage = 'No discovered posts yet. Download a TikTok video to trigger profile discovery.',
@@ -215,15 +220,18 @@ export function DiscoveredGrid({
       return
     }
 
+    autoOpenedJobIdRef.current = targetJobId
     const timerId = setTimeout(() => {
       setActiveVideoPostId(matchingPost._id)
-      autoOpenedJobIdRef.current = targetJobId
+      if (typeof onInitialOpenConsumed === 'function') {
+        onInitialOpenConsumed(targetJobId)
+      }
     }, 0)
 
     return () => {
       clearTimeout(timerId)
     }
-  }, [initialOpenDownloadedJobId, playableHrefByPostId, safePosts])
+  }, [initialOpenDownloadedJobId, onInitialOpenConsumed, playableHrefByPostId, safePosts])
 
   function closePlayerModal() {
     setActiveVideoPostId('')
@@ -349,6 +357,16 @@ export function DiscoveredGrid({
               label: `Status: ${statusLabel}`,
               onClick: () => {},
               disabled: true,
+            },
+            {
+              label: 'Delete',
+              onClick: () => {
+                if (typeof onDelete === 'function' && window.confirm('Delete this discovered post?')) {
+                  onDelete(post._id)
+                }
+              },
+              hidden: typeof onDelete !== 'function',
+              danger: true,
             },
           ]
 

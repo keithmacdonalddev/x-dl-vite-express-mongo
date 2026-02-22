@@ -189,6 +189,11 @@ export async function listDiscoveredPosts(accountSlug) {
   return parseResponse(response)
 }
 
+export async function deleteDiscoveredPost(postId) {
+  const response = await fetch(`${DISCOVERY_API}/posts/${postId}`, { method: 'DELETE' })
+  return parseResponse(response)
+}
+
 export async function downloadDiscoveredPost(discoveredPostId) {
   const response = await fetch(`${DISCOVERY_API}/${discoveredPostId}/download`, {
     method: 'POST',

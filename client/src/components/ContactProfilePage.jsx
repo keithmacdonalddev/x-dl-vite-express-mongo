@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   deleteContactProfile,
+  deleteDiscoveredPost,
   downloadDiscoveredPost,
   getJob,
   listDiscoveredPosts,
@@ -322,6 +323,15 @@ export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' 
     }
   }
 
+  async function handleDeleteDiscovered(postId) {
+    try {
+      await deleteDiscoveredPost(postId)
+      setDiscoveredPosts((prev) => prev.filter((p) => p._id !== postId))
+    } catch (err) {
+      actions.setActionError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   async function handleOpenInVlc(outputPath, fallbackVlcHref) {
     const resolvedOutputPath = typeof outputPath === 'string' ? outputPath.trim() : ''
     if (!resolvedOutputPath) {
@@ -547,6 +557,7 @@ export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' 
               posts={unifiedVideoPosts}
               downloadingPostIds={downloadingPostIds}
               onDownload={handleDownloadDiscovered}
+              onDelete={handleDeleteDiscovered}
               onOpenInVlc={handleOpenInVlc}
               initialOpenDownloadedJobId={initialOpenJobId}
               size={thumbnailSize}
