@@ -228,7 +228,7 @@ async function downloadThumbnailWithAuthFallback(thumbnailUrl, targetPath, { tra
       : '';
 
     if (contentType && !contentType.startsWith('image/')) {
-      logger.warn('discovery.thumbnail.auth_non_image', {
+      logger.info('discovery.thumbnail.auth_non_image', {
         traceId,
         jobId,
         thumbnailUrl,
@@ -241,7 +241,7 @@ async function downloadThumbnailWithAuthFallback(thumbnailUrl, targetPath, { tra
     return targetPath;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.warn('discovery.thumbnail.fetch_failed', {
+    logger.info('discovery.thumbnail.fetch_failed', {
       traceId,
       jobId,
       thumbnailUrl,
@@ -286,7 +286,7 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId, jobId } = 
 
     // Validate response status
     if (!response.ok) {
-      logger.warn('discovery.thumbnail.bad_status', {
+      logger.info('discovery.thumbnail.bad_status', {
         traceId,
         jobId,
         thumbnailUrl,
@@ -296,14 +296,14 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId, jobId } = 
     }
 
     if (!response.body) {
-      logger.warn('discovery.thumbnail.no_body', { traceId, jobId, thumbnailUrl });
+      logger.info('discovery.thumbnail.no_body', { traceId, jobId, thumbnailUrl });
       return maybeAuthFallback();
     }
 
     // Validate content-type
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.startsWith('image/')) {
-      logger.warn('discovery.thumbnail.bad_content_type', {
+      logger.info('discovery.thumbnail.bad_content_type', {
         traceId,
         jobId,
         thumbnailUrl,
@@ -318,7 +318,7 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId, jobId } = 
     await pipeline(Readable.fromWeb(response.body), output);
     const stat = await fs.promises.stat(targetPath).catch(() => null);
     if (!stat || stat.size <= 0) {
-      logger.warn('discovery.thumbnail.empty_file', {
+      logger.info('discovery.thumbnail.empty_file', {
         traceId,
         jobId,
         thumbnailUrl,
@@ -330,7 +330,7 @@ async function downloadThumbnail(thumbnailUrl, targetPath, { traceId, jobId } = 
     return targetPath;
   } catch (error) {
     if (error && error.name === 'AbortError') {
-      logger.warn('discovery.thumbnail.timeout', {
+      logger.info('discovery.thumbnail.timeout', {
         traceId,
         jobId,
         thumbnailUrl,
@@ -1014,7 +1014,7 @@ async function triggerProfileDiscovery({
                 await DiscoveredPost.findByIdAndUpdate(doc._id, { thumbnailPath: relativePath });
               }
             } catch (err) {
-              logger.warn('discovery.thumbnails.heal_failed', {
+              logger.info('discovery.thumbnails.heal_failed', {
                 ...discoveryLogContext,
                 postId: doc._id.toString(),
                 message: err instanceof Error ? err.message : String(err),
@@ -1031,7 +1031,7 @@ async function triggerProfileDiscovery({
           });
         }
       } catch (err) {
-        logger.warn('discovery.thumbnails.heal_query_failed', {
+        logger.info('discovery.thumbnails.heal_query_failed', {
           ...discoveryLogContext,
           message: err instanceof Error ? err.message : String(err),
         });
@@ -1070,7 +1070,7 @@ async function triggerProfileDiscovery({
                 await DiscoveredPost.findByIdAndUpdate(post._id, { thumbnailPath: relativePath });
               }
             } catch (err) {
-              logger.warn('discovery.thumbnail.reattempt_failed', {
+              logger.info('discovery.thumbnail.reattempt_failed', {
                 ...discoveryLogContext,
                 postId: post._id.toString(),
                 message: err instanceof Error ? err.message : String(err),
@@ -1080,7 +1080,7 @@ async function triggerProfileDiscovery({
         }
       }
     } catch (err) {
-      logger.warn('discovery.trigger.reattempt_thumbnails_failed', {
+      logger.info('discovery.trigger.reattempt_thumbnails_failed', {
         ...discoveryLogContext,
         message: err instanceof Error ? err.message : String(err),
       });
@@ -1197,7 +1197,7 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
   const logContext = { traceId, accountSlug };
 
   if (!accountSlug || typeof accountSlug !== 'string') {
-    logger.warn('discovery.thumbnails.oembed_repair.invalid_slug', { ...logContext });
+    logger.info('discovery.thumbnails.oembed_repair.invalid_slug', { ...logContext });
     return { total: 0, repaired: 0, failed: 0 };
   }
 
@@ -1250,7 +1250,7 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
       });
 
       if (!response.ok) {
-        logger.warn('discovery.thumbnails.oembed_repair.bad_status', {
+        logger.info('discovery.thumbnails.oembed_repair.bad_status', {
           ...logContext,
           postId: post._id.toString(),
           canonicalUrl: post.canonicalUrl,
@@ -1264,7 +1264,7 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
       try {
         oembedData = await response.json();
       } catch {
-        logger.warn('discovery.thumbnails.oembed_repair.bad_json', {
+        logger.info('discovery.thumbnails.oembed_repair.bad_json', {
           ...logContext,
           postId: post._id.toString(),
           canonicalUrl: post.canonicalUrl,
@@ -1279,7 +1279,7 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
           : '';
 
       if (!thumbnailUrl || !thumbnailUrl.startsWith('http')) {
-        logger.warn('discovery.thumbnails.oembed_repair.no_thumbnail_url', {
+        logger.info('discovery.thumbnails.oembed_repair.no_thumbnail_url', {
           ...logContext,
           postId: post._id.toString(),
           canonicalUrl: post.canonicalUrl,
@@ -1306,7 +1306,7 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
       repaired++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.warn('discovery.thumbnails.oembed_repair.post_failed', {
+      logger.info('discovery.thumbnails.oembed_repair.post_failed', {
         ...logContext,
         postId: post._id.toString(),
         canonicalUrl: post.canonicalUrl,
