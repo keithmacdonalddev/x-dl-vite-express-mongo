@@ -32,6 +32,7 @@ function getConfig() {
     DISCOVERY_WRITE_CONCURRENCY: parseInt(process.env.DISCOVERY_WRITE_CONCURRENCY || '4', 10),
     DISCOVERY_THUMBNAIL_TIMEOUT_MS: parseInt(process.env.DISCOVERY_THUMBNAIL_TIMEOUT_MS || '15000', 10),
     DISCOVERY_THUMBNAIL_AUTH_FALLBACK: parseBooleanEnv(process.env.DISCOVERY_THUMBNAIL_AUTH_FALLBACK, true),
+    DISCOVERY_MARK_MISSING_AS_REMOVED: parseBooleanEnv(process.env.DISCOVERY_MARK_MISSING_AS_REMOVED, false),
     DISCOVERY_DEBUG_SCREENSHOTS: parseBooleanEnv(process.env.DISCOVERY_DEBUG_SCREENSHOTS, false),
     DISCOVERY_DEBUG_SCREENSHOT_RETENTION_MS: parseInt(process.env.DISCOVERY_DEBUG_SCREENSHOT_RETENTION_MS || '86400000', 10),
   };
@@ -45,6 +46,7 @@ async function reconcileSourceAvailability({
   scrapedCanonicalUrls,
   profileRemovedOnSource,
   canAssertProfileAvailable,
+  markMissingAsRemoved = false,
   checkedAt,
 } = {}) {
   if (!slug) {
@@ -114,6 +116,10 @@ async function reconcileSourceAvailability({
       { $set: { removedFromSourceAt: null } }
     ),
   ]);
+
+  if (!markMissingAsRemoved) {
+    return;
+  }
 
   await Promise.all([
     DiscoveredPost.updateMany(
@@ -728,6 +734,16 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         });
       }
 
+      // DEBUG: dump first card's DOM structure for view count debugging
+      const firstAnchor = document.querySelector('a[href*="/video/"]');
+      if (firstAnchor) {
+        const card = firstAnchor.closest('[data-e2e="user-post-item"]') || firstAnchor.closest('li') || firstAnchor.parentElement;
+        if (card) {
+          window.__debugCardHTML = card.innerHTML.substring(0, 3000);
+          window.__debugCardText = card.innerText;
+        }
+      }
+
       // Strategy 1: data-e2e user-post-item links
       const postItems = document.querySelectorAll('[data-e2e="user-post-item"] a[href*="/video/"]');
       for (const anchor of postItems) {
@@ -841,6 +857,13 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
 
       return { results, profileAvatarUrl };
     }); // end page.evaluate()
+
+    // DEBUG: retrieve and log first card DOM structure for view count selector debugging
+    try {
+      const debugHTML = await page.evaluate(() => window.__debugCardHTML || 'none');
+      const debugText = await page.evaluate(() => window.__debugCardText || 'none');
+      logger.info('discovery.debug.card_dom', { debugHTML: debugHTML.substring(0, 1500), debugText });
+    } catch { /* ignore debug failures */ }
 
     const allRaw = rawItems.results || [];
     const profileAvatarUrl = rawItems.profileAvatarUrl || '';
@@ -1064,6 +1087,7 @@ async function triggerProfileDiscovery({
       scrapedCanonicalUrls,
       profileRemovedOnSource,
       canAssertProfileAvailable: items.length > 0,
+      markMissingAsRemoved: config.DISCOVERY_MARK_MISSING_AS_REMOVED,
       checkedAt: sourceCheckedAt,
     });
 
