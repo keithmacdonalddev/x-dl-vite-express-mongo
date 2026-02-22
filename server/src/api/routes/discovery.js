@@ -791,18 +791,22 @@ discoveryRouter.post('/:accountSlug/refresh', async (req, res) => {
     })
       .sort({ publishedAt: -1, createdAt: -1 })
       .lean();
-    if (!sampleJob) {
-      return sendError(res, 404, ERROR_CODES.DISCOVERY_NOT_FOUND, 'No TikTok jobs found for this contact.');
-    }
+
+    // If no downloaded jobs exist for this contact (e.g. discovery-only contacts),
+    // construct the TikTok profile URL directly from the slug — TikTok handles always
+    // follow the pattern https://www.tiktok.com/@<handle> and the slug IS the handle.
+    const profileUrl = sampleJob
+      ? sampleJob.tweetUrl
+      : `https://www.tiktok.com/@${slug}`;
 
     // Fire-and-forget
     ACTIVE_DISCOVERY_REFRESH_BY_SLUG.set(slug, Date.now());
     triggerProfileDiscovery({
-      tweetUrl: sampleJob.tweetUrl,
+      tweetUrl: profileUrl,
       accountSlug: slug,
-      accountHandle: sampleJob.accountHandle || '',
-      accountDisplayName: sampleJob.accountDisplayName || '',
-      sourceJobId: sampleJob._id,
+      accountHandle: sampleJob ? sampleJob.accountHandle || '' : `@${slug}`,
+      accountDisplayName: sampleJob ? sampleJob.accountDisplayName || '' : '',
+      sourceJobId: sampleJob ? sampleJob._id : null,
       traceId,
     })
       .catch((err) => {

@@ -201,16 +201,44 @@ export function ContactProfilePage({
     if (contact) return contact
     if (discoveredPosts.length > 0) {
       const sample = discoveredPosts[0]
+
+      // Derive firstSeenAt and latestAt from published/created dates across all posts
+      let firstSeenMs = 0
+      let latestMs = 0
+      for (const post of discoveredPosts) {
+        const ms = toDateMs(getPublishedAtValue(post)) || toDateMs(post?.createdAt)
+        if (ms > 0) {
+          if (firstSeenMs === 0 || ms < firstSeenMs) firstSeenMs = ms
+          if (ms > latestMs) latestMs = ms
+        }
+      }
+
+      // Normalize handle — ensure it always has the @ prefix
+      const rawHandle = sample?.accountHandle || normalizedSlug
+      const handle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`
+
+      // Use the same avatar path convention as buildContacts() — falls back to
+      // discovered post thumbnail URL if the avatar file doesn't exist (handled
+      // by the <img> onError below).
+      const avatarPath = `downloads/${normalizedSlug}/avatar.jpg`
+
+      // Collect the most recent thumbnail from discovered posts for avatar fallback
+      const latestThumbnail =
+        sample?.thumbnailPath ||
+        sample?.thumbnailUrl ||
+        ''
+
       return {
         slug: normalizedSlug,
-        handle: sample?.accountHandle || normalizedSlug,
+        handle,
         displayName: sample?.accountDisplayName || '',
         platform: sample?.accountPlatform || 'tiktok',
         totalJobs: 0,
         completedJobs: 0,
-        firstSeenAt: null,
-        latestAt: null,
-        avatarPath: null,
+        firstSeenAt: firstSeenMs > 0 ? new Date(firstSeenMs).toISOString() : null,
+        latestAt: latestMs > 0 ? new Date(latestMs).toISOString() : null,
+        avatarPath,
+        latestThumbnail,
         profileRemovedFromSourceAt: null,
       }
     }
@@ -896,7 +924,7 @@ export function ContactProfilePage({
             src={toAssetHref(effectiveContact?.avatarPath)}
             alt={effectiveContact?.displayName || effectiveContact?.handle || effectiveContact?.slug}
             onError={(e) => {
-              const fallback = toAssetHref(contact?.latestThumbnail)
+              const fallback = toAssetHref(effectiveContact?.latestThumbnail)
               if (fallback && e.target.src !== fallback) {
                 e.target.src = fallback
               } else {
