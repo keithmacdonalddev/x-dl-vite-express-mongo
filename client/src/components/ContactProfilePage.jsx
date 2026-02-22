@@ -194,13 +194,36 @@ export function ContactProfilePage({
     [contacts, normalizedSlug]
   )
 
+  // Synthesize a minimal contact object from discovered posts when there are no
+  // downloaded jobs for this slug (e.g. a profile that was only ever discovered,
+  // never downloaded). Falls back to null when neither source has data.
+  const effectiveContact = useMemo(() => {
+    if (contact) return contact
+    if (discoveredPosts.length > 0) {
+      const sample = discoveredPosts[0]
+      return {
+        slug: normalizedSlug,
+        handle: sample?.accountHandle || normalizedSlug,
+        displayName: sample?.accountDisplayName || '',
+        platform: sample?.accountPlatform || 'tiktok',
+        totalJobs: 0,
+        completedJobs: 0,
+        firstSeenAt: null,
+        latestAt: null,
+        avatarPath: null,
+        profileRemovedFromSourceAt: null,
+      }
+    }
+    return null
+  }, [contact, discoveredPosts, normalizedSlug])
+
   useEffect(() => {
     if (!normalizedSlug) return
     const signature = [
       normalizedSlug,
-      contact?.handle || '',
-      contact?.displayName || '',
-      contact?.avatarPath || '',
+      effectiveContact?.handle || '',
+      effectiveContact?.displayName || '',
+      effectiveContact?.avatarPath || '',
     ].join('|')
     if (signature === recordedProfileSignatureRef.current) {
       return
@@ -208,11 +231,11 @@ export function ContactProfilePage({
     recordedProfileSignatureRef.current = signature
     recordProfileView({
       slug: normalizedSlug,
-      handle: contact?.handle || `@${normalizedSlug}`,
-      displayName: contact?.displayName || '',
-      avatarPath: contact?.avatarPath || '',
+      handle: effectiveContact?.handle || `@${normalizedSlug}`,
+      displayName: effectiveContact?.displayName || '',
+      avatarPath: effectiveContact?.avatarPath || '',
     })
-  }, [contact?.avatarPath, contact?.displayName, contact?.handle, normalizedSlug])
+  }, [effectiveContact?.avatarPath, effectiveContact?.displayName, effectiveContact?.handle, normalizedSlug])
 
   const contactJobs = useMemo(
     () => jobs.slice().sort(compareByPublishedAtDesc),
@@ -743,8 +766,8 @@ export function ContactProfilePage({
       outputPath,
       thumbnailPath: post.thumbnailPath || '',
       thumbnailUrl: post.thumbnailUrl || '',
-      handle: contact?.handle || `@${normalizedSlug}`,
-      displayName: contact?.displayName || '',
+      handle: effectiveContact?.handle || `@${normalizedSlug}`,
+      displayName: effectiveContact?.displayName || '',
     })
   }
 
@@ -846,7 +869,7 @@ export function ContactProfilePage({
         </div>
         <p className="eyebrow">creator profile</p>
         <div className="profile-hero-top-row">
-          <h1>{contact?.displayName || contact?.handle || `@${contactSlug}`}</h1>
+          <h1>{effectiveContact?.displayName || effectiveContact?.handle || `@${contactSlug}`}</h1>
           <div className="profile-hero-intake-inline">
             <IntakeForm onCreated={refresh} isBusy={actions.isMutating} compact />
           </div>
@@ -861,8 +884,8 @@ export function ContactProfilePage({
           <h2>Profile Summary</h2>
           <img
             className="profile-avatar"
-            src={toAssetHref(contact?.avatarPath)}
-            alt={contact?.displayName || contact?.handle || contact?.slug}
+            src={toAssetHref(effectiveContact?.avatarPath)}
+            alt={effectiveContact?.displayName || effectiveContact?.handle || effectiveContact?.slug}
             onError={(e) => {
               const fallback = toAssetHref(contact?.latestThumbnail)
               if (fallback && e.target.src !== fallback) {
@@ -872,33 +895,35 @@ export function ContactProfilePage({
               }
             }}
           />
-          <p><strong>Handle:</strong> {contact?.handle || 'n/a'}</p>
-          <p><strong>Platform:</strong> {contact?.platform || 'unknown'}</p>
+          <p><strong>Handle:</strong> {effectiveContact?.handle || 'n/a'}</p>
+          <p><strong>Platform:</strong> {effectiveContact?.platform || 'unknown'}</p>
           <p>
             <strong>Source profile:</strong>{' '}
-            {contact?.profileRemovedFromSourceAt
-              ? `Unavailable on TikTok (${formatShortDate(contact.profileRemovedFromSourceAt)})`
+            {effectiveContact?.profileRemovedFromSourceAt
+              ? `Unavailable on TikTok (${formatShortDate(effectiveContact.profileRemovedFromSourceAt)})`
               : 'Not flagged'}
           </p>
-          <p><strong>Total jobs:</strong> {contact?.totalJobs || 0}</p>
-          <p><strong>Completed:</strong> {contact?.completedJobs || 0}</p>
-          <p><strong>First seen:</strong> {formatShortDate(contact?.firstSeenAt)}</p>
-          <p><strong>Latest:</strong> {formatShortDate(contact?.latestAt)}</p>
+          <p><strong>Total jobs:</strong> {effectiveContact?.totalJobs || 0}</p>
+          <p><strong>Completed:</strong> {effectiveContact?.completedJobs || 0}</p>
+          <p><strong>First seen:</strong> {formatShortDate(effectiveContact?.firstSeenAt)}</p>
+          <p><strong>Latest:</strong> {formatShortDate(effectiveContact?.latestAt)}</p>
           <div className="profile-actions-area">
-            <form className="edit-form profile-edit-inline" onSubmit={saveContactEdit}>
-              <input
-                id="contact-display-name"
-                type="text"
-                placeholder="Display name"
-                value={editContactName}
-                onChange={(event) => setEditContactName(event.target.value)}
-              />
-              <button type="submit" disabled={actions.isMutating}>
-                {actions.isMutating ? '...' : 'Save'}
-              </button>
-            </form>
+            {contact && (
+              <form className="edit-form profile-edit-inline" onSubmit={saveContactEdit}>
+                <input
+                  id="contact-display-name"
+                  type="text"
+                  placeholder="Display name"
+                  value={editContactName}
+                  onChange={(event) => setEditContactName(event.target.value)}
+                />
+                <button type="submit" disabled={actions.isMutating}>
+                  {actions.isMutating ? '...' : 'Save'}
+                </button>
+              </form>
+            )}
             <div className="profile-actions-row">
-              {contact?.platform === 'tiktok' && (
+              {effectiveContact?.platform === 'tiktok' && (
                 <button
                   type="button"
                   className="ghost-btn"
@@ -936,9 +961,11 @@ export function ContactProfilePage({
                 </p>
               </div>
             )}
-            <button type="button" className="profile-delete-link" onClick={openContactDelete} disabled={actions.isMutating}>
-              Delete contact
-            </button>
+            {contact && (
+              <button type="button" className="profile-delete-link" onClick={openContactDelete} disabled={actions.isMutating}>
+                Delete contact
+              </button>
+            )}
           </div>
           {errorMessage && <p className="error">{errorMessage}</p>}
         </aside>
