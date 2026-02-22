@@ -31,6 +31,9 @@ const DEDUPE_JOB_STATUSES = [...ACTIVE_JOB_STATUSES, JOB_STATUSES.COMPLETED];
 const JOB_LIST_VIEW_COMPACT = 'compact';
 const JOB_LIST_VIEW_FULL = 'full';
 const JOB_LIST_VIEWS = new Set([JOB_LIST_VIEW_COMPACT, JOB_LIST_VIEW_FULL]);
+const JOB_LIST_SORT_PUBLISHED = 'published';
+const JOB_LIST_SORT_CREATED = 'created';
+const JOB_LIST_SORTS = new Set([JOB_LIST_SORT_PUBLISHED, JOB_LIST_SORT_CREATED]);
 const JOB_LIST_SELECT_COMPACT = [
   'tweetUrl',
   'canonicalUrl',
@@ -77,12 +80,19 @@ function parseListQuery(query = {}) {
       ? query.favorite.trim().toLowerCase()
       : '';
   const favoriteOnly = favoriteRaw === '1' || favoriteRaw === 'true' || favoriteRaw === 'yes';
+  const sortByRaw = typeof query.sortBy === 'string' ? query.sortBy.trim().toLowerCase() : '';
+  const sortBy = JOB_LIST_SORTS.has(sortByRaw) ? sortByRaw : JOB_LIST_SORT_PUBLISHED;
+  const sort = sortBy === JOB_LIST_SORT_CREATED
+    ? { createdAt: -1, publishedAt: -1 }
+    : { publishedAt: -1, createdAt: -1 };
   const view = normalizeListView(query.view);
   const projection = view === JOB_LIST_VIEW_FULL ? JOB_LIST_SELECT_FULL : JOB_LIST_SELECT_COMPACT;
   return {
     limit,
     status,
     favoriteOnly,
+    sortBy,
+    sort,
     view,
     projection,
   };
@@ -114,10 +124,11 @@ async function listJobsByFilter({
   filter = {},
   projection = JOB_LIST_SELECT_COMPACT,
   limit = 50,
+  sort = { publishedAt: -1, createdAt: -1 },
 } = {}) {
   return Job.find(filter)
     .select(projection)
-    .sort({ publishedAt: -1, createdAt: -1 })
+    .sort(sort)
     .limit(limit)
     .lean();
 }
@@ -158,6 +169,8 @@ async function requeueExistingJob(jobId, traceId) {
         sourceType: 'unknown',
         extractedUrl: '',
         candidateUrls: [],
+        removedFromSourceAt: null,
+        profileRemovedFromSourceAt: null,
         error: '',
         errorCode: '',
       },
@@ -166,6 +179,29 @@ async function requeueExistingJob(jobId, traceId) {
       returnDocument: 'after',
     }
   ).lean();
+}
+
+async function clearRemovedFlagsForJob(jobId) {
+  if (!jobId) {
+    return null;
+  }
+  if (!Job || typeof Job.findByIdAndUpdate !== 'function') {
+    return null;
+  }
+  try {
+    return await Job.findByIdAndUpdate(
+      jobId,
+      {
+        $set: {
+          removedFromSourceAt: null,
+          profileRemovedFromSourceAt: null,
+        },
+      },
+      { returnDocument: 'after' }
+    ).lean();
+  } catch {
+    return null;
+  }
 }
 
 function spawnDetached(command, args) {
@@ -276,7 +312,7 @@ jobsRouter.get('/', async (req, res) => {
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
-  const { limit, status, favoriteOnly, view, projection } = parseListQuery(req.query);
+  const { limit, status, favoriteOnly, sortBy, sort, view, projection } = parseListQuery(req.query);
   const filter = {};
   if (status) {
     filter.status = status;
@@ -286,10 +322,11 @@ jobsRouter.get('/', async (req, res) => {
   }
 
   try {
-    const jobs = await listJobsByFilter({ filter, projection, limit });
+    const jobs = await listJobsByFilter({ filter, projection, limit, sort });
     return res.json({
       ok: true,
       view,
+      sortBy,
       jobs,
     });
   } catch (error) {
@@ -309,7 +346,7 @@ jobsRouter.get('/contact/:slug', async (req, res) => {
     return sendError(res, 400, ERROR_CODES.INVALID_CONTACT_SLUG, 'Invalid contact slug.');
   }
 
-  const { limit, status, favoriteOnly, view, projection } = parseListQuery(req.query);
+  const { limit, status, favoriteOnly, sortBy, sort, view, projection } = parseListQuery(req.query);
   const primaryFilter = { accountSlug: slug };
   if (status) {
     primaryFilter.status = status;
@@ -319,18 +356,19 @@ jobsRouter.get('/contact/:slug', async (req, res) => {
   }
 
   try {
-    let jobs = await listJobsByFilter({ filter: primaryFilter, projection, limit });
+    let jobs = await listJobsByFilter({ filter: primaryFilter, projection, limit, sort });
     let usedLegacyFallback = false;
 
     if (jobs.length === 0) {
       const legacyFilter = buildLegacyContactFilter(slug, status);
-      jobs = await listJobsByFilter({ filter: legacyFilter, projection, limit });
+      jobs = await listJobsByFilter({ filter: legacyFilter, projection, limit, sort });
       usedLegacyFallback = true;
     }
 
     return res.json({
       ok: true,
       view,
+      sortBy,
       contactSlug: slug,
       usedLegacyFallback,
       jobs,
@@ -525,25 +563,26 @@ jobsRouter.post('/', async (req, res) => {
         : JOB_STATUSES.QUEUED;
 
       if (existingJobStatus === JOB_STATUSES.COMPLETED) {
-        const hasOutput = typeof existingJob.outputPath === 'string' &&
-          existingJob.outputPath.trim() &&
-          await hasJobOutputFile(existingJob);
-        if (!hasOutput) {
-          const requeuedJob = await requeueExistingJob(existingJob._id, traceId);
-          if (requeuedJob) {
-            logger.info('jobs.create.requeued_missing_file', {
-              traceId,
-              tweetUrl,
-              canonicalUrl,
-              jobId: existingJobId,
-            });
+        const hasOutputPath = typeof existingJob.outputPath === 'string' && existingJob.outputPath.trim();
+        if (hasOutputPath) {
+          const hasOutput = await hasJobOutputFile(existingJob);
+          if (!hasOutput) {
+            const requeuedJob = await requeueExistingJob(existingJob._id, traceId);
+            if (requeuedJob) {
+              logger.info('jobs.create.requeued_missing_file', {
+                traceId,
+                tweetUrl,
+                canonicalUrl,
+                jobId: existingJobId,
+              });
 
-            return res.status(201).json({
-              ok: true,
-              job: requeuedJob,
-              traceId,
-              requeued: true,
-            });
+              return res.status(201).json({
+                ok: true,
+                job: requeuedJob,
+                traceId,
+                requeued: true,
+              });
+            }
           }
         }
       }
@@ -557,6 +596,8 @@ jobsRouter.post('/', async (req, res) => {
         existingJobId,
         existingJobStatus,
       });
+
+      await clearRemovedFlagsForJob(existingJob._id);
 
       return res.status(409).json({
         ok: false,
@@ -592,25 +633,26 @@ jobsRouter.post('/', async (req, res) => {
             : JOB_STATUSES.QUEUED;
 
           if (existingJobStatus === JOB_STATUSES.COMPLETED) {
-            const hasOutput = typeof racedJob.outputPath === 'string' &&
-              racedJob.outputPath.trim() &&
-              await hasJobOutputFile(racedJob);
-            if (!hasOutput) {
-              const requeuedJob = await requeueExistingJob(racedJob._id, traceId);
-              if (requeuedJob) {
-                logger.info('jobs.create.requeued_missing_file_race', {
-                  traceId,
-                  tweetUrl,
-                  canonicalUrl,
-                  jobId: existingJobId,
-                });
+            const hasOutputPath = typeof racedJob.outputPath === 'string' && racedJob.outputPath.trim();
+            if (hasOutputPath) {
+              const hasOutput = await hasJobOutputFile(racedJob);
+              if (!hasOutput) {
+                const requeuedJob = await requeueExistingJob(racedJob._id, traceId);
+                if (requeuedJob) {
+                  logger.info('jobs.create.requeued_missing_file_race', {
+                    traceId,
+                    tweetUrl,
+                    canonicalUrl,
+                    jobId: existingJobId,
+                  });
 
-                return res.status(201).json({
-                  ok: true,
-                  job: requeuedJob,
-                  traceId,
-                  requeued: true,
-                });
+                  return res.status(201).json({
+                    ok: true,
+                    job: requeuedJob,
+                    traceId,
+                    requeued: true,
+                  });
+                }
               }
             }
           }
@@ -624,6 +666,8 @@ jobsRouter.post('/', async (req, res) => {
             existingJobId,
             existingJobStatus,
           });
+
+          await clearRemovedFlagsForJob(racedJob._id);
 
           return res.status(409).json({
             ok: false,
@@ -730,6 +774,49 @@ jobsRouter.patch('/:id', async (req, res) => {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('jobs.update.failed', { message, jobId: req.params.id });
     return sendError(res, 500, ERROR_CODES.UPDATE_JOB_FAILED, `Failed to update job: ${message}`);
+  }
+});
+
+jobsRouter.post('/:id/redownload', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  if (!isValidObjectId(req.params.id)) {
+    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid job id.');
+  }
+
+  try {
+    const job = await Job.findById(req.params.id).lean();
+    if (!job) {
+      return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
+    }
+
+    if (ACTIVE_JOB_STATUSES.includes(job.status)) {
+      return sendError(res, 409, ERROR_CODES.DUPLICATE_ACTIVE_JOB, 'Job is currently active and cannot be redownloaded.');
+    }
+
+    await deleteJobFiles(job);
+
+    const requeued = await requeueExistingJob(job._id, traceId);
+    if (!requeued) {
+      return sendError(res, 500, ERROR_CODES.UPDATE_JOB_FAILED, 'Failed to requeue job for redownload.');
+    }
+
+    logger.info('jobs.redownload.queued', {
+      traceId,
+      jobId: String(job._id),
+      previousStatus: job.status,
+    });
+
+    res.set('x-trace-id', traceId);
+    return res.status(201).json({ ok: true, job: requeued, requeued: true, traceId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('jobs.redownload.failed', { traceId, message, jobId: req.params.id });
+    return sendError(res, 500, ERROR_CODES.UPDATE_JOB_FAILED, `Failed to redownload job: ${message}`);
   }
 });
 
