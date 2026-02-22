@@ -233,6 +233,14 @@ function isLikelyMediaUrl(url) {
   );
 }
 
+function extractVideoIdFromUrl(url) {
+  if (typeof url !== 'string' || !url) {
+    return '';
+  }
+  const match = /\/video\/(\d+)/i.exec(url);
+  return match && match[1] ? String(match[1]) : '';
+}
+
 function extractMediaUrlsFromContent(content) {
   if (typeof content !== 'string' || !content) {
     return [];
@@ -294,14 +302,20 @@ async function extractTikTokPostMetadata(page) {
   }
 }
 
-async function extractTikTokRehydrationUrls(page) {
+async function extractTikTokRehydrationUrls(page, targetVideoId = '') {
   if (!page || typeof page.evaluate !== 'function') {
     return [];
   }
 
   try {
-    const urls = await page.evaluate(() => {
+    const urls = await page.evaluate((targetVideoIdArg) => {
       const results = [];
+      const targetVideoId = typeof targetVideoIdArg === 'string' && targetVideoIdArg
+        ? targetVideoIdArg
+        : (() => {
+          const match = /\/video\/(\d+)/i.exec(String(window.location && window.location.href || ''));
+          return match && match[1] ? String(match[1]) : '';
+        })();
 
       // Strategy 1: __UNIVERSAL_DATA_FOR_REHYDRATION__ (modern TikTok pages)
       const rehydrationScript = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
@@ -312,36 +326,43 @@ async function extractTikTokRehydrationUrls(page) {
           const videoDetail = defaultScope['webapp.video-detail'] || {};
           const itemInfo = videoDetail.itemInfo || {};
           const itemStruct = itemInfo.itemStruct || {};
-          const video = itemStruct.video || {};
+          const itemId = itemStruct && itemStruct.id ? String(itemStruct.id) : '';
+          const video = (!targetVideoId || !itemId || itemId === targetVideoId)
+            ? (itemStruct.video || {})
+            : null;
+          if (!video) {
+            // Skip non-target item details while still allowing SIGI fallback.
+          } else {
 
-          // play_addr = non-watermarked playback stream (preferred)
-          if (video.play_addr && Array.isArray(video.play_addr.url_list)) {
-            for (const u of video.play_addr.url_list) {
-              if (typeof u === 'string' && u.startsWith('http')) {
-                results.push({ url: u, source: 'play_addr' });
+            // play_addr = non-watermarked playback stream (preferred)
+            if (video.play_addr && Array.isArray(video.play_addr.url_list)) {
+              for (const u of video.play_addr.url_list) {
+                if (typeof u === 'string' && u.startsWith('http')) {
+                  results.push({ url: u, source: 'play_addr' });
+                }
               }
             }
-          }
 
-          // bitrateInfo[].PlayAddr = quality variants (non-watermarked, up to 6x higher bitrate)
-          if (Array.isArray(video.bitrateInfo)) {
-            for (const variant of video.bitrateInfo) {
-              const playAddr = variant.PlayAddr || variant.play_addr;
-              if (playAddr && Array.isArray(playAddr.url_list)) {
-                for (const u of playAddr.url_list) {
-                  if (typeof u === 'string' && u.startsWith('http')) {
-                    results.push({ url: u, source: 'bitrate_variant' });
+            // bitrateInfo[].PlayAddr = quality variants (non-watermarked, up to 6x higher bitrate)
+            if (Array.isArray(video.bitrateInfo)) {
+              for (const variant of video.bitrateInfo) {
+                const playAddr = variant.PlayAddr || variant.play_addr;
+                if (playAddr && Array.isArray(playAddr.url_list)) {
+                  for (const u of playAddr.url_list) {
+                    if (typeof u === 'string' && u.startsWith('http')) {
+                      results.push({ url: u, source: 'bitrate_variant' });
+                    }
                   }
                 }
               }
             }
-          }
 
-          // download_addr = watermarked "save video" stream (deprioritized by ranking)
-          if (video.download_addr && Array.isArray(video.download_addr.url_list)) {
-            for (const u of video.download_addr.url_list) {
-              if (typeof u === 'string' && u.startsWith('http')) {
-                results.push({ url: u, source: 'download_addr' });
+            // download_addr = watermarked "save video" stream (deprioritized by ranking)
+            if (video.download_addr && Array.isArray(video.download_addr.url_list)) {
+              for (const u of video.download_addr.url_list) {
+                if (typeof u === 'string' && u.startsWith('http')) {
+                  results.push({ url: u, source: 'download_addr' });
+                }
               }
             }
           }
@@ -358,6 +379,10 @@ async function extractTikTokRehydrationUrls(page) {
           const itemModule = data.ItemModule || {};
           for (const key of Object.keys(itemModule)) {
             const item = itemModule[key];
+            const itemId = item && (item.id || item.itemId || key) ? String(item.id || item.itemId || key) : '';
+            if (targetVideoId && itemId && itemId !== targetVideoId) {
+              continue;
+            }
             const video = item && item.video;
             if (!video) continue;
 
@@ -374,7 +399,7 @@ async function extractTikTokRehydrationUrls(page) {
       }
 
       return results;
-    });
+    }, targetVideoId);
 
     return Array.isArray(urls) ? urls : [];
   } catch {
@@ -665,6 +690,7 @@ function createPlaywrightPageFactory(options = {}) {
     const page = opened.page;
     const mediaUrls = new Set();
     const imageUrls = new Set();
+    let lastTargetUrl = '';
 
     const onResponse = (response) => {
       try {
@@ -682,6 +708,11 @@ function createPlaywrightPageFactory(options = {}) {
 
     return {
       async goto(targetUrl) {
+        // Clear intercepted URL sets on each navigation so that URLs from a prior
+        // goto() call (e.g. a retry or redirect) do not pollute the new target's pool.
+        mediaUrls.clear();
+        imageUrls.clear();
+        lastTargetUrl = typeof targetUrl === 'string' ? targetUrl : '';
         await page.goto(targetUrl, {
           waitUntil: 'domcontentloaded',
           timeout: config.navigationTimeoutMs,
@@ -714,19 +745,60 @@ function createPlaywrightPageFactory(options = {}) {
 
         // Extract structured video URLs from TikTok's embedded JSON data.
         // play_addr URLs from this source are non-watermarked HD.
+        // targetVideoId is kept in outer scope so we can use it in the network-URL
+        // fallback below — rehydration already identity-filters, but network interception
+        // captures recommendation/autoplay traffic for OTHER videos alongside the target.
+        let targetVideoId = '';
         try {
-          const rehydrationUrls = await extractTikTokRehydrationUrls(page);
+          const currentUrl = typeof page.url === 'function' ? page.url() : '';
+          targetVideoId = extractVideoIdFromUrl(currentUrl) || extractVideoIdFromUrl(lastTargetUrl);
+          const rehydrationUrls = await extractTikTokRehydrationUrls(page, targetVideoId);
+          const prioritizedRehydrationUrls = [];
           for (const entry of rehydrationUrls) {
             if (entry && typeof entry.url === 'string') {
               // Only add non-watermarked sources (play_addr, bitrate_variant, sigi_play_addr)
               // download_addr and sigi_download_addr are watermarked — exclude them
               if (entry.source !== 'download_addr' && entry.source !== 'sigi_download_addr') {
-                combined.add(entry.url);
+                prioritizedRehydrationUrls.push(entry.url);
               }
             }
           }
+
+          if (prioritizedRehydrationUrls.length > 0) {
+            return Array.from(new Set(prioritizedRehydrationUrls));
+          }
         } catch {
           // ignore rehydration extraction failures
+        }
+
+        // Rehydration failed or returned no results — fall back to network-intercepted URLs.
+        // TikTok recommendation widgets and autoplay load media from OTHER creators' videos
+        // during the same page session, polluting the intercepted URL pool. Filter those out
+        // by matching the item_id query parameter against the target video ID. Any URL without
+        // item_id is kept (it may legitimately belong to the target video's CDN response).
+        if (targetVideoId) {
+          const filtered = Array.from(combined).filter((url) => {
+            try {
+              const parsed = new URL(url);
+              const itemId = parsed.searchParams.get('item_id');
+              // Keep URLs that match the target OR have no item_id param (could be target)
+              if (itemId && itemId !== targetVideoId) return false;
+              return true;
+            } catch {
+              return true;
+            }
+          });
+
+          if (filtered.length < combined.size) {
+            logger.info('extraction.collectMediaUrls.filtered_non_target', {
+              targetVideoId,
+              before: combined.size,
+              after: filtered.length,
+              removed: combined.size - filtered.length,
+            });
+          }
+
+          if (filtered.length > 0) return filtered;
         }
 
         return Array.from(combined);

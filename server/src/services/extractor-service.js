@@ -201,10 +201,36 @@ function getMediaCandidateFacts(url) {
   }
 }
 
-function getDirectQualityScore(url) {
+function extractVideoIdFromUrl(url) {
+  if (typeof url !== 'string' || !url) {
+    return '';
+  }
+  const match = /\/video\/(\d+)/i.exec(url);
+  return match && match[1] ? String(match[1]) : '';
+}
+
+function getDirectQualityScore(url, targetVideoId = '') {
   const facts = getMediaCandidateFacts(url);
 
+  // Identity verification: a URL whose item_id param matches the target video is
+  // guaranteed to be the right video. Prioritise it above all quality criteria so
+  // that a lower-resolution confirmed-target URL is always preferred over a
+  // high-quality URL that might belong to a recommendation/autoplay video.
+  let identityMatch = 0;
+  if (targetVideoId) {
+    try {
+      const parsed = new URL(url);
+      const itemId = parsed.searchParams.get('item_id');
+      if (itemId === targetVideoId) {
+        identityMatch = 1;
+      }
+    } catch {
+      // ignore parse failures — URL remains unverified (identityMatch stays 0)
+    }
+  }
+
   return {
+    identityMatch,
     nonWatermark: facts.hasWatermark ? 0 : 1,
     likelyClean: facts.isLikelyClean ? 1 : 0,
     signedPreference: facts.isSigned ? 1 : 0,
@@ -217,10 +243,15 @@ function getDirectQualityScore(url) {
   };
 }
 
-function compareDirectQuality(leftUrl, rightUrl) {
-  const left = getDirectQualityScore(leftUrl);
-  const right = getDirectQualityScore(rightUrl);
+function compareDirectQuality(leftUrl, rightUrl, targetVideoId = '') {
+  const left = getDirectQualityScore(leftUrl, targetVideoId);
+  const right = getDirectQualityScore(rightUrl, targetVideoId);
 
+  // Identity match is the absolute highest priority: a URL confirmed to belong to the
+  // target video must win over any unconfirmed URL regardless of quality metrics.
+  if (left.identityMatch !== right.identityMatch) {
+    return right.identityMatch - left.identityMatch;
+  }
   if (left.nonWatermark !== right.nonWatermark) {
     return right.nonWatermark - left.nonWatermark;
   }
@@ -251,13 +282,13 @@ function compareDirectQuality(leftUrl, rightUrl) {
   return 0;
 }
 
-function pickBestDirectMediaUrl(urls) {
+function pickBestDirectMediaUrl(urls, targetVideoId = '') {
   const candidates = urls.filter((url) => isDirectVideoCandidate(url));
   if (candidates.length === 0) {
     return '';
   }
 
-  return candidates.sort(compareDirectQuality)[0];
+  return candidates.sort((a, b) => compareDirectQuality(a, b, targetVideoId))[0];
 }
 
 function compareHlsQuality(leftUrl, rightUrl) {
@@ -276,14 +307,14 @@ function compareHlsQuality(leftUrl, rightUrl) {
   return 0;
 }
 
-function listCandidateMediaUrls(urls) {
+function listCandidateMediaUrls(urls, targetVideoId = '') {
   if (!Array.isArray(urls) || urls.length === 0) {
     return [];
   }
 
   const directCandidates = urls
     .filter((url) => isDirectVideoCandidate(url))
-    .sort(compareDirectQuality);
+    .sort((a, b) => compareDirectQuality(a, b, targetVideoId));
 
   const hlsCandidates = urls.filter((url) => isHlsCandidate(url)).sort(compareHlsQuality);
 
@@ -300,13 +331,13 @@ function sanitizeUrlArray(values) {
   return Array.from(new Set(cleaned));
 }
 
-function pickMediaUrl(urls) {
+function pickMediaUrl(urls, targetVideoId = '') {
   if (!Array.isArray(urls) || urls.length === 0) {
     return { mediaUrl: '', sourceType: SOURCE_TYPES.UNKNOWN, candidateUrls: [] };
   }
 
-  const candidateUrls = listCandidateMediaUrls(urls);
-  const direct = pickBestDirectMediaUrl(urls);
+  const candidateUrls = listCandidateMediaUrls(urls, targetVideoId);
+  const direct = pickBestDirectMediaUrl(urls, targetVideoId);
   if (direct) {
     return { mediaUrl: direct, sourceType: SOURCE_TYPES.DIRECT, candidateUrls };
   }
@@ -400,7 +431,8 @@ async function extractFromTweet(tweetUrl, { pageFactory, telemetryContext } = {}
       durationMs: Date.now() - metadataStartedAt,
       metadataKeys: metadata && typeof metadata === 'object' ? Object.keys(metadata) : [],
     });
-    const { mediaUrl, sourceType, candidateUrls } = pickMediaUrl(mediaUrls);
+    const targetVideoId = extractVideoIdFromUrl(tweetUrl);
+    const { mediaUrl, sourceType, candidateUrls } = pickMediaUrl(mediaUrls, targetVideoId);
 
     if (!mediaUrl) {
       const diagnostics = typeof page.collectPageDiagnostics === 'function'
