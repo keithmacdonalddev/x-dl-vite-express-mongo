@@ -518,31 +518,22 @@ discoveryRouter.post('/:accountSlug/repair-thumbnails', async (req, res) => {
     });
   }
 
+  // Fire-and-forget
   ACTIVE_THUMBNAIL_REPAIR_BY_SLUG.set(slug, Date.now());
+  repairThumbnailsViaOembed(slug, { traceId })
+    .catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('discovery.repair_thumbnails.failed', { traceId, message, accountSlug: slug });
+    })
+    .finally(() => {
+      ACTIVE_THUMBNAIL_REPAIR_BY_SLUG.delete(slug);
+    });
 
-  try {
-    logger.info('discovery.repair_thumbnails.start', { traceId, accountSlug: slug });
-    const result = await repairThumbnailsViaOembed(slug);
-    logger.info('discovery.repair_thumbnails.done', {
-      traceId,
-      accountSlug: slug,
-      total: result.total,
-      repaired: result.repaired,
-      failed: result.failed,
-    });
-    return res.json({
-      ok: true,
-      total: result.total,
-      repaired: result.repaired,
-      failed: result.failed,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error('discovery.repair_thumbnails.failed', { traceId, message, accountSlug: slug });
-    return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, `Failed to repair thumbnails: ${message}`);
-  } finally {
-    ACTIVE_THUMBNAIL_REPAIR_BY_SLUG.delete(slug);
-  }
+  return res.json({
+    ok: true,
+    message: 'Sync started.',
+    traceId,
+  });
 });
 
 // Catch-all error handler for unexpected errors not caught by route handlers
