@@ -1191,14 +1191,14 @@ const OEMBED_REPAIR_RATE_LIMIT_MS = 500;
  *
  * @param {string} accountSlug - The account slug to repair thumbnails for.
  * @param {{ traceId?: string }} [options]
- * @returns {Promise<{ total: number, repaired: number, failed: number }>}
+ * @returns {Promise<{ total: number, repaired: number, removed: number, failed: number }>}
  */
 async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
   const logContext = { traceId, accountSlug };
 
   if (!accountSlug || typeof accountSlug !== 'string') {
     logger.info('discovery.thumbnails.oembed_repair.invalid_slug', { ...logContext });
-    return { total: 0, repaired: 0, failed: 0 };
+    return { total: 0, repaired: 0, removed: 0, failed: 0 };
   }
 
   // Query for posts with missing/empty/placeholder thumbnails that have a valid canonicalUrl
@@ -1216,20 +1216,21 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error('discovery.thumbnails.oembed_repair.query_failed', { ...logContext, message });
-    return { total: 0, repaired: 0, failed: 0 };
+    return { total: 0, repaired: 0, removed: 0, failed: 0 };
   }
 
   const total = postsNeedingRepair.length;
 
   if (total === 0) {
-    logger.info('discovery.thumbnails.oembed_repair', { ...logContext, total: 0, repaired: 0, failed: 0 });
-    return { total: 0, repaired: 0, failed: 0 };
+    logger.info('discovery.thumbnails.oembed_repair', { ...logContext, total: 0, repaired: 0, removed: 0, failed: 0 });
+    return { total: 0, repaired: 0, removed: 0, failed: 0 };
   }
 
-  logger.info('discovery.thumbnails.oembed_repair.started', { ...logContext, total });
+  logger.info('discovery.sync.started', { traceId, accountSlug, total });
 
   const discoveredDir = path.join(DOWNLOADS_ROOT, accountSlug, 'discovered');
   let repaired = 0;
+  let removed = 0;
   let failed = 0;
 
   for (let i = 0; i < postsNeedingRepair.length; i++) {
@@ -1241,7 +1242,13 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
     }
 
     try {
-      const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(post.canonicalUrl)}`;
+      // TikTok oEmbed requires www. in the URL, but our canonicalUrls strip www.
+      // Normalize: ensure the URL passed to oEmbed uses https://www.tiktok.com/
+      const normalizedUrl = post.canonicalUrl.replace(
+        /^https?:\/\/(tiktok\.com)/i,
+        'https://www.tiktok.com'
+      );
+      const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(normalizedUrl)}`;
       const response = await fetch(oembedUrl, {
         headers: {
           'user-agent':
@@ -1250,6 +1257,20 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
       });
 
       if (!response.ok) {
+        // 404 means the post has been removed from TikTok — mark it as removed
+        if (response.status === 404) {
+          await DiscoveredPost.findByIdAndUpdate(post._id, { $set: { removedFromSourceAt: new Date() } });
+          removed++;
+          logger.info('discovery.sync.post.removed', {
+            traceId,
+            accountSlug,
+            postId: post._id.toString(),
+            index: i,
+            total,
+          });
+          continue;
+        }
+
         logger.info('discovery.thumbnails.oembed_repair.bad_status', {
           ...logContext,
           postId: post._id.toString(),
@@ -1257,6 +1278,14 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
           status: response.status,
         });
         failed++;
+        logger.info('discovery.sync.post.failed', {
+          traceId,
+          accountSlug,
+          postId: post._id.toString(),
+          index: i,
+          total,
+          error: `HTTP ${response.status}`,
+        });
         continue;
       }
 
@@ -1270,33 +1299,49 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
           canonicalUrl: post.canonicalUrl,
         });
         failed++;
+        logger.info('discovery.sync.post.failed', {
+          traceId,
+          accountSlug,
+          postId: post._id.toString(),
+          index: i,
+          total,
+          error: 'Invalid JSON in oEmbed response',
+        });
         continue;
       }
 
-      const thumbnailUrl =
+      const oembedThumbUrl =
         typeof oembedData === 'object' && oembedData !== null
           ? (typeof oembedData.thumbnail_url === 'string' ? oembedData.thumbnail_url : '')
           : '';
 
-      if (!thumbnailUrl || !thumbnailUrl.startsWith('http')) {
+      if (!oembedThumbUrl || !oembedThumbUrl.startsWith('http')) {
         logger.info('discovery.thumbnails.oembed_repair.no_thumbnail_url', {
           ...logContext,
           postId: post._id.toString(),
           canonicalUrl: post.canonicalUrl,
         });
         failed++;
+        logger.info('discovery.sync.post.failed', {
+          traceId,
+          accountSlug,
+          postId: post._id.toString(),
+          index: i,
+          total,
+          error: 'No thumbnail URL in oEmbed response',
+        });
         continue;
       }
 
       // Update the stored thumbnailUrl and clear thumbnailPath so it gets re-downloaded
       await DiscoveredPost.findByIdAndUpdate(post._id, {
-        $set: { thumbnailUrl, thumbnailPath: '' },
+        $set: { thumbnailUrl: oembedThumbUrl, thumbnailPath: '' },
       });
 
       // Download the thumbnail file to disk
       const thumbFilename = `${post.videoId || post._id.toString()}.jpg`;
       const thumbPath = path.join(discoveredDir, thumbFilename);
-      const savedPath = await downloadThumbnail(thumbnailUrl, thumbPath, { traceId });
+      const savedPath = await downloadThumbnail(oembedThumbUrl, thumbPath, { traceId });
 
       if (savedPath) {
         const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
@@ -1304,6 +1349,14 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
       }
 
       repaired++;
+      logger.info('discovery.sync.post.repaired', {
+        traceId,
+        accountSlug,
+        postId: post._id.toString(),
+        index: i,
+        total,
+        thumbnailUrl: oembedThumbUrl,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.info('discovery.thumbnails.oembed_repair.post_failed', {
@@ -1313,11 +1366,19 @@ async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
         message,
       });
       failed++;
+      logger.info('discovery.sync.post.failed', {
+        traceId,
+        accountSlug,
+        postId: post._id.toString(),
+        index: i,
+        total,
+        error: message,
+      });
     }
   }
 
-  logger.info('discovery.thumbnails.oembed_repair', { ...logContext, total, repaired, failed });
-  return { total, repaired, failed };
+  logger.info('discovery.sync.completed', { traceId, accountSlug, total, repaired, removed, failed });
+  return { total, repaired, removed, failed };
 }
 
 module.exports = {

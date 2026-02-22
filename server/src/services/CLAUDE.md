@@ -146,7 +146,7 @@ module.exports = {
   extractHandleFromTikTokUrl,  // (tweetUrl: string) => string
   normalizeHandle,             // (value: string) => string — trims, prefixes @, rejects invalid
   resolveDiscoveryHandle,      // ({ tweetUrl, accountHandle, accountSlug }) => string — best handle for discovery
-  repairThumbnailsViaOembed,   // async (accountSlug: string, { traceId? }) => { total, repaired, failed }
+  repairThumbnailsViaOembed,   // async (accountSlug: string, { traceId? }) => { total, repaired, removed, failed }
 }
 ```
 
