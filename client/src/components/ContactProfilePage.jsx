@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   deleteContactProfile,
   deleteDiscoveredPost,
+  deleteJob,
   downloadDiscoveredPost,
   redownloadDiscoveredPost,
   redownloadJob,
@@ -636,7 +637,15 @@ export function ContactProfilePage({
 
   async function handleDeleteDiscovered(postId) {
     try {
-      await deleteDiscoveredPost(postId)
+      // Synthetic posts (from downloaded jobs with no discovered-post record)
+      // have _id like "job-<objectId>" — delete the underlying job instead
+      if (typeof postId === 'string' && postId.startsWith('job-')) {
+        const jobId = postId.slice(4)
+        if (!jobId) throw new Error('Invalid synthetic post ID: missing job ID')
+        await deleteJob(jobId)
+      } else {
+        await deleteDiscoveredPost(postId)
+      }
       setDiscoveredPosts((prev) => {
         const next = prev.filter((p) => p._id !== postId)
         writeCachedDiscoveredPosts(normalizedSlug, next)

@@ -142,6 +142,7 @@ export function DiscoveredGrid({
   onInitialOpenConsumed,
   size = 'medium',
   title = 'Discovered Videos',
+  countLabel = 'found on profile',
   emptyMessage = 'No discovered posts yet. Download a TikTok video to trigger profile discovery.',
 }) {
   const safePosts = useMemo(() => (Array.isArray(posts) ? posts : []), [posts])
@@ -296,7 +297,7 @@ export function DiscoveredGrid({
       <div className="discovered-header">
         <h3>{title}</h3>
         <p>
-          {safePosts.length} found on profile
+          {safePosts.length} {countLabel}
           {activeDownloadCount > 0 ? ` • ${activeDownloadCount} downloading` : ''}
         </p>
       </div>
