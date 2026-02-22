@@ -567,18 +567,146 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         return '';
       }
 
+      /**
+       * Parse TikTok abbreviated stat numbers to integers.
+       * Handles: "1.2M" → 1200000, "45.3K" → 45300, "892" → 892, "" → 0
+       * Also handles locale-formatted numbers like "1,234" → 1234.
+       */
+      function parseStatNumber(text) {
+        if (!text) return 0;
+        const s = String(text).trim().replace(/,/g, '');
+        if (!s) return 0;
+        const upper = s.toUpperCase();
+        // Billion
+        if (upper.endsWith('B')) {
+          const n = parseFloat(upper.slice(0, -1));
+          return isNaN(n) ? 0 : Math.round(n * 1e9);
+        }
+        // Million
+        if (upper.endsWith('M')) {
+          const n = parseFloat(upper.slice(0, -1));
+          return isNaN(n) ? 0 : Math.round(n * 1e6);
+        }
+        // Thousand
+        if (upper.endsWith('K')) {
+          const n = parseFloat(upper.slice(0, -1));
+          return isNaN(n) ? 0 : Math.round(n * 1e3);
+        }
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : Math.round(n);
+      }
+
+      /**
+       * Extract engagement stats from a video card element.
+       * TikTok renders view counts as text overlays on thumbnail cards.
+       * Tries multiple selector patterns for forward-compatibility.
+       * Returns { playCount, diggCount, shareCount, commentCount } — all default 0.
+       */
+      function extractCardStats(cardEl) {
+        if (!cardEl) return { playCount: 0, diggCount: 0, shareCount: 0, commentCount: 0 };
+
+        // Helper: get text content of first matching selector within cardEl
+        function getText(selectors) {
+          for (const sel of selectors) {
+            try {
+              const el = cardEl.querySelector(sel);
+              if (el) {
+                const t = (el.textContent || el.innerText || '').trim();
+                if (t) return t;
+              }
+            } catch { /* ignore invalid selector */ }
+          }
+          return '';
+        }
+
+        // Play/view count selectors — TikTok uses data-e2e attributes and class patterns
+        const playSelectors = [
+          '[data-e2e="video-views"]',
+          '[data-e2e="video-views-count"]',
+          '[data-e2e="play-count"]',
+          '[class*="VideoCount"]',
+          '[class*="video-count"]',
+          '[class*="PlayCount"]',
+          '[class*="play-count"]',
+          '[class*="viewCount"]',
+          '[class*="view-count"]',
+          // Generic: strong tag is used for primary stat number in many TikTok card designs
+          'strong',
+        ];
+
+        // Like/digg count selectors
+        const diggSelectors = [
+          '[data-e2e="video-likes"]',
+          '[data-e2e="like-count"]',
+          '[class*="DiggCount"]',
+          '[class*="digg-count"]',
+          '[class*="LikeCount"]',
+          '[class*="like-count"]',
+        ];
+
+        // Comment count selectors
+        const commentSelectors = [
+          '[data-e2e="video-comments"]',
+          '[data-e2e="comment-count"]',
+          '[class*="CommentCount"]',
+          '[class*="comment-count"]',
+        ];
+
+        // Share count selectors
+        const shareSelectors = [
+          '[data-e2e="video-share"]',
+          '[data-e2e="share-count"]',
+          '[class*="ShareCount"]',
+          '[class*="share-count"]',
+        ];
+
+        // For grid cards the card container (parent of the anchor) may have the stats overlay
+        // Try to also search within the card's parent for broader coverage
+        const parentEl = cardEl.parentElement || cardEl;
+
+        function getTextWithFallback(selectors) {
+          const t = getText(selectors);
+          if (t) return t;
+          // Try on parent element too
+          for (const sel of selectors) {
+            try {
+              const el = parentEl.querySelector(sel);
+              if (el) {
+                const pt = (el.textContent || el.innerText || '').trim();
+                if (pt) return pt;
+              }
+            } catch { /* ignore */ }
+          }
+          return '';
+        }
+
+        const playText = getTextWithFallback(playSelectors);
+        const diggText = getTextWithFallback(diggSelectors);
+        const commentText = getTextWithFallback(commentSelectors);
+        const shareText = getTextWithFallback(shareSelectors);
+
+        return {
+          playCount: parseStatNumber(playText),
+          diggCount: parseStatNumber(diggText),
+          shareCount: parseStatNumber(shareText),
+          commentCount: parseStatNumber(commentText),
+        };
+      }
+
       function addItem(postUrl, thumbnailUrl, title, avatarUrl, publishedAt, playCount, diggCount, shareCount, commentCount) {
         if (!postUrl) return;
         const key = postUrl.split('?')[0]; // canonical key (no query params)
         if (seen.has(key)) {
-          // Merge stats from richer data source (Strategy 3/4 JSON has stats; Strategy 1/2 DOM does not)
+          // Merge stats: always take the highest value across strategies.
+          // Strategy 3/4 JSON numbers are exact; Strategy 1/2 DOM numbers may be
+          // abbreviated (parsed from "1.2M") so JSON wins when both have values.
           if (playCount > 0 || diggCount > 0 || shareCount > 0 || commentCount > 0) {
             const existing = results.find(r => r.postUrl.split('?')[0] === key);
             if (existing) {
-              if (playCount > 0) existing.playCount = playCount;
-              if (diggCount > 0) existing.diggCount = diggCount;
-              if (shareCount > 0) existing.shareCount = shareCount;
-              if (commentCount > 0) existing.commentCount = commentCount;
+              existing.playCount = Math.max(existing.playCount || 0, playCount || 0);
+              existing.diggCount = Math.max(existing.diggCount || 0, diggCount || 0);
+              existing.shareCount = Math.max(existing.shareCount || 0, shareCount || 0);
+              existing.commentCount = Math.max(existing.commentCount || 0, commentCount || 0);
               // Also merge title and publishedAt if the existing ones are empty
               if (!existing.title && title) existing.title = title;
               if (!existing.publishedAt && publishedAt) existing.publishedAt = publishedAt;
@@ -609,7 +737,10 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         const alt = img ? (img.getAttribute('alt') || '') : '';
         if (href) {
           const fullUrl = href.startsWith('http') ? href : 'https://www.tiktok.com' + href;
-          addItem(fullUrl, thumbUrl, alt, '', '');
+          // The card container ([data-e2e="user-post-item"]) wraps the anchor and stat overlays
+          const cardEl = anchor.closest('[data-e2e="user-post-item"]') || anchor;
+          const stats = extractCardStats(cardEl);
+          addItem(fullUrl, thumbUrl, alt, '', '', stats.playCount, stats.diggCount, stats.shareCount, stats.commentCount);
         }
       }
 
@@ -622,7 +753,14 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         const alt = img ? (img.getAttribute('alt') || '') : '';
         if (href) {
           const fullUrl = href.startsWith('http') ? href : 'https://www.tiktok.com' + href;
-          addItem(fullUrl, thumbUrl, alt, '', '');
+          // Walk up to find a card container — TikTok cards have various wrapper patterns
+          const cardEl = anchor.closest('[data-e2e="user-post-item"]') ||
+                         anchor.closest('[data-e2e="user-post-item-list"]') ||
+                         anchor.closest('li') ||
+                         anchor.parentElement ||
+                         anchor;
+          const stats = extractCardStats(cardEl);
+          addItem(fullUrl, thumbUrl, alt, '', '', stats.playCount, stats.diggCount, stats.shareCount, stats.commentCount);
         }
       }
 
@@ -702,11 +840,33 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
       }
 
       return { results, profileAvatarUrl };
-    });
+    }); // end page.evaluate()
 
     const allRaw = rawItems.results || [];
     const profileAvatarUrl = rawItems.profileAvatarUrl || '';
     const rawCount = allRaw.length;
+
+    // Telemetry: log stat extraction quality so we can verify view counts are being captured
+    if (allRaw.length > 0) {
+      const withPlayCount = allRaw.filter((r) => (r.playCount || 0) > 0).length;
+      const withAnyStats = allRaw.filter((r) =>
+        (r.playCount || 0) > 0 || (r.diggCount || 0) > 0 ||
+        (r.shareCount || 0) > 0 || (r.commentCount || 0) > 0
+      ).length;
+      logger.info('discovery.scrape.stats_extraction', {
+        ...logContext,
+        handle,
+        totalItems: allRaw.length,
+        withPlayCount,
+        withAnyStats,
+        missingStats: allRaw.length - withAnyStats,
+        sampleStats: allRaw.slice(0, 3).map((r) => ({
+          videoId: (r.postUrl || '').match(/\/video\/(\d+)/)?.[1] || '',
+          playCount: r.playCount,
+          diggCount: r.diggCount,
+        })),
+      });
+    }
 
     // Diagnostic DOM snippet if nothing found
     let profileUnavailable = false;
