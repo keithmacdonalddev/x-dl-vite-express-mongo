@@ -847,7 +847,16 @@ export function ContactProfilePage({
     return syncProgress.statusText || 'Syncing...'
   }
 
-  const errorMessage = actions.actionError || error
+  const rawErrorMessage = actions.actionError || error
+  // Suppress "No TikTok jobs found" when discovered posts exist — the user can
+  // see posts in the grid so this server error is misleading. The message only
+  // makes sense when the profile is truly empty (no jobs AND no discovered posts).
+  const errorMessage =
+    rawErrorMessage &&
+    rawErrorMessage.includes('No TikTok jobs found') &&
+    discoveredPosts.length > 0
+      ? ''
+      : rawErrorMessage
 
   return (
     <main className="app">
