@@ -867,6 +867,172 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
 
     const allRaw = rawItems.results || [];
     const profileAvatarUrl = rawItems.profileAvatarUrl || '';
+
+    // ---------------------------------------------------------------------------
+    // Post-render view count extraction: separate pass after main evaluate()
+    //
+    // TikTok renders view counts as overlays on each video card. The main
+    // page.evaluate() extracts them via extractCardStats(), but that function
+    // scopes its querySelector to the card element — which can miss the stats
+    // overlay if it lives in a sibling branch of the DOM tree rather than
+    // inside the anchor child.
+    //
+    // This second pass uses a clean, positional approach:
+    //   1. Query ALL [data-e2e="user-post-item"] cards in DOM order
+    //   2. For each card, try multiple selectors to find view count text
+    //   3. Map by index to the results array (TikTok grid order matches scrape order)
+    //   4. Merge: only overwrite if the existing playCount is 0 (DOM wins over
+    //      failed extractions; JSON from Strategy 3/4 wins when already >0)
+    //
+    // Also tries window globals as a final fallback if the script tags were
+    // already consumed/deleted by the time the main evaluate() ran.
+    // ---------------------------------------------------------------------------
+    try {
+      const domViewCounts = await page.evaluate(() => {
+        // Helper: parse "1.2M" / "45.3K" / "892" / "1,234" -> integer
+        function parseCount(text) {
+          if (!text) return 0;
+          const s = String(text).trim().replace(/,/g, '');
+          if (!s) return 0;
+          const upper = s.toUpperCase();
+          if (upper.endsWith('B')) { const n = parseFloat(upper); return isNaN(n) ? 0 : Math.round(n * 1e9); }
+          if (upper.endsWith('M')) { const n = parseFloat(upper); return isNaN(n) ? 0 : Math.round(n * 1e6); }
+          if (upper.endsWith('K')) { const n = parseFloat(upper); return isNaN(n) ? 0 : Math.round(n * 1e3); }
+          const n = parseFloat(s);
+          return isNaN(n) ? 0 : Math.round(n);
+        }
+
+        // Helper: find view-count text within a card element using ordered selector priority
+        function findViewCountInCard(card) {
+          // Priority 1: TikTok's canonical data-e2e attribute for view counts
+          const e2eSelectors = [
+            '[data-e2e="video-views"]',
+            '[data-e2e="video-views-count"]',
+            '[data-e2e="play-count"]',
+          ];
+          for (const sel of e2eSelectors) {
+            const el = card.querySelector(sel);
+            if (el) {
+              const t = (el.textContent || '').trim();
+              if (t) return t;
+            }
+          }
+
+          // Priority 2: class-based selectors TikTok has used historically
+          const classPatterns = [
+            '[class*="VideoCount"]',
+            '[class*="video-count"]',
+            '[class*="PlayCount"]',
+            '[class*="play-count"]',
+            '[class*="viewCount"]',
+            '[class*="view-count"]',
+            '[class*="video-views"]',
+          ];
+          for (const sel of classPatterns) {
+            const el = card.querySelector(sel);
+            if (el) {
+              const t = (el.textContent || '').trim();
+              if (t && /\d/.test(t)) return t;
+            }
+          }
+
+          // Priority 3: any <strong> that contains a number-like value
+          // TikTok uses <strong> for the primary stat in many card designs.
+          // Filter: must look like "123", "1.2K", "45.3M" etc.
+          const strongs = card.querySelectorAll('strong');
+          for (const strong of strongs) {
+            const t = (strong.textContent || '').trim();
+            // Match abbreviated numbers: digits optionally followed by K/M/B
+            if (/^\d[\d.,]*[KMBkmb]?$/.test(t)) return t;
+          }
+
+          // Priority 4: any <span> whose text looks like an abbreviated stat
+          // (last resort — broader but filtered by pattern)
+          const spans = card.querySelectorAll('span');
+          for (const span of spans) {
+            const t = (span.textContent || '').trim();
+            if (/^\d[\d.,]*[KMBkmb]?$/.test(t)) return t;
+          }
+
+          return '';
+        }
+
+        // Strategy A: index-based mapping from [data-e2e="user-post-item"] cards
+        const cards = document.querySelectorAll('[data-e2e="user-post-item"]');
+        const cardCounts = [];
+        for (const card of cards) {
+          const viewText = findViewCountInCard(card);
+          cardCounts.push(parseCount(viewText));
+        }
+
+        // Strategy B: if no data-e2e cards found, try the video grid container
+        // and map anchors by position
+        let anchorCounts = [];
+        if (cards.length === 0) {
+          const anchors = document.querySelectorAll('a[href*="/@"][href*="/video/"]');
+          for (const anchor of anchors) {
+            // Walk up to find a reasonable card boundary
+            const cardEl = anchor.closest('li') || anchor.parentElement || anchor;
+            const viewText = findViewCountInCard(cardEl);
+            anchorCounts.push(parseCount(viewText));
+          }
+        }
+
+        // Strategy C: try window globals in case main evaluate() missed them
+        // (globals may still be present as properties even if script tags are parsed)
+        let globalCounts = [];
+        try {
+          const globalData = window.__UNIVERSAL_DATA_FOR_REHYDRATION__
+            || window.__NEXT_DATA__
+            || window.SIGI_STATE;
+          if (globalData) {
+            const scope = globalData['__DEFAULT_SCOPE__'] || globalData;
+            const userPage = scope['webapp.user-page'] || scope['webapp.user-detail'] || {};
+            const itemList = userPage.itemList || [];
+            if (Array.isArray(itemList)) {
+              for (const item of itemList) {
+                const count = (item && item.stats && item.stats.playCount)
+                  || (item && item.statsV2 && parseInt(item.statsV2.playCount, 10))
+                  || 0;
+                globalCounts.push(count);
+              }
+            }
+          }
+        } catch { /* ignore */ }
+
+        return { cardCounts, anchorCounts, globalCounts };
+      });
+
+      // Merge DOM view counts back into allRaw by index
+      // Rule: only overwrite if existing playCount is 0 (JSON from Strategy 3/4 wins when set)
+      const { cardCounts, anchorCounts, globalCounts } = domViewCounts;
+      const countSource = cardCounts.length > 0 ? cardCounts
+        : anchorCounts.length > 0 ? anchorCounts
+        : globalCounts;
+
+      for (let i = 0; i < allRaw.length && i < countSource.length; i++) {
+        if ((allRaw[i].playCount || 0) === 0 && countSource[i] > 0) {
+          allRaw[i].playCount = countSource[i];
+        }
+      }
+
+      logger.info('discovery.scrape.view_count_pass', {
+        ...logContext,
+        handle,
+        cardCardsFound: cardCounts.length,
+        anchorFallbackUsed: cardCounts.length === 0 && anchorCounts.length > 0,
+        globalFallbackUsed: cardCounts.length === 0 && anchorCounts.length === 0 && globalCounts.length > 0,
+        countsWithValue: countSource.filter((c) => c > 0).length,
+        sampleCounts: countSource.slice(0, 5),
+      });
+    } catch (viewCountErr) {
+      logger.info('discovery.scrape.view_count_pass_failed', {
+        ...logContext,
+        handle,
+        message: viewCountErr instanceof Error ? viewCountErr.message : String(viewCountErr),
+      });
+    }
+
     const rawCount = allRaw.length;
 
     // Telemetry: log stat extraction quality so we can verify view counts are being captured
@@ -883,10 +1049,11 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         withPlayCount,
         withAnyStats,
         missingStats: allRaw.length - withAnyStats,
-        sampleStats: allRaw.slice(0, 3).map((r) => ({
+        sampleStats: allRaw.slice(0, 5).map((r) => ({
           videoId: (r.postUrl || '').match(/\/video\/(\d+)/)?.[1] || '',
           playCount: r.playCount,
           diggCount: r.diggCount,
+          shareCount: r.shareCount,
         })),
       });
     }
