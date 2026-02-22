@@ -528,12 +528,44 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
       }
     }
 
+    // Scroll back to top and allow a brief settle so TikTok's lazy-loader can
+    // replace placeholder GIFs with real thumbnail URLs before we scrape.
+    await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+    await page.waitForTimeout(1500);
+
     // ---------------------------------------------------------------------------
     // Multi-strategy extraction with in-browser dedupe
     // ---------------------------------------------------------------------------
     const rawItems = await page.evaluate(() => {
       const seen = new Set();
       const results = [];
+
+      /**
+       * Return the best real thumbnail URL from an <img> element.
+       * TikTok uses lazy-loading: the real URL may be in data-src, data-lazy,
+       * or srcset rather than src.  If only a data: URI is available, return ''.
+       */
+      function resolveImgUrl(img) {
+        if (!img) return '';
+        const candidates = [
+          img.getAttribute('data-src'),
+          img.getAttribute('data-lazy'),
+          img.getAttribute('src'),
+        ];
+        // srcset: pick the first token (highest-res entry is usually last, but
+        // any real URL beats a placeholder)
+        const srcset = img.getAttribute('srcset') || '';
+        if (srcset) {
+          const firstToken = srcset.trim().split(/\s+/)[0];
+          if (firstToken && !firstToken.startsWith('data:')) {
+            candidates.push(firstToken);
+          }
+        }
+        for (const c of candidates) {
+          if (c && !c.startsWith('data:')) return c;
+        }
+        return '';
+      }
 
       function addItem(postUrl, thumbnailUrl, title, avatarUrl, publishedAt) {
         if (!postUrl) return;
@@ -554,7 +586,7 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
       for (const anchor of postItems) {
         const href = anchor.getAttribute('href') || '';
         const img = anchor.querySelector('img');
-        const thumbUrl = img ? (img.getAttribute('src') || '') : '';
+        const thumbUrl = resolveImgUrl(img);
         const alt = img ? (img.getAttribute('alt') || '') : '';
         if (href) {
           const fullUrl = href.startsWith('http') ? href : 'https://www.tiktok.com' + href;
@@ -567,7 +599,7 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
       for (const anchor of allAnchors) {
         const href = anchor.getAttribute('href') || '';
         const img = anchor.querySelector('img');
-        const thumbUrl = img ? (img.getAttribute('src') || '') : '';
+        const thumbUrl = resolveImgUrl(img);
         const alt = img ? (img.getAttribute('alt') || '') : '';
         if (href) {
           const fullUrl = href.startsWith('http') ? href : 'https://www.tiktok.com' + href;
