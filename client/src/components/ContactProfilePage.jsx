@@ -107,7 +107,7 @@ export function ContactProfilePage({
   const [discoveryTraceId, setDiscoveryTraceId] = useState('')
   const [syncTraceId, setSyncTraceId] = useState('')
   const [initialOpenJob, setInitialOpenJob] = useState(null)
-  const [thumbnailSize, setThumbnailSize] = useState('medium')
+  const [thumbnailSize, setThumbnailSize] = useState('large')
 
   const discoveryProgress = useDiscoveryProgress(discoveryTraceId, 'discover')
   const syncProgress = useDiscoveryProgress(syncTraceId, 'sync')
