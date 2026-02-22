@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   deleteContactProfile,
   downloadDiscoveredPost,
+  getJob,
   listDiscoveredPosts,
   openInVlc,
   refreshDiscovery,
@@ -9,11 +10,13 @@ import {
   updateContactProfile,
 } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
+import { useDiscoveryProgress } from '../hooks/useDiscoveryProgress'
 import {
   buildContacts,
   compareByPublishedAtDesc,
   formatShortDate,
   getPublishedAtValue,
+  makeContactSlug,
   toAssetHref,
 } from '../lib/contacts'
 import { useJobActions } from '../features/dashboard/useJobActions'
@@ -22,12 +25,11 @@ import { IntakeForm } from '../features/intake/IntakeForm'
 import { ConfirmModal } from './ConfirmModal'
 import { DiscoveredGrid } from './DiscoveredGrid'
 
-const DISCOVERY_POLL_INTERVAL_MS = 2500
-const DISCOVERY_POLL_MAX_ATTEMPTS = 48
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+const THUMBNAIL_SIZE_OPTIONS = [
+  { id: 'small', label: 'Small' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'large', label: 'Large' },
+]
 
 function normalizeComparableUrl(value) {
   if (typeof value !== 'string') return ''
@@ -42,8 +44,12 @@ function normalizeComparableUrl(value) {
   }
 }
 
-export function ContactProfilePage({ contactSlug, onBack }) {
-  const normalizedSlug = String(contactSlug || '').toLowerCase()
+export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' }) {
+  const normalizedSlug = String(contactSlug || '')
+    .split('?')[0]
+    .split('#')[0]
+    .trim()
+    .toLowerCase()
   const { jobs, isLoading, error, refresh } = useJobsPolling({
     intervalMs: 3000,
     view: 'compact',
@@ -54,10 +60,15 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [discoveredPosts, setDiscoveredPosts] = useState([])
   const [downloadingPostIds, setDownloadingPostIds] = useState(new Set())
-  const [isDiscoveryRefreshing, setIsDiscoveryRefreshing] = useState(false)
-  const [discoveryRefreshStatus, setDiscoveryRefreshStatus] = useState({ tone: '', text: '' })
-  const [isRepairingThumbnails, setIsRepairingThumbnails] = useState(false)
-  const refreshRunRef = useRef(0)
+  const [discoveryTraceId, setDiscoveryTraceId] = useState('')
+  const [syncTraceId, setSyncTraceId] = useState('')
+  const [initialOpenJob, setInitialOpenJob] = useState(null)
+  const [thumbnailSize, setThumbnailSize] = useState('medium')
+
+  const discoveryProgress = useDiscoveryProgress(discoveryTraceId, 'discover')
+  const syncProgress = useDiscoveryProgress(syncTraceId, 'sync')
+
+  const anyOperationActive = discoveryProgress.phase !== 'idle' || syncProgress.phase !== 'idle'
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
@@ -91,17 +102,76 @@ export function ContactProfilePage({ contactSlug, onBack }) {
       }
     }
 
-    for (const job of visibleContactJobs) {
+    function hasPlayableDownload(post) {
+      if (!post || typeof post !== 'object') {
+        return false
+      }
+      if (post.isDownloaded !== true) {
+        return false
+      }
+      const outputPath = typeof post.downloadOutputPath === 'string' && post.downloadOutputPath.trim()
+        ? post.downloadOutputPath.trim()
+        : typeof post.outputPath === 'string'
+          ? post.outputPath.trim()
+          : ''
+      return Boolean(outputPath)
+    }
+
+    function addDownloadedJob(job) {
+      if (!job || typeof job !== 'object') {
+        return
+      }
+
       const outputPath = typeof job.outputPath === 'string' ? job.outputPath.trim() : ''
       const isDownloadedJob = job.status === 'completed' && Boolean(outputPath)
       if (!isDownloadedJob) {
-        continue
+        return
       }
 
       const jobId = String(job._id || '')
       const urlKey = normalizeComparableUrl(job.canonicalUrl || job.tweetUrl || '')
-      if ((jobId && seenJobIds.has(jobId)) || (urlKey && seenUrls.has(urlKey))) {
-        continue
+      if (jobId && seenJobIds.has(jobId)) {
+        return
+      }
+
+      const matchingIndex = urlKey
+        ? combined.findIndex((post) => normalizeComparableUrl(post?.canonicalUrl || post?.postUrl || '') === urlKey)
+        : -1
+
+      if (matchingIndex >= 0) {
+        const existingPost = combined[matchingIndex]
+        if (!hasPlayableDownload(existingPost)) {
+          combined[matchingIndex] = {
+            ...existingPost,
+            downloadedJobId: jobId || existingPost?.downloadedJobId || null,
+            isDownloaded: true,
+            downloadOutputPath: outputPath,
+            thumbnailPath: existingPost?.thumbnailPath || job.thumbnailPath || '',
+            thumbnailUrl: existingPost?.thumbnailUrl || job.thumbnailUrl || (
+              Array.isArray(job.imageUrls) ? job.imageUrls[0] || '' : ''
+            ),
+            publishedAt: existingPost?.publishedAt || getPublishedAtValue(job),
+            isRemovedFromSource: Boolean(
+              existingPost?.isRemovedFromSource ||
+              existingPost?.removedFromSourceAt ||
+              job.removedFromSourceAt ||
+              job.isRemovedFromSource
+            ),
+            isProfileRemovedFromSource: Boolean(
+              existingPost?.isProfileRemovedFromSource ||
+              existingPost?.profileRemovedFromSourceAt ||
+              job.profileRemovedFromSourceAt ||
+              job.isProfileRemovedFromSource
+            ),
+          }
+        }
+        if (jobId) {
+          seenJobIds.add(jobId)
+        }
+        if (urlKey) {
+          seenUrls.add(urlKey)
+        }
+        return
       }
 
       combined.push({
@@ -126,12 +196,52 @@ export function ContactProfilePage({ contactSlug, onBack }) {
       }
     }
 
+    for (const job of visibleContactJobs) {
+      addDownloadedJob(job)
+    }
+
+    if (initialOpenJob && typeof initialOpenJob === 'object') {
+      const targetSlug = makeContactSlug(initialOpenJob)
+      if (!normalizedSlug || !targetSlug || targetSlug === normalizedSlug || targetSlug === 'unknown') {
+        addDownloadedJob(initialOpenJob)
+      }
+    }
+
     return combined.sort(compareByPublishedAtDesc)
-  }, [discoveredPosts, visibleContactJobs])
+  }, [discoveredPosts, initialOpenJob, normalizedSlug, visibleContactJobs])
 
   useEffect(() => {
     actions.cleanupHiddenIds(contactJobs.map((j) => j._id))
   }, [contactJobs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const targetJobId = typeof initialOpenJobId === 'string' ? initialOpenJobId.trim() : ''
+    if (!targetJobId) {
+      setInitialOpenJob(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadInitialOpenJob() {
+      try {
+        const payload = await getJob(targetJobId)
+        const job = payload && payload.job ? payload.job : null
+        if (!cancelled) {
+          setInitialOpenJob(job)
+        }
+      } catch {
+        if (!cancelled) {
+          setInitialOpenJob(null)
+        }
+      }
+    }
+
+    loadInitialOpenJob()
+    return () => {
+      cancelled = true
+    }
+  }, [initialOpenJobId])
 
   const fetchDiscoveredPosts = useCallback(async ({ silent = true } = {}) => {
     if (!normalizedSlug) return []
@@ -151,10 +261,48 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   }, [fetchDiscoveredPosts])
 
   useEffect(() => {
-    refreshRunRef.current += 1
-    setIsDiscoveryRefreshing(false)
-    setDiscoveryRefreshStatus({ tone: '', text: '' })
-  }, [normalizedSlug])
+    if (!normalizedSlug) return () => {}
+
+    const intervalId = setInterval(() => {
+      fetchDiscoveredPosts()
+    }, 3000)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [fetchDiscoveredPosts, normalizedSlug])
+
+  // Reset progress state when navigating to a different contact
+  useEffect(() => {
+    setDiscoveryTraceId('')
+    setSyncTraceId('')
+    discoveryProgress.reset()
+    syncProgress.reset()
+  }, [normalizedSlug]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // React to discovery completion — refresh grid and clear after delay
+  useEffect(() => {
+    if (discoveryProgress.isComplete || discoveryProgress.isError) {
+      fetchDiscoveredPosts()
+      const timer = setTimeout(() => {
+        setDiscoveryTraceId('')
+        discoveryProgress.reset()
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [discoveryProgress.isComplete, discoveryProgress.isError]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // React to sync completion — refresh grid and clear after delay
+  useEffect(() => {
+    if (syncProgress.isComplete || syncProgress.isError) {
+      fetchDiscoveredPosts()
+      const timer = setTimeout(() => {
+        setSyncTraceId('')
+        syncProgress.reset()
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [syncProgress.isComplete, syncProgress.isError]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDownloadDiscovered(discoveredPostId) {
     setDownloadingPostIds(prev => new Set(prev).add(discoveredPostId))
@@ -195,79 +343,28 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   }
 
   async function handleRefreshDiscovery() {
-    if (!normalizedSlug || isDiscoveryRefreshing) return
-
-    const runId = refreshRunRef.current + 1
-    refreshRunRef.current = runId
-    const isCurrentRun = () => refreshRunRef.current === runId
-    const initialCount = discoveredPosts.length
-
-    setIsDiscoveryRefreshing(true)
-    setDiscoveryRefreshStatus({ tone: 'info', text: 'Discovery started. Scraping profile...' })
+    if (!normalizedSlug || anyOperationActive) return
 
     try {
-      await refreshDiscovery(normalizedSlug)
-
-      for (let attempt = 1; attempt <= DISCOVERY_POLL_MAX_ATTEMPTS; attempt += 1) {
-        if (!isCurrentRun()) return
-        setDiscoveryRefreshStatus({
-          tone: 'info',
-          text: `Discovery in progress... check ${attempt}/${DISCOVERY_POLL_MAX_ATTEMPTS}`,
-        })
-
-        await delay(DISCOVERY_POLL_INTERVAL_MS)
-        if (!isCurrentRun()) return
-
-        const posts = await fetchDiscoveredPosts({ silent: false })
-        if (!isCurrentRun()) return
-
-        const nextCount = Array.isArray(posts) ? posts.length : 0
-        if (nextCount > initialCount) {
-          const added = nextCount - initialCount
-          setDiscoveryRefreshStatus({
-            tone: 'success',
-            text: `Discovery complete. Found ${added} new video${added === 1 ? '' : 's'}.`,
-          })
-          return
-        }
+      const result = await refreshDiscovery(normalizedSlug)
+      if (result.traceId) {
+        setDiscoveryTraceId(result.traceId)
       }
-
-      setDiscoveryRefreshStatus({
-        tone: 'info',
-        text: 'Discovery is still running or no new videos found yet. Check back shortly.',
-      })
     } catch (err) {
-      if (!isCurrentRun()) return
-      const message = err instanceof Error ? err.message : String(err)
-      setDiscoveryRefreshStatus({
-        tone: 'error',
-        text: `Discovery failed: ${message}`,
-      })
-    } finally {
-      if (isCurrentRun()) {
-        setIsDiscoveryRefreshing(false)
-      }
+      actions.setActionError(err instanceof Error ? err.message : String(err))
     }
   }
 
-  async function handleRepairThumbnails() {
-    if (!normalizedSlug || isRepairingThumbnails) return
-    setIsRepairingThumbnails(true)
+  async function handleSync() {
+    if (!normalizedSlug || anyOperationActive) return
+
     try {
       const result = await repairThumbnails(normalizedSlug)
-      const repaired = result.repairedCount || 0
-      setDiscoveryRefreshStatus({
-        tone: repaired > 0 ? 'success' : 'info',
-        text: repaired > 0
-          ? `Repaired ${repaired} thumbnail${repaired === 1 ? '' : 's'}.`
-          : 'All thumbnails are already present.',
-      })
-      await fetchDiscoveredPosts()
+      if (result.traceId) {
+        setSyncTraceId(result.traceId)
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      setDiscoveryRefreshStatus({ tone: 'error', text: `Thumbnail repair failed: ${message}` })
-    } finally {
-      setIsRepairingThumbnails(false)
+      actions.setActionError(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -305,6 +402,20 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     } catch (err) {
       actions.setActionError(err instanceof Error ? err.message : String(err))
     }
+  }
+
+  function getDiscoverButtonLabel() {
+    const phase = discoveryProgress.phase
+    if (phase === 'idle') return 'Discover'
+    if (phase === 'complete' || phase === 'error') return 'Discover'
+    return discoveryProgress.statusText || 'Discovering...'
+  }
+
+  function getSyncButtonLabel() {
+    const phase = syncProgress.phase
+    if (phase === 'idle') return 'Sync'
+    if (phase === 'complete' || phase === 'error') return 'Sync'
+    return syncProgress.statusText || 'Syncing...'
   }
 
   const errorMessage = actions.actionError || error
@@ -372,24 +483,38 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                   type="button"
                   className="ghost-btn"
                   onClick={handleRefreshDiscovery}
-                  disabled={isDiscoveryRefreshing}
+                  disabled={anyOperationActive}
                 >
-                  {isDiscoveryRefreshing ? 'Discovering...' : 'Discover'}
+                  {getDiscoverButtonLabel()}
                 </button>
               )}
               <button
                 type="button"
                 className="ghost-btn"
-                onClick={handleRepairThumbnails}
-                disabled={isRepairingThumbnails}
+                onClick={handleSync}
+                disabled={anyOperationActive}
               >
-                {isRepairingThumbnails ? 'Fixing...' : 'Fix Thumbnails'}
+                {getSyncButtonLabel()}
               </button>
             </div>
-            {discoveryRefreshStatus.text && (
-              <p className={`discovery-refresh-status is-${discoveryRefreshStatus.tone || 'info'}`}>
-                {discoveryRefreshStatus.text}
-              </p>
+            {discoveryProgress.phase !== 'idle' && (
+              <div className="discovery-progress">
+                <div className="discovery-progress-bar is-indeterminate" />
+                <p className={`discovery-progress-text is-${discoveryProgress.phase}`}>
+                  {discoveryProgress.statusText}
+                </p>
+              </div>
+            )}
+            {syncProgress.phase !== 'idle' && (
+              <div className="discovery-progress">
+                <div
+                  className="discovery-progress-bar"
+                  style={{ '--progress': syncProgress.progress ?? 0 }}
+                />
+                <p className={`discovery-progress-text is-${syncProgress.phase}`}>
+                  {syncProgress.statusText}
+                </p>
+              </div>
             )}
             <button type="button" className="profile-delete-link" onClick={openContactDelete} disabled={actions.isMutating}>
               Delete contact
@@ -401,14 +526,34 @@ export function ContactProfilePage({ contactSlug, onBack }) {
         <div className="profile-right">
           {isLoading && <p>Loading profile...</p>}
           {!isLoading && (
+            <>
+              <div className="profile-video-toolbar">
+                <p className="profile-video-toolbar-label">Thumbnail size</p>
+                <div className="profile-video-size-group" role="group" aria-label="Thumbnail size">
+                  {THUMBNAIL_SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`ghost-btn profile-video-size-btn${thumbnailSize === option.id ? ' is-active' : ''}`}
+                      onClick={() => setThumbnailSize(option.id)}
+                      aria-pressed={thumbnailSize === option.id}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             <DiscoveredGrid
               posts={unifiedVideoPosts}
               downloadingPostIds={downloadingPostIds}
               onDownload={handleDownloadDiscovered}
               onOpenInVlc={handleOpenInVlc}
+              initialOpenDownloadedJobId={initialOpenJobId}
+              size={thumbnailSize}
               title="Videos"
               emptyMessage="No creator videos found yet. Run discovery to populate candidates."
-            />
+              />
+            </>
           )}
         </div>
       </section>
