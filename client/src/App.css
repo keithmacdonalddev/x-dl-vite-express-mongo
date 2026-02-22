@@ -329,6 +329,12 @@ h1 {
   gap: 10px;
 }
 
+.subtle-note {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .profile-video-toolbar-label {
   margin: 0;
   font-size: 12px;
@@ -527,6 +533,11 @@ h1 {
 .discovered-section.is-size-large {
   --discovered-min-card-width: 170px;
   --discovered-grid-gap: 10px;
+}
+
+.discovered-section.is-size-xlarge {
+  --discovered-min-card-width: 260px;
+  --discovered-grid-gap: 12px;
 }
 
 .discovered-header {

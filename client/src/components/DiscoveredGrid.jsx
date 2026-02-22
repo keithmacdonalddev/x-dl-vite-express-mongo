@@ -134,7 +134,7 @@ export function DiscoveredGrid({
   emptyMessage = 'No discovered posts yet. Download a TikTok video to trigger profile discovery.',
 }) {
   const safePosts = useMemo(() => (Array.isArray(posts) ? posts : []), [posts])
-  const normalizedSize = size === 'small' || size === 'large' ? size : 'medium'
+  const normalizedSize = size === 'small' || size === 'large' || size === 'xlarge' ? size : 'medium'
   const [activeVideoPostId, setActiveVideoPostId] = useState('')
   const [activeMetaPostId, setActiveMetaPostId] = useState('')
   const autoOpenedJobIdRef = useRef('')

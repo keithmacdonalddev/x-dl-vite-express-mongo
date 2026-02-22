@@ -30,7 +30,45 @@ const THUMBNAIL_SIZE_OPTIONS = [
   { id: 'small', label: 'Small' },
   { id: 'medium', label: 'Medium' },
   { id: 'large', label: 'Large' },
+  { id: 'xlarge', label: 'Extra Large' },
 ]
+
+function getDiscoveredStorageKey(slug) {
+  const normalizedSlug = typeof slug === 'string' ? slug.trim().toLowerCase() : ''
+  if (!normalizedSlug) {
+    return ''
+  }
+  return `discovered-posts:${normalizedSlug}`
+}
+
+function readCachedDiscoveredPosts(slug) {
+  const storageKey = getDiscoveredStorageKey(slug)
+  if (!storageKey || typeof window === 'undefined') {
+    return []
+  }
+  try {
+    const raw = window.sessionStorage.getItem(storageKey)
+    if (!raw) {
+      return []
+    }
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeCachedDiscoveredPosts(slug, posts) {
+  const storageKey = getDiscoveredStorageKey(slug)
+  if (!storageKey || typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.sessionStorage.setItem(storageKey, JSON.stringify(Array.isArray(posts) ? posts : []))
+  } catch {
+    // Ignore storage quota and serialization failures.
+  }
+}
 
 function normalizeComparableUrl(value) {
   if (typeof value !== 'string') return ''
@@ -45,7 +83,12 @@ function normalizeComparableUrl(value) {
   }
 }
 
-export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' }) {
+export function ContactProfilePage({
+  contactSlug,
+  onBack,
+  initialOpenJobId = '',
+  onConsumeInitialOpenJobId,
+}) {
   const normalizedSlug = String(contactSlug || '')
     .split('?')[0]
     .split('#')[0]
@@ -59,7 +102,7 @@ export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' 
   })
   const [editContactName, setEditContactName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
-  const [discoveredPosts, setDiscoveredPosts] = useState([])
+  const [discoveredPosts, setDiscoveredPosts] = useState(() => readCachedDiscoveredPosts(normalizedSlug))
   const [downloadingPostIds, setDownloadingPostIds] = useState(new Set())
   const [discoveryTraceId, setDiscoveryTraceId] = useState('')
   const [syncTraceId, setSyncTraceId] = useState('')
@@ -250,11 +293,16 @@ export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' 
       const data = await listDiscoveredPosts(normalizedSlug)
       const posts = Array.isArray(data.posts) ? data.posts.slice().sort(compareByPublishedAtDesc) : []
       setDiscoveredPosts(posts)
+      writeCachedDiscoveredPosts(normalizedSlug, posts)
       return posts
     } catch (err) {
       if (!silent) throw err
       return []
     }
+  }, [normalizedSlug])
+
+  useEffect(() => {
+    setDiscoveredPosts(readCachedDiscoveredPosts(normalizedSlug))
   }, [normalizedSlug])
 
   useEffect(() => {
@@ -534,37 +582,37 @@ export function ContactProfilePage({ contactSlug, onBack, initialOpenJobId = '' 
         </aside>
 
         <div className="profile-right">
-          {isLoading && <p>Loading profile...</p>}
-          {!isLoading && (
-            <>
-              <div className="profile-video-toolbar">
-                <p className="profile-video-toolbar-label">Thumbnail size</p>
-                <div className="profile-video-size-group" role="group" aria-label="Thumbnail size">
-                  {THUMBNAIL_SIZE_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={`ghost-btn profile-video-size-btn${thumbnailSize === option.id ? ' is-active' : ''}`}
-                      onClick={() => setThumbnailSize(option.id)}
-                      aria-pressed={thumbnailSize === option.id}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            <DiscoveredGrid
-              posts={unifiedVideoPosts}
-              downloadingPostIds={downloadingPostIds}
-              onDownload={handleDownloadDiscovered}
-              onDelete={handleDeleteDiscovered}
-              onOpenInVlc={handleOpenInVlc}
-              initialOpenDownloadedJobId={initialOpenJobId}
-              size={thumbnailSize}
-              title="Videos"
-              emptyMessage="No creator videos found yet. Run discovery to populate candidates."
-              />
-            </>
+          {isLoading && unifiedVideoPosts.length === 0 && <p>Loading profile...</p>}
+          <div className="profile-video-toolbar">
+            <p className="profile-video-toolbar-label">Thumbnail size</p>
+            <div className="profile-video-size-group" role="group" aria-label="Thumbnail size">
+              {THUMBNAIL_SIZE_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`ghost-btn profile-video-size-btn${thumbnailSize === option.id ? ' is-active' : ''}`}
+                  onClick={() => setThumbnailSize(option.id)}
+                  aria-pressed={thumbnailSize === option.id}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <DiscoveredGrid
+            posts={unifiedVideoPosts}
+            downloadingPostIds={downloadingPostIds}
+            onDownload={handleDownloadDiscovered}
+            onDelete={handleDeleteDiscovered}
+            onOpenInVlc={handleOpenInVlc}
+            initialOpenDownloadedJobId={initialOpenJobId}
+            onInitialOpenConsumed={onConsumeInitialOpenJobId}
+            size={thumbnailSize}
+            title="Videos"
+            emptyMessage="No creator videos found yet. Run discovery to populate candidates."
+          />
+          {isLoading && unifiedVideoPosts.length > 0 && (
+            <p className="subtle-note">Refreshing profile data...</p>
           )}
         </div>
       </section>
