@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const fs = require('node:fs');
+const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { Job } = require('../../core/models/job');
 const { getPostUrlInfo, isTweetUrl, canonicalizePostUrl } = require('../../core/utils/validation');
@@ -137,7 +138,7 @@ function buildDuplicateJobError(existingJobStatus) {
   };
 }
 
-async function requeueExistingJob(jobId) {
+async function requeueExistingJob(jobId, traceId) {
   if (!jobId) {
     return null;
   }
@@ -147,11 +148,16 @@ async function requeueExistingJob(jobId) {
     {
       $set: {
         status: JOB_STATUSES.QUEUED,
+        traceId: traceId || '',
         progressPct: 0,
         startedAt: null,
         completedAt: null,
         failedAt: null,
         outputPath: '',
+        thumbnailPath: '',
+        sourceType: 'unknown',
+        extractedUrl: '',
+        candidateUrls: [],
         error: '',
         errorCode: '',
       },
@@ -204,6 +210,25 @@ function buildVlcLaunchAttempts(absolutePath) {
   return attempts;
 }
 
+function buildOpenFolderAttempts(absolutePath) {
+  const folderPath = path.dirname(absolutePath);
+  if (process.platform === 'win32') {
+    return [
+      { command: 'explorer.exe', args: [`/select,${absolutePath}`], fallbackFolder: folderPath },
+      { command: 'explorer.exe', args: [folderPath], fallbackFolder: folderPath },
+    ];
+  }
+  if (process.platform === 'darwin') {
+    return [
+      { command: 'open', args: ['-R', absolutePath], fallbackFolder: folderPath },
+      { command: 'open', args: [folderPath], fallbackFolder: folderPath },
+    ];
+  }
+  return [
+    { command: 'xdg-open', args: [folderPath], fallbackFolder: folderPath },
+  ];
+}
+
 async function launchVlc(absolutePath) {
   const attempts = buildVlcLaunchAttempts(absolutePath);
   let lastError = null;
@@ -213,6 +238,25 @@ async function launchVlc(absolutePath) {
       continue;
     }
 
+    try {
+      await spawnDetached(attempt.command, attempt.args);
+      return { ok: true, command: attempt.command };
+    } catch (error) {
+      lastError = error;
+      if (error && error.code === 'ENOENT') {
+        continue;
+      }
+    }
+  }
+
+  return { ok: false, error: lastError };
+}
+
+async function openContainingFolder(absolutePath) {
+  const attempts = buildOpenFolderAttempts(absolutePath);
+  let lastError = null;
+
+  for (const attempt of attempts) {
     try {
       await spawnDetached(attempt.command, attempt.args);
       return { ok: true, command: attempt.command };
@@ -342,6 +386,50 @@ jobsRouter.post('/open-vlc', async (req, res) => {
   });
 });
 
+jobsRouter.post('/open-folder', async (req, res) => {
+  const requestedOutputPath = typeof req.body?.outputPath === 'string' ? req.body.outputPath.trim() : '';
+  if (!requestedOutputPath) {
+    return sendError(res, 400, ERROR_CODES.INVALID_MEDIA_URL, 'Missing outputPath.');
+  }
+
+  const absolutePath = toSafeAbsoluteDownloadPath(requestedOutputPath);
+  if (!absolutePath) {
+    return sendError(res, 400, ERROR_CODES.INVALID_MEDIA_URL, 'Invalid outputPath.');
+  }
+
+  const hasOutputFile = await hasJobOutputFile({ outputPath: requestedOutputPath });
+  if (!hasOutputFile) {
+    return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Downloaded file not found.');
+  }
+
+  const opened = await openContainingFolder(absolutePath);
+  if (!opened.ok) {
+    const message = opened.error instanceof Error ? opened.error.message : String(opened.error || '');
+    logger.error('jobs.open_folder.failed', {
+      outputPath: requestedOutputPath,
+      absolutePath,
+      platform: process.platform,
+      message,
+    });
+    return sendError(
+      res,
+      500,
+      ERROR_CODES.BROWSER_LAUNCH_FAILED,
+      'Failed to open folder. Verify your OS file manager is available.'
+    );
+  }
+
+  logger.info('jobs.open_folder.launched', {
+    outputPath: requestedOutputPath,
+    absolutePath,
+    command: opened.command,
+  });
+  return res.json({
+    ok: true,
+    opened: true,
+  });
+});
+
 jobsRouter.get('/:id', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
@@ -441,7 +529,7 @@ jobsRouter.post('/', async (req, res) => {
           existingJob.outputPath.trim() &&
           await hasJobOutputFile(existingJob);
         if (!hasOutput) {
-          const requeuedJob = await requeueExistingJob(existingJob._id);
+          const requeuedJob = await requeueExistingJob(existingJob._id, traceId);
           if (requeuedJob) {
             logger.info('jobs.create.requeued_missing_file', {
               traceId,
@@ -508,7 +596,7 @@ jobsRouter.post('/', async (req, res) => {
               racedJob.outputPath.trim() &&
               await hasJobOutputFile(racedJob);
             if (!hasOutput) {
-              const requeuedJob = await requeueExistingJob(racedJob._id);
+              const requeuedJob = await requeueExistingJob(racedJob._id, traceId);
               if (requeuedJob) {
                 logger.info('jobs.create.requeued_missing_file_race', {
                   traceId,
