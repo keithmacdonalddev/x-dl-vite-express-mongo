@@ -11,6 +11,10 @@ const { resolveDomainId } = require('../../core/dispatch/resolve-domain-id');
 const { resolvePublishedAt } = require('../../core/utils/published-at');
 const { triggerProfileDiscovery, repairThumbnailsViaOembed } = require('../../services/profile-discovery-service');
 const {
+  syncAuthenticatedTikTokLikes,
+  repairLikedThumbnailsViaOembed,
+} = require('../../services/tiktok-liked-service');
+const {
   sendError,
   getRequestTraceId,
   isValidObjectId,
@@ -24,6 +28,7 @@ const {
 const discoveryRouter = express.Router();
 const ACTIVE_DISCOVERY_REFRESH_BY_SLUG = new Map();
 const ACTIVE_THUMBNAIL_REPAIR_BY_SLUG = new Map();
+const ACTIVE_LIKED_THUMBNAIL_REPAIR_BY_KEY = new Map();
 const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
 
 function isActiveJobStatus(status) {
@@ -243,6 +248,7 @@ function normalizeDiscoveredPostPublishedAt(post) {
     publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
     isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
     isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+    isLikedByTiktokUser: Boolean(post && post.likedByTiktokUser),
   };
 }
 
@@ -269,6 +275,165 @@ function parseListQuery(query = {}) {
   const offset = Number.isFinite(parsedOffset) ? Math.max(Math.floor(parsedOffset), 0) : 0;
   return { limit, offset };
 }
+
+function normalizeHandleInput(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const withoutPrefix = trimmed.replace(/^@+/, '');
+  if (!withoutPrefix) return '';
+  return `@${withoutPrefix}`;
+}
+
+// GET /liked — List posts from the connected TikTok account's liked feed.
+discoveryRouter.get('/liked', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  try {
+    const { limit, offset } = parseListQuery(req.query);
+    const filter = { accountPlatform: 'tiktok', likedByTiktokUser: true };
+    const query = DiscoveredPost.find(filter);
+    if (query && typeof query.sort === 'function') {
+      query.sort({ likedSyncedAt: -1, publishedAt: -1, createdAt: -1, _id: -1 });
+    }
+    if (query && typeof query.skip === 'function') {
+      query.skip(offset);
+    }
+    if (limit > 0 && query && typeof query.limit === 'function') {
+      query.limit(limit);
+    }
+
+    const postsRaw = await query.lean();
+    const normalizedPosts = postsRaw
+      .map((post) => normalizeDiscoveredPostPublishedAt(post))
+      .sort(compareByPublishedAtDesc);
+    const posts = await mapPostsWithDownloadState(normalizedPosts);
+    let total = posts.length;
+    let hasMore = false;
+    let nextOffset = null;
+    if (limit > 0) {
+      total = await DiscoveredPost.countDocuments(filter);
+      hasMore = (offset + posts.length) < total;
+      nextOffset = hasMore ? offset + posts.length : null;
+    }
+
+    const viewerRecord = posts.find((post) => {
+      if (!post || typeof post.likedByTiktokHandle !== 'string') return false;
+      const handle = post.likedByTiktokHandle.trim();
+      if (!handle) return false;
+      return !/^@?me$/i.test(handle);
+    });
+    const viewerHandle = viewerRecord ? viewerRecord.likedByTiktokHandle : '';
+
+    return res.json({
+      ok: true,
+      posts,
+      viewerHandle,
+      pagination: {
+        limit,
+        offset,
+        returned: posts.length,
+        total,
+        hasMore,
+        nextOffset,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('likes.list.failed', { message });
+    return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, `Failed to list liked posts: ${message}`);
+  }
+});
+
+// POST /liked/sync — Sync posts from the currently connected TikTok account's liked feed.
+discoveryRouter.post('/liked/sync', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  try {
+    const result = await syncAuthenticatedTikTokLikes({ traceId });
+    res.set('x-trace-id', traceId);
+    return res.json({
+      ok: true,
+      traceId,
+      ...result,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const code = error && error.code ? String(error.code) : '';
+    logger.error('likes.sync.failed', { traceId, code, message });
+
+    if (code === 'AUTH_REQUIRED') {
+      return sendError(
+        res,
+        409,
+        ERROR_CODES.DISCOVERY_FAILED,
+        'TikTok session is not authenticated. Reconnect TikTok and try syncing again.'
+      );
+    }
+
+    if (code === 'HANDLE_RESOLUTION_REQUIRED') {
+      return sendError(
+        res,
+        409,
+        ERROR_CODES.DISCOVERY_FAILED,
+        'TikTok is connected, but the active account handle could not be resolved. Open TikTok in the connected browser profile and retry sync.'
+      );
+    }
+
+    return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, `Failed to sync liked posts: ${message}`);
+  }
+});
+
+// POST /liked/repair-thumbnails — Repair missing liked-post thumbnails via TikTok oEmbed API
+discoveryRouter.post('/liked/repair-thumbnails', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  const requestedHandle = normalizeHandleInput(req && req.body ? req.body.viewerHandle : '');
+  const repairKey = requestedHandle || '__all__';
+
+  if (ACTIVE_LIKED_THUMBNAIL_REPAIR_BY_KEY.has(repairKey)) {
+    logger.info('likes.repair_thumbnails.already_running', { traceId, viewerHandle: requestedHandle });
+    return res.status(202).json({
+      ok: true,
+      message: 'Liked thumbnail repair already in progress.',
+      alreadyRunning: true,
+      traceId,
+    });
+  }
+
+  ACTIVE_LIKED_THUMBNAIL_REPAIR_BY_KEY.set(repairKey, Date.now());
+  repairLikedThumbnailsViaOembed({
+    traceId,
+    viewerHandle: requestedHandle,
+  })
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error('likes.repair_thumbnails.failed', {
+        traceId,
+        viewerHandle: requestedHandle,
+        message,
+      });
+    })
+    .finally(() => {
+      ACTIVE_LIKED_THUMBNAIL_REPAIR_BY_KEY.delete(repairKey);
+    });
+
+  return res.json({
+    ok: true,
+    message: 'Liked thumbnail repair started.',
+    traceId,
+  });
+});
 
 // GET /:accountSlug — List discovered posts for a contact
 discoveryRouter.get('/:accountSlug', async (req, res) => {
