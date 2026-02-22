@@ -562,6 +562,29 @@ h1 {
 
 .discovered-card-placeholder {
   background: linear-gradient(135deg, #e3eaee 0%, #d0dae4 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.discovered-placeholder-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.discovered-placeholder-id {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--muted);
+  opacity: 0.7;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .discovered-card-body {
@@ -581,6 +604,21 @@ h1 {
 .discovered-card-actions {
   display: flex;
   justify-content: center;
+}
+
+.discovered-source-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.discovered-source-note.is-removed {
+  color: #7a4d00;
+}
+
+.discovered-source-note.is-profile-removed {
+  color: #8d2f3b;
 }
 
 .discovered-download-btn {

@@ -1,11 +1,26 @@
 import { useState } from 'react'
 import { toAssetHref } from '../lib/contacts'
 
-function DiscoveredCardThumb({ src, alt }) {
+function isPlaceholderSrc(src) {
+  return !src || src.startsWith('data:')
+}
+
+function DiscoveredCardThumb({ src, alt, videoId }) {
   const [broken, setBroken] = useState(false)
 
-  if (!src || broken) {
-    return <div className="discovered-card-thumb discovered-card-placeholder" />
+  if (isPlaceholderSrc(src) || broken) {
+    const shortId = videoId
+      ? videoId.length > 12 ? `...${videoId.slice(-10)}` : videoId
+      : null
+    return (
+      <div className="discovered-card-thumb discovered-card-placeholder">
+        <svg className="discovered-placeholder-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+          <polygon points="10,8.5 16,12 10,15.5" fill="currentColor" />
+        </svg>
+        {shortId && <span className="discovered-placeholder-id">{shortId}</span>}
+      </div>
+    )
   }
 
   return (
@@ -45,6 +60,10 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
           const isAlreadyDownloaded = hasVerifiedDownloaded
             ? post.isDownloaded
             : Boolean(post.downloadedJobId)
+          const isRemovedFromSource = Boolean(post.isRemovedFromSource || post.removedFromSourceAt)
+          const isProfileRemovedFromSource = Boolean(
+            post.isProfileRemovedFromSource || post.profileRemovedFromSourceAt
+          )
           const isLinkedActive = !isAlreadyDownloaded && Boolean(post.downloadedJobId)
           const isThisDownloading = downloadingPostIds.has(post._id)
           const thumbSrc = post.thumbnailPath
@@ -74,7 +93,7 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
                         : 'Queue this video'
                 }
               >
-                <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} />
+                <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} videoId={post.videoId} />
               </button>
               <div className="discovered-card-body">
                 <div className="discovered-card-actions">
@@ -93,6 +112,12 @@ export function DiscoveredGrid({ posts, downloadingPostIds, onDownload }) {
                     </button>
                   )}
                 </div>
+                {isRemovedFromSource && (
+                  <p className="discovered-source-note is-removed">Removed on TikTok</p>
+                )}
+                {isProfileRemovedFromSource && (
+                  <p className="discovered-source-note is-profile-removed">Creator profile unavailable on TikTok</p>
+                )}
               </div>
             </li>
           )
