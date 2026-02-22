@@ -77,7 +77,41 @@ async function mapPostsWithDownloadState(posts) {
     )
   );
 
-  if (linkedJobIds.length === 0) {
+  // Batch-fetch completed jobs for unlinked posts (those without downloadedJobId).
+  // Collects all distinct URLs across unlinked posts and fires a single $or query,
+  // then builds a lookup map keyed by canonical URL and post URL for O(1) access.
+  const unlinkedPosts = posts.filter((post) => post && !post.downloadedJobId);
+  const unlinkedJobsByUrl = new Map(); // url -> job
+
+  if (unlinkedPosts.length > 0) {
+    const urlConditions = [];
+    for (const post of unlinkedPosts) {
+      if (post.canonicalUrl) {
+        urlConditions.push({ canonicalUrl: post.canonicalUrl });
+        urlConditions.push({ tweetUrl: post.canonicalUrl });
+      }
+      if (post.postUrl && post.postUrl !== post.canonicalUrl) {
+        urlConditions.push({ tweetUrl: post.postUrl });
+        urlConditions.push({ canonicalUrl: post.postUrl });
+      }
+    }
+
+    if (urlConditions.length > 0) {
+      const unlinkedMatchedJobs = await Job.find({
+        $or: urlConditions,
+        status: JOB_STATUSES.COMPLETED,
+      })
+        .select({ _id: 1, status: 1, outputPath: 1, isFavorite: 1, canonicalUrl: 1, tweetUrl: 1 })
+        .lean();
+
+      for (const job of unlinkedMatchedJobs) {
+        if (job.canonicalUrl) unlinkedJobsByUrl.set(job.canonicalUrl, job);
+        if (job.tweetUrl) unlinkedJobsByUrl.set(job.tweetUrl, job);
+      }
+    }
+  }
+
+  if (linkedJobIds.length === 0 && unlinkedJobsByUrl.size === 0) {
     return posts.map((post) => ({
       ...post,
       isDownloaded: false,
@@ -88,22 +122,52 @@ async function mapPostsWithDownloadState(posts) {
     }));
   }
 
-  const linkedJobs = await Job.find({ _id: { $in: linkedJobIds } })
-    .select({ _id: 1, status: 1, outputPath: 1, isFavorite: 1 })
-    .lean();
+  const linkedJobs = linkedJobIds.length > 0
+    ? await Job.find({ _id: { $in: linkedJobIds } })
+        .select({ _id: 1, status: 1, outputPath: 1, isFavorite: 1 })
+        .lean()
+    : [];
   const linkedJobsById = new Map(linkedJobs.map((job) => [String(job._id), job]));
   const stalePostIds = [];
 
   const resolvedPosts = await Promise.all(
     posts.map(async (post) => {
+      const baseFlags = {
+        isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+        isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+      };
+
       if (!post || !post.downloadedJobId) {
+        // Second-pass: look for a matching completed job via URL for unlinked posts
+        const matchedJob =
+          (post && post.canonicalUrl && unlinkedJobsByUrl.get(post.canonicalUrl)) ||
+          (post && post.postUrl && unlinkedJobsByUrl.get(post.postUrl)) ||
+          null;
+
+        if (matchedJob) {
+          const hasOutputFile = await hasJobOutputFile(matchedJob);
+          if (hasOutputFile) {
+            // Backlink this discovered post to the matched job (fire-and-forget)
+            if (post && post._id) {
+              DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: matchedJob._id }).catch(() => {});
+            }
+            return {
+              ...(post || {}),
+              isDownloaded: true,
+              downloadOutputPath: typeof matchedJob.outputPath === 'string' ? matchedJob.outputPath : '',
+              downloadedJobId: matchedJob._id,
+              isFavorite: Boolean(matchedJob.isFavorite),
+              ...baseFlags,
+            };
+          }
+        }
+
         return {
           ...(post || {}),
           isDownloaded: false,
           downloadOutputPath: '',
           isFavorite: false,
-          isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
-          isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+          ...baseFlags,
         };
       }
 
@@ -116,8 +180,7 @@ async function mapPostsWithDownloadState(posts) {
           isDownloaded: false,
           downloadOutputPath: '',
           isFavorite: false,
-          isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
-          isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+          ...baseFlags,
         };
       }
 
@@ -127,8 +190,7 @@ async function mapPostsWithDownloadState(posts) {
           isDownloaded: false,
           downloadOutputPath: '',
           isFavorite: Boolean(job.isFavorite),
-          isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
-          isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+          ...baseFlags,
         };
       }
 
@@ -140,8 +202,7 @@ async function mapPostsWithDownloadState(posts) {
             isDownloaded: true,
             downloadOutputPath: typeof job.outputPath === 'string' ? job.outputPath : '',
             isFavorite: Boolean(job.isFavorite),
-            isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
-            isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+            ...baseFlags,
           };
         }
       }
@@ -153,8 +214,7 @@ async function mapPostsWithDownloadState(posts) {
         isDownloaded: false,
         downloadOutputPath: '',
         isFavorite: false,
-        isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
-        isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+        ...baseFlags,
       };
     })
   );
