@@ -3,7 +3,9 @@ import {
   deleteContactProfile,
   downloadDiscoveredPost,
   listDiscoveredPosts,
+  openInVlc,
   refreshDiscovery,
+  repairThumbnails,
   updateContactProfile,
 } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
@@ -11,19 +13,14 @@ import {
   buildContacts,
   compareByPublishedAtDesc,
   formatShortDate,
-  formatTimestamp,
   getPublishedAtValue,
-  makeContactSlug,
   toAssetHref,
 } from '../lib/contacts'
-import { useSelection } from '../features/dashboard/useSelection'
 import { useJobActions } from '../features/dashboard/useJobActions'
-import { JobEditForm } from '../features/dashboard/JobEditForm'
 
 import { IntakeForm } from '../features/intake/IntakeForm'
 import { ConfirmModal } from './ConfirmModal'
 import { DiscoveredGrid } from './DiscoveredGrid'
-import { OverflowMenu } from './OverflowMenu'
 
 const DISCOVERY_POLL_INTERVAL_MS = 2500
 const DISCOVERY_POLL_MAX_ATTEMPTS = 48
@@ -32,24 +29,38 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function normalizeComparableUrl(value) {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  try {
+    const parsed = new URL(trimmed)
+    return `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '').toLowerCase()
+  } catch {
+    return trimmed.replace(/\/+$/, '').toLowerCase()
+  }
+}
+
 export function ContactProfilePage({ contactSlug, onBack }) {
-  const { jobs, isLoading, error, refresh } = useJobsPolling({ intervalMs: 3000 })
+  const normalizedSlug = String(contactSlug || '').toLowerCase()
+  const { jobs, isLoading, error, refresh } = useJobsPolling({
+    intervalMs: 3000,
+    view: 'compact',
+    limit: 80,
+    contactSlug: normalizedSlug,
+  })
   const [editContactName, setEditContactName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [discoveredPosts, setDiscoveredPosts] = useState([])
   const [downloadingPostIds, setDownloadingPostIds] = useState(new Set())
   const [isDiscoveryRefreshing, setIsDiscoveryRefreshing] = useState(false)
   const [discoveryRefreshStatus, setDiscoveryRefreshStatus] = useState({ tone: '', text: '' })
-  const [expandedJobId, setExpandedJobId] = useState('')
+  const [isRepairingThumbnails, setIsRepairingThumbnails] = useState(false)
   const refreshRunRef = useRef(0)
-
-  function toggleExpanded(jobId) {
-    setExpandedJobId((prev) => (prev === jobId ? '' : jobId))
-  }
 
   const actions = useJobActions({ refresh })
   const contacts = useMemo(() => buildContacts(jobs), [jobs])
-  const normalizedSlug = String(contactSlug || '').toLowerCase()
 
   const contact = useMemo(
     () => contacts.find((value) => value.slug === normalizedSlug),
@@ -57,16 +68,66 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   )
 
   const contactJobs = useMemo(
-    () => jobs.filter((job) => makeContactSlug(job) === normalizedSlug).sort(compareByPublishedAtDesc),
-    [jobs, normalizedSlug]
+    () => jobs.slice().sort(compareByPublishedAtDesc),
+    [jobs]
   )
   const visibleContactJobs = useMemo(
     () => contactJobs.filter((job) => !actions.hiddenJobIds[job._id]),
     [contactJobs, actions.hiddenJobIds]
   )
 
-  const allJobIds = useMemo(() => visibleContactJobs.map((j) => j._id), [visibleContactJobs])
-  const selection = useSelection(allJobIds)
+  const unifiedVideoPosts = useMemo(() => {
+    const combined = Array.isArray(discoveredPosts) ? discoveredPosts.slice() : []
+    const seenJobIds = new Set()
+    const seenUrls = new Set()
+
+    for (const post of combined) {
+      if (post && post.downloadedJobId) {
+        seenJobIds.add(String(post.downloadedJobId))
+      }
+      const postUrlKey = normalizeComparableUrl(post?.canonicalUrl || post?.postUrl || '')
+      if (postUrlKey) {
+        seenUrls.add(postUrlKey)
+      }
+    }
+
+    for (const job of visibleContactJobs) {
+      const outputPath = typeof job.outputPath === 'string' ? job.outputPath.trim() : ''
+      const isDownloadedJob = job.status === 'completed' && Boolean(outputPath)
+      if (!isDownloadedJob) {
+        continue
+      }
+
+      const jobId = String(job._id || '')
+      const urlKey = normalizeComparableUrl(job.canonicalUrl || job.tweetUrl || '')
+      if ((jobId && seenJobIds.has(jobId)) || (urlKey && seenUrls.has(urlKey))) {
+        continue
+      }
+
+      combined.push({
+        _id: `job-${jobId}`,
+        postUrl: job.tweetUrl || '',
+        canonicalUrl: job.canonicalUrl || '',
+        thumbnailPath: job.thumbnailPath || '',
+        thumbnailUrl: job.thumbnailUrl || (Array.isArray(job.imageUrls) ? job.imageUrls[0] || '' : ''),
+        publishedAt: getPublishedAtValue(job),
+        downloadedJobId: jobId || null,
+        isDownloaded: true,
+        downloadOutputPath: outputPath,
+        isRemovedFromSource: Boolean(job.removedFromSourceAt || job.isRemovedFromSource),
+        isProfileRemovedFromSource: Boolean(job.profileRemovedFromSourceAt || job.isProfileRemovedFromSource),
+      })
+
+      if (jobId) {
+        seenJobIds.add(jobId)
+      }
+      if (urlKey) {
+        seenUrls.add(urlKey)
+      }
+    }
+
+    return combined.sort(compareByPublishedAtDesc)
+  }, [discoveredPosts, visibleContactJobs])
 
   useEffect(() => {
     actions.cleanupHiddenIds(contactJobs.map((j) => j._id))
@@ -110,6 +171,26 @@ export function ContactProfilePage({ contactSlug, onBack }) {
         next.delete(discoveredPostId)
         return next
       })
+    }
+  }
+
+  async function handleOpenInVlc(outputPath, fallbackVlcHref) {
+    const resolvedOutputPath = typeof outputPath === 'string' ? outputPath.trim() : ''
+    if (!resolvedOutputPath) {
+      if (fallbackVlcHref && typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
+        window.location.assign(fallbackVlcHref)
+      }
+      return
+    }
+
+    try {
+      await openInVlc(resolvedOutputPath)
+    } catch (err) {
+      if (fallbackVlcHref && typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
+        window.location.assign(fallbackVlcHref)
+        return
+      }
+      actions.setActionError(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -169,13 +250,25 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     }
   }
 
-  function openSingleDelete(jobId) {
-    setConfirmDelete({ isOpen: true, mode: 'single', jobId, count: 1 })
-  }
-
-  function openBulkDelete() {
-    if (selection.selectedCount === 0) return
-    setConfirmDelete({ isOpen: true, mode: 'bulk', jobId: '', count: selection.selectedCount })
+  async function handleRepairThumbnails() {
+    if (!normalizedSlug || isRepairingThumbnails) return
+    setIsRepairingThumbnails(true)
+    try {
+      const result = await repairThumbnails(normalizedSlug)
+      const repaired = result.repairedCount || 0
+      setDiscoveryRefreshStatus({
+        tone: repaired > 0 ? 'success' : 'info',
+        text: repaired > 0
+          ? `Repaired ${repaired} thumbnail${repaired === 1 ? '' : 's'}.`
+          : 'All thumbnails are already present.',
+      })
+      await fetchDiscoveredPosts()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setDiscoveryRefreshStatus({ tone: 'error', text: `Thumbnail repair failed: ${message}` })
+    } finally {
+      setIsRepairingThumbnails(false)
+    }
   }
 
   function openContactDelete() {
@@ -188,11 +281,7 @@ export function ContactProfilePage({ contactSlug, onBack }) {
   }
 
   async function handleConfirmDelete() {
-    if (confirmDelete.mode === 'single' && confirmDelete.jobId) {
-      await actions.handleDeleteJob(confirmDelete.jobId)
-    } else if (confirmDelete.mode === 'bulk') {
-      await actions.handleBulkDelete(selection.selectedIds, selection.clearSelection)
-    } else if (confirmDelete.mode === 'contact') {
+    if (confirmDelete.mode === 'contact') {
       try {
         await deleteContactProfile(normalizedSlug)
         if (typeof onBack === 'function') onBack()
@@ -216,15 +305,6 @@ export function ContactProfilePage({ contactSlug, onBack }) {
     } catch (err) {
       actions.setActionError(err instanceof Error ? err.message : String(err))
     }
-  }
-
-  function buildMenuItems(job) {
-    return [
-      { label: 'Edit', onClick: () => actions.startEdit(job) },
-      { label: 'Copy URL', onClick: () => navigator.clipboard.writeText(job.tweetUrl || '') },
-      { label: 'Retry', onClick: () => actions.handleRetry(job.tweetUrl), hidden: job.status !== 'failed' },
-      { label: 'Delete', onClick: () => openSingleDelete(job._id), danger: true, disabled: actions.isMutating },
-    ]
   }
 
   const errorMessage = actions.actionError || error
@@ -263,6 +343,12 @@ export function ContactProfilePage({ contactSlug, onBack }) {
           />
           <p><strong>Handle:</strong> {contact?.handle || 'n/a'}</p>
           <p><strong>Platform:</strong> {contact?.platform || 'unknown'}</p>
+          <p>
+            <strong>Source profile:</strong>{' '}
+            {contact?.profileRemovedFromSourceAt
+              ? `Unavailable on TikTok (${formatShortDate(contact.profileRemovedFromSourceAt)})`
+              : 'Not flagged'}
+          </p>
           <p><strong>Total jobs:</strong> {contact?.totalJobs || 0}</p>
           <p><strong>Completed:</strong> {contact?.completedJobs || 0}</p>
           <p><strong>First seen:</strong> {formatShortDate(contact?.firstSeenAt)}</p>
@@ -291,6 +377,14 @@ export function ContactProfilePage({ contactSlug, onBack }) {
                   {isDiscoveryRefreshing ? 'Discovering...' : 'Discover'}
                 </button>
               )}
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={handleRepairThumbnails}
+                disabled={isRepairingThumbnails}
+              >
+                {isRepairingThumbnails ? 'Fixing...' : 'Fix Thumbnails'}
+              </button>
             </div>
             {discoveryRefreshStatus.text && (
               <p className={`discovery-refresh-status is-${discoveryRefreshStatus.tone || 'info'}`}>
@@ -305,126 +399,24 @@ export function ContactProfilePage({ contactSlug, onBack }) {
         </aside>
 
         <div className="profile-right">
-        <section className="card">
-          <div className="jobs-header">
-            <h2>Posts</h2>
-            <p>{visibleContactJobs.length} entries</p>
-          </div>
-
-          <div className="bulk-toolbar">
-            <button type="button" className="ghost-btn" onClick={selection.toggleAllSelection} disabled={visibleContactJobs.length === 0}>
-              {selection.selectedCount === visibleContactJobs.length && visibleContactJobs.length > 0 ? 'Clear all' : 'Select all'}
-            </button>
-            {selection.selectedCount > 0 && (
-              <button type="button" className="danger-btn" onClick={openBulkDelete} disabled={actions.isMutating}>
-                Delete selected ({selection.selectedCount})
-              </button>
-            )}
-          </div>
-
           {isLoading && <p>Loading profile...</p>}
-          {!isLoading && visibleContactJobs.length === 0 && <p>No jobs found for this contact yet.</p>}
-
-          {!isLoading && visibleContactJobs.length > 0 && (
-            <ul className="profile-grid">
-              {visibleContactJobs.map((job) => {
-                const isExpanded = expandedJobId === job._id
-                return (
-                  <li key={job._id} className={`profile-card${isExpanded ? ' is-expanded' : ''}`}>
-                    <div className="profile-card-media" onClick={() => toggleExpanded(job._id)}>
-                      {(job.thumbnailPath || (Array.isArray(job.imageUrls) && job.imageUrls[0])) ? (
-                        <img
-                          className="profile-card-thumb"
-                          src={toAssetHref(job.thumbnailPath || job.imageUrls[0])}
-                          alt={job.accountDisplayName || job.accountHandle || contactSlug}
-                        />
-                      ) : (
-                        <div className="profile-card-thumb profile-card-placeholder" />
-                      )}
-                      <span className={`status-dot is-${job.status}`} />
-                    </div>
-                    <div className="profile-card-content">
-                      <div className="row-actions-top">
-                        <label className="select-box">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(selection.selectedJobIds[job._id])}
-                            onChange={() => selection.toggleSelection(job._id)}
-                          />
-                          <span>Select</span>
-                        </label>
-                        <OverflowMenu items={buildMenuItems(job)} />
-                      </div>
-                      {isExpanded && (
-                        <div className="profile-card-details">
-                          <p className="profile-card-status-line">
-                            <span className={`status-chip is-${job.status}`}>{job.status}</span>
-                            <span className="profile-card-date">{formatTimestamp(getPublishedAtValue(job))}</span>
-                          </p>
-                          <p className="profile-card-url">
-                            <a href={job.tweetUrl} target="_blank" rel="noreferrer">
-                              {job.tweetUrl && job.tweetUrl.length > 50 ? job.tweetUrl.slice(0, 50) + '...' : job.tweetUrl}
-                            </a>
-                          </p>
-                          {job.outputPath && (
-                            <a href={toAssetHref(job.outputPath)} target="_blank" rel="noreferrer" className="profile-card-file-link">
-                              Open downloaded file
-                            </a>
-                          )}
-                          {job.metadata && (job.metadata.title || job.metadata.durationSeconds || (job.metadata.videoWidth && job.metadata.videoHeight)) && (
-                            <div className="profile-card-meta">
-                              {job.metadata.title && <p className="meta-title">{job.metadata.title}</p>}
-                              <p className="meta-specs">
-                                {job.metadata.videoWidth && job.metadata.videoHeight && <span>{job.metadata.videoWidth}x{job.metadata.videoHeight}</span>}
-                                {job.metadata.durationSeconds && <span>{job.metadata.durationSeconds}s</span>}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {actions.editingJobId === job._id && (
-                        <JobEditForm
-                          job={job}
-                          draft={actions.editDraftByJobId[job._id]}
-                          isMutating={actions.isMutating}
-                          onUpdateDraft={actions.updateEditDraft}
-                          onSubmit={actions.submitEdit}
-                          onCancel={actions.cancelEdit}
-                          idPrefix="profile-"
-                        />
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
+          {!isLoading && (
+            <DiscoveredGrid
+              posts={unifiedVideoPosts}
+              downloadingPostIds={downloadingPostIds}
+              onDownload={handleDownloadDiscovered}
+              onOpenInVlc={handleOpenInVlc}
+              title="Videos"
+              emptyMessage="No creator videos found yet. Run discovery to populate candidates."
+            />
           )}
-        </section>
-
-        <DiscoveredGrid
-          posts={discoveredPosts}
-          downloadingPostIds={downloadingPostIds}
-          onDownload={handleDownloadDiscovered}
-        />
         </div>
       </section>
 
       <ConfirmModal
         isOpen={confirmDelete.isOpen}
-        title={
-          confirmDelete.mode === 'contact'
-            ? 'Delete this contact?'
-            : confirmDelete.mode === 'bulk'
-              ? 'Delete selected posts?'
-              : 'Delete this post?'
-        }
-        message={
-          confirmDelete.mode === 'contact'
-            ? `Permanently delete this contact and all ${confirmDelete.count} of its posts?`
-            : confirmDelete.mode === 'bulk'
-              ? `Permanently delete ${confirmDelete.count} selected posts?`
-              : 'Permanently delete this post?'
-        }
+        title="Delete this contact?"
+        message={`Permanently delete this contact and all ${confirmDelete.count} of its posts?`}
         confirmLabel="Delete permanently"
         isBusy={actions.isMutating}
         onCancel={closeDeleteModal}

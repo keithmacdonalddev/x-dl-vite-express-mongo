@@ -41,8 +41,48 @@ export async function createJob(tweetUrl) {
   return parseResponse(response)
 }
 
-export async function listJobs() {
-  const response = await fetch(JOBS_API_BASE)
+export async function listJobs(params = {}) {
+  const search = new URLSearchParams()
+  if (params.view) {
+    search.set('view', String(params.view))
+  }
+  if (params.status) {
+    search.set('status', String(params.status))
+  }
+  if (Number.isFinite(params.limit) && params.limit > 0) {
+    search.set('limit', String(params.limit))
+  }
+
+  const query = search.toString()
+  const response = await fetch(query ? `${JOBS_API_BASE}?${query}` : JOBS_API_BASE)
+  return parseResponse(response)
+}
+
+export async function listContactJobs(contactSlug, params = {}) {
+  const slug = typeof contactSlug === 'string' ? contactSlug.trim().toLowerCase() : ''
+  if (!slug) {
+    return {
+      ok: true,
+      jobs: [],
+      view: params.view || 'compact',
+      contactSlug: '',
+    }
+  }
+
+  const search = new URLSearchParams()
+  if (params.view) {
+    search.set('view', String(params.view))
+  }
+  if (params.status) {
+    search.set('status', String(params.status))
+  }
+  if (Number.isFinite(params.limit) && params.limit > 0) {
+    search.set('limit', String(params.limit))
+  }
+
+  const query = search.toString()
+  const endpoint = `${JOBS_API_BASE}/contact/${encodeURIComponent(slug)}`
+  const response = await fetch(query ? `${endpoint}?${query}` : endpoint)
   return parseResponse(response)
 }
 
@@ -165,6 +205,24 @@ export async function refreshDiscovery(accountSlug) {
     headers: {
       'Content-Type': 'application/json',
     },
+  })
+  return parseResponse(response)
+}
+
+export async function repairThumbnails(accountSlug) {
+  const response = await fetch(`${DISCOVERY_API}/${encodeURIComponent(accountSlug)}/repair-thumbnails`, {
+    method: 'POST',
+  })
+  return parseResponse(response)
+}
+
+export async function openInVlc(outputPath) {
+  const response = await fetch(`${JOBS_API_BASE}/open-vlc`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ outputPath }),
   })
   return parseResponse(response)
 }
