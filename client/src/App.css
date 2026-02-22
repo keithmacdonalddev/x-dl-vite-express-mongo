@@ -523,10 +523,6 @@ h1 {
   box-shadow: 0 4px 12px rgba(11, 107, 203, 0.1);
 }
 
-.discovered-card.is-downloaded {
-  opacity: 0.7;
-}
-
 .discovered-card.is-downloading {
   opacity: 0.6;
   pointer-events: none;
@@ -604,6 +600,8 @@ h1 {
 .discovered-card-actions {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 6px;
 }
 
 .discovered-source-note {
@@ -644,6 +642,29 @@ h1 {
   cursor: not-allowed;
 }
 
+.discovered-play-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #41a466;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.discovered-play-btn:hover {
+  background: #358c55;
+}
+
+.discovered-play-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .discovered-badge {
   display: inline-block;
   font-size: 11px;
@@ -660,6 +681,81 @@ h1 {
 .discovered-badge.is-active {
   background: #e8f1fb;
   color: #245a8b;
+}
+
+.discovered-vlc-link {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #c8d5df;
+  border-radius: 999px;
+  color: #2f6ea1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.discovered-vlc-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+.discovered-vlc-link:hover {
+  background: #eef6ff;
+  border-color: #9ab9d4;
+  color: #165283;
+}
+
+.discovered-vlc-link:focus-visible {
+  outline: 2px solid #2f6ea1;
+  outline-offset: 2px;
+}
+
+.discovered-player-modal {
+  width: min(900px, 95vw);
+  display: grid;
+  gap: 12px;
+}
+
+.discovered-player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.discovered-player-header h3 {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.discovered-player-close {
+  flex-shrink: 0;
+}
+
+.discovered-player-video {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 10px;
+  background: #0b1218;
+}
+
+.discovered-player-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.discovered-vlc-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.discovered-vlc-cta svg {
+  width: 14px;
+  height: 14px;
 }
 
 .modal-overlay {
@@ -719,6 +815,19 @@ h1 {
   .modal-actions {
     flex-wrap: wrap;
   }
+
+  .discovered-player-modal {
+    width: min(700px, 95vw);
+  }
+
+  .discovered-player-actions {
+    justify-content: stretch;
+  }
+
+  .discovered-vlc-cta {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -727,7 +836,9 @@ h1 {
   .ghost-btn,
   .danger-btn,
   .back-breadcrumb,
-  .discovered-card {
+  .discovered-card,
+  .discovered-download-btn,
+  .discovered-play-btn {
     transition: none !important;
   }
 }
