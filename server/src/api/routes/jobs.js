@@ -17,12 +17,98 @@ const {
   deleteJobFiles,
   hasJobOutputFile,
   normalizeBulkDeleteIds,
+  normalizeContactSlug,
   sanitizeDisplayName,
   ensureEnabledPlatform,
 } = require('./helpers/route-utils');
 const jobsRouter = express.Router();
 const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
 const DEDUPE_JOB_STATUSES = [...ACTIVE_JOB_STATUSES, JOB_STATUSES.COMPLETED];
+const JOB_LIST_VIEW_COMPACT = 'compact';
+const JOB_LIST_VIEW_FULL = 'full';
+const JOB_LIST_VIEWS = new Set([JOB_LIST_VIEW_COMPACT, JOB_LIST_VIEW_FULL]);
+const JOB_LIST_SELECT_COMPACT = [
+  'tweetUrl',
+  'canonicalUrl',
+  'status',
+  'accountHandle',
+  'accountDisplayName',
+  'accountSlug',
+  'accountPlatform',
+  'platform',
+  'publishedAt',
+  'createdAt',
+  'downloadPath',
+  'thumbnailPath',
+  'thumbnailUrl',
+  'outputPath',
+  'error',
+  'errorCode',
+  'sourceType',
+  'attemptCount',
+  'removedFromSourceAt',
+  'profileRemovedFromSourceAt',
+].join(' ');
+const JOB_LIST_SELECT_FULL = [
+  JOB_LIST_SELECT_COMPACT,
+  'imageUrls',
+  'metadata',
+].join(' ');
+
+function normalizeListView(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (JOB_LIST_VIEWS.has(normalized)) {
+    return normalized;
+  }
+  return JOB_LIST_VIEW_COMPACT;
+}
+
+function parseListQuery(query = {}) {
+  const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200);
+  const status = typeof query.status === 'string' ? query.status.trim() : '';
+  const view = normalizeListView(query.view);
+  const projection = view === JOB_LIST_VIEW_FULL ? JOB_LIST_SELECT_FULL : JOB_LIST_SELECT_COMPACT;
+  return {
+    limit,
+    status,
+    view,
+    projection,
+  };
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildLegacyContactFilter(slug, status) {
+  const safeSlug = escapeRegex(slug);
+  const handleRegex = new RegExp(`^@?${safeSlug}$`, 'i');
+  const urlRegex = new RegExp(`/@${safeSlug}(?:/|$)`, 'i');
+  const filter = {
+    $or: [
+      { accountSlug: slug },
+      { accountHandle: handleRegex },
+      { tweetUrl: urlRegex },
+      { canonicalUrl: urlRegex },
+    ],
+  };
+  if (status) {
+    filter.status = status;
+  }
+  return filter;
+}
+
+async function listJobsByFilter({
+  filter = {},
+  projection = JOB_LIST_SELECT_COMPACT,
+  limit = 50,
+} = {}) {
+  return Job.find(filter)
+    .select(projection)
+    .sort({ publishedAt: -1, createdAt: -1 })
+    .limit(limit)
+    .lean();
+}
 
 function buildDuplicateJobError(existingJobStatus) {
   if (existingJobStatus === JOB_STATUSES.COMPLETED) {
@@ -37,23 +123,6 @@ function buildDuplicateJobError(existingJobStatus) {
     code: ERROR_CODES.DUPLICATE_ACTIVE_JOB,
     message: 'This URL is already downloading.',
     event: 'jobs.create.duplicate_active',
-  };
-}
-
-function normalizeJobPublishedAt(job) {
-  const resolvedPublishedAt = resolvePublishedAt({
-    publishedAt: job && job.publishedAt,
-    metadataPublishedAt: job && job.metadata && job.metadata.publishedAt,
-    tweetUrl: job && job.tweetUrl,
-    canonicalUrl: job && job.canonicalUrl,
-    createdAtFallback: job && job.createdAt,
-  });
-
-  return {
-    ...(job || {}),
-    publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
-    isRemovedFromSource: Boolean(job && job.removedFromSourceAt),
-    isProfileRemovedFromSource: Boolean(job && job.profileRemovedFromSourceAt),
   };
 }
 
@@ -87,24 +156,56 @@ jobsRouter.get('/', async (req, res) => {
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
-  const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
-  const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  const { limit, status, view, projection } = parseListQuery(req.query);
   const filter = status ? { status } : {};
 
   try {
-    const jobsRaw = await Job.find(filter)
-      .select('tweetUrl canonicalUrl status accountHandle accountDisplayName accountSlug accountPlatform platform publishedAt createdAt downloadPath thumbnailPath outputPath error errorCode sourceType attemptCount imageUrls metadata')
-      .sort({ publishedAt: -1, createdAt: -1 })
-      .limit(limit)
-      .lean();
-    const jobs = jobsRaw.map((job) => normalizeJobPublishedAt(job));
+    const jobs = await listJobsByFilter({ filter, projection, limit });
     return res.json({
       ok: true,
+      view,
       jobs,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('jobs.list.failed', { message });
+    return sendError(res, 500, ERROR_CODES.LIST_JOBS_FAILED, `Failed to list jobs: ${message}`);
+  }
+});
+
+jobsRouter.get('/contact/:slug', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  const slug = normalizeContactSlug(req.params.slug);
+  if (!slug) {
+    return sendError(res, 400, ERROR_CODES.INVALID_CONTACT_SLUG, 'Invalid contact slug.');
+  }
+
+  const { limit, status, view, projection } = parseListQuery(req.query);
+  const primaryFilter = status ? { accountSlug: slug, status } : { accountSlug: slug };
+
+  try {
+    let jobs = await listJobsByFilter({ filter: primaryFilter, projection, limit });
+    let usedLegacyFallback = false;
+
+    if (jobs.length === 0) {
+      const legacyFilter = buildLegacyContactFilter(slug, status);
+      jobs = await listJobsByFilter({ filter: legacyFilter, projection, limit });
+      usedLegacyFallback = true;
+    }
+
+    return res.json({
+      ok: true,
+      view,
+      contactSlug: slug,
+      usedLegacyFallback,
+      jobs,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('jobs.list.contact.failed', { message, contactSlug: slug });
     return sendError(res, 500, ERROR_CODES.LIST_JOBS_FAILED, `Failed to list jobs: ${message}`);
   }
 });
@@ -119,11 +220,10 @@ jobsRouter.get('/:id', async (req, res) => {
   }
 
   try {
-    const jobRaw = await Job.findById(req.params.id).lean();
-    if (!jobRaw) {
+    const job = await Job.findById(req.params.id).lean();
+    if (!job) {
       return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Job not found.');
     }
-    const job = normalizeJobPublishedAt(jobRaw);
     return res.json({
       ok: true,
       job,
@@ -222,7 +322,7 @@ jobsRouter.post('/', async (req, res) => {
 
             return res.status(201).json({
               ok: true,
-              job: normalizeJobPublishedAt(requeuedJob),
+              job: requeuedJob,
               traceId,
               requeued: true,
             });
@@ -291,7 +391,7 @@ jobsRouter.post('/', async (req, res) => {
 
                 return res.status(201).json({
                   ok: true,
-                  job: normalizeJobPublishedAt(requeuedJob),
+                  job: requeuedJob,
                   traceId,
                   requeued: true,
                 });
@@ -405,7 +505,7 @@ jobsRouter.patch('/:id', async (req, res) => {
 
     return res.json({
       ok: true,
-      job: normalizeJobPublishedAt(job.toObject()),
+      job: job.toObject(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
