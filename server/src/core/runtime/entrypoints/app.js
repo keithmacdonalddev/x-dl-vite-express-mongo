@@ -161,10 +161,11 @@ app.patch('/api/capabilities', (req, res) => {
   });
 });
 
-app.use('/api/jobs', enforceTweetUrlLength, jobsRouter);
-app.use('/api/jobs', enforceTweetUrlLength, contactsRouter);
-app.use('/api/jobs', enforceTweetUrlLength, retryRouter);
-app.use('/api/jobs', enforceTweetUrlLength, statusRouter);
+app.use('/api/jobs', enforceTweetUrlLength);
+app.use('/api/jobs', jobsRouter);
+app.use('/api/jobs', contactsRouter);
+app.use('/api/jobs', retryRouter);
+app.use('/api/jobs', statusRouter);
 app.use('/api/discovery', discoveryRouter);
 app.use('/api/auth', authRouter);
 app.use(workerHealthRouter);
