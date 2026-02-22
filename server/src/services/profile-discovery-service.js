@@ -570,7 +570,22 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
       function addItem(postUrl, thumbnailUrl, title, avatarUrl, publishedAt, playCount, diggCount, shareCount, commentCount) {
         if (!postUrl) return;
         const key = postUrl.split('?')[0]; // canonical key (no query params)
-        if (seen.has(key)) return;
+        if (seen.has(key)) {
+          // Merge stats from richer data source (Strategy 3/4 JSON has stats; Strategy 1/2 DOM does not)
+          if (playCount > 0 || diggCount > 0 || shareCount > 0 || commentCount > 0) {
+            const existing = results.find(r => r.postUrl.split('?')[0] === key);
+            if (existing) {
+              if (playCount > 0) existing.playCount = playCount;
+              if (diggCount > 0) existing.diggCount = diggCount;
+              if (shareCount > 0) existing.shareCount = shareCount;
+              if (commentCount > 0) existing.commentCount = commentCount;
+              // Also merge title and publishedAt if the existing ones are empty
+              if (!existing.title && title) existing.title = title;
+              if (!existing.publishedAt && publishedAt) existing.publishedAt = publishedAt;
+            }
+          }
+          return;
+        }
         seen.add(key);
         results.push({
           postUrl,
