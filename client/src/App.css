@@ -322,6 +322,38 @@ h1 {
   align-self: start;
 }
 
+.profile-video-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.profile-video-toolbar-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3e5b6e;
+}
+
+.profile-video-size-group {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.profile-video-size-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.profile-video-size-btn.is-active {
+  background: #dcebfb;
+  border-color: #8fb4d4;
+  color: #15456d;
+  box-shadow: inset 0 0 0 1px #7da7ca;
+}
+
 .profile-avatar {
   width: 80px;
   aspect-ratio: 1 / 1;
@@ -478,6 +510,23 @@ h1 {
 
 .discovered-section {
   margin-top: 8px;
+  --discovered-min-card-width: 120px;
+  --discovered-grid-gap: 8px;
+}
+
+.discovered-section.is-size-small {
+  --discovered-min-card-width: 96px;
+  --discovered-grid-gap: 6px;
+}
+
+.discovered-section.is-size-medium {
+  --discovered-min-card-width: 120px;
+  --discovered-grid-gap: 8px;
+}
+
+.discovered-section.is-size-large {
+  --discovered-min-card-width: 170px;
+  --discovered-grid-gap: 10px;
 }
 
 .discovered-header {
@@ -506,14 +555,14 @@ h1 {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--discovered-grid-gap);
+  grid-template-columns: repeat(auto-fill, minmax(var(--discovered-min-card-width), 1fr));
 }
 
 .discovered-card {
   border: 1px solid #d7e2e9;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   background: #fff;
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
@@ -542,6 +591,8 @@ h1 {
   background: transparent;
   cursor: pointer;
   display: block;
+  border-radius: 10px 10px 0 0;
+  overflow: hidden;
 }
 
 .discovered-thumb-btn:disabled {
@@ -599,9 +650,41 @@ h1 {
 
 .discovered-card-actions {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   gap: 6px;
+}
+
+.discovered-main-action {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discovered-main-action .discovered-download-btn,
+.discovered-main-action .discovered-play-btn {
+  flex: 1;
+}
+
+.discovered-card-actions .overflow-menu {
+  flex-shrink: 0;
+}
+
+.discovered-card-actions .overflow-menu-trigger {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #f4f7fa;
+  border-color: #d1dae2;
+  font-size: 18px;
+}
+
+.discovered-card-actions .overflow-menu-dropdown {
+  right: 0;
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 
 .discovered-source-note {
@@ -746,6 +829,45 @@ h1 {
   justify-content: flex-end;
 }
 
+.discovered-meta-modal {
+  width: min(640px, 95vw);
+  display: grid;
+  gap: 10px;
+}
+
+.discovered-meta-list {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.discovered-meta-list div {
+  border: 1px solid #e3eaf0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fbfdff;
+}
+
+.discovered-meta-list dt {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4d6573;
+  font-weight: 700;
+}
+
+.discovered-meta-list dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #102029;
+  overflow-wrap: anywhere;
+}
+
+.discovered-meta-list a {
+  color: #0b6bcb;
+}
+
 .discovered-vlc-cta {
   display: inline-flex;
   align-items: center;
@@ -756,6 +878,81 @@ h1 {
 .discovered-vlc-cta svg {
   width: 14px;
   height: 14px;
+}
+
+/* Discovery progress bar */
+
+.discovery-progress { margin: 8px 0; }
+
+.discovery-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+  position: relative;
+}
+
+.discovery-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: calc(var(--progress, 0) * 100%);
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+
+.discovery-progress-bar.is-indeterminate::after {
+  width: 40%;
+  animation: discovery-progress-shimmer 1.5s ease-in-out infinite;
+}
+
+.discovery-progress-bar.is-amber::after { background: #d4940a; }
+.discovery-progress-bar.is-red::after { background: #b62b2b; }
+
+.discovery-progress-text {
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.discovery-progress-text.is-complete { color: #41a466; }
+.discovery-progress-text.is-error { color: #b62b2b; }
+.discovery-progress-text.is-waiting { color: #d4940a; }
+
+/* Removed-from-source card indicator */
+
+.discovered-card.is-removed-from-source { opacity: 0.65; }
+
+.discovered-badge-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  z-index: 1;
+}
+.discovered-badge-overlay.is-removed { background: #b62b2b; color: #fff; }
+.discovered-badge-overlay.is-failed { background: #d4940a; color: #fff; }
+
+/* Unavailable button for removed posts */
+
+.discovered-btn-unavailable {
+  background: #c4d0d8;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+@keyframes discovery-progress-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
 
 .modal-overlay {
@@ -812,6 +1009,11 @@ h1 {
     position: static;
   }
 
+  .profile-video-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .modal-actions {
     flex-wrap: wrap;
   }
@@ -841,4 +1043,7 @@ h1 {
   .discovered-play-btn {
     transition: none !important;
   }
+
+  .discovery-progress-bar::after { transition: none !important; }
+  .discovery-progress-bar.is-indeterminate::after { animation: none !important; }
 }
