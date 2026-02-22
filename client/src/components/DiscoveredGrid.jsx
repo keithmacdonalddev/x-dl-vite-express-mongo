@@ -43,6 +43,13 @@ function getPrimaryPostUrl(post) {
   return canonicalUrl
 }
 
+function formatCount(n) {
+  if (!n || n <= 0) return ''
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return (n / 1000).toFixed(n < 10_000 ? 1 : 0) + 'K'
+  return (n / 1_000_000).toFixed(1) + 'M'
+}
+
 function formatPublishedLabel(value) {
   if (!value) return 'n/a'
   const date = new Date(value)
@@ -394,6 +401,14 @@ export function DiscoveredGrid({
                 >
                   <DiscoveredCardThumb src={thumbSrc} alt={post.title || 'Discovered video'} videoId={post.videoId} />
                 </button>
+                {post.playCount > 0 && (
+                  <span className="discovered-view-count">
+                    <svg className="discovered-view-count-icon" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <polygon points="3,1.5 10.5,6 3,10.5" fill="currentColor" />
+                    </svg>
+                    {formatCount(post.playCount)}
+                  </span>
+                )}
                 {isRemovedFromSource && (
                   <span className="discovered-badge-overlay is-removed">Removed</span>
                 )}
