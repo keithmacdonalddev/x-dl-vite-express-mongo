@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   deleteContactProfile,
   deleteDiscoveredPost,
   downloadDiscoveredPost,
+  redownloadDiscoveredPost,
+  redownloadJob,
   getJob,
   listDiscoveredPosts,
+  openContainingFolder,
   openInVlc,
   refreshDiscovery,
   repairThumbnails,
+  updateJob,
   updateContactProfile,
 } from '../api/jobsApi'
 import { useJobsPolling } from '../hooks/useJobsPolling'
@@ -20,6 +24,7 @@ import {
   makeContactSlug,
   toAssetHref,
 } from '../lib/contacts'
+import { recordProfileView, recordVideoView } from '../lib/recentViews'
 import { useJobActions } from '../features/dashboard/useJobActions'
 
 import { IntakeForm } from '../features/intake/IntakeForm'
@@ -32,6 +37,18 @@ const THUMBNAIL_SIZE_OPTIONS = [
   { id: 'large', label: 'Large' },
   { id: 'xlarge', label: 'Extra Large' },
 ]
+const PROFILE_POST_SORT_OPTIONS = [
+  { id: 'newest', label: 'Newest' },
+  { id: 'oldest', label: 'Oldest' },
+  { id: 'most-viewed', label: 'Most viewed' },
+]
+const PROFILE_POST_VISIBILITY_OPTIONS = [
+  { id: 'all', label: 'All' },
+  { id: 'downloaded', label: 'Downloaded' },
+  { id: 'not-downloaded', label: 'Not downloaded' },
+]
+const DISCOVERED_INITIAL_LIMIT = 20
+const DISCOVERED_PAGE_LIMIT = 40
 
 function getDiscoveredStorageKey(slug) {
   const normalizedSlug = typeof slug === 'string' ? slug.trim().toLowerCase() : ''
@@ -70,6 +87,21 @@ function writeCachedDiscoveredPosts(slug, posts) {
   }
 }
 
+function mergeDiscoveredPosts(currentPosts, incomingPosts) {
+  const mergedById = new Map()
+  for (const post of Array.isArray(currentPosts) ? currentPosts : []) {
+    if (post && post._id) {
+      mergedById.set(post._id, post)
+    }
+  }
+  for (const post of Array.isArray(incomingPosts) ? incomingPosts : []) {
+    if (post && post._id) {
+      mergedById.set(post._id, post)
+    }
+  }
+  return Array.from(mergedById.values()).sort(compareByPublishedAtDesc)
+}
+
 function normalizeComparableUrl(value) {
   if (typeof value !== 'string') return ''
   const trimmed = value.trim()
@@ -77,15 +109,46 @@ function normalizeComparableUrl(value) {
 
   try {
     const parsed = new URL(trimmed)
-    return `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '').toLowerCase()
+    // Strip www. prefix so that www.tiktok.com and tiktok.com match
+    const host = parsed.hostname.replace(/^www\./, '')
+    return `${parsed.protocol}//${host}${parsed.pathname}`.replace(/\/+$/, '').toLowerCase()
   } catch {
     return trimmed.replace(/\/+$/, '').toLowerCase()
   }
 }
 
+function extractVideoIdFromUrl(value) {
+  if (typeof value !== 'string') return ''
+  try {
+    const parsed = new URL(value.trim())
+    const match = parsed.pathname.match(/\/video\/(\d+)/)
+    return match ? match[1] : ''
+  } catch {
+    return ''
+  }
+}
+
+function toDateMs(value) {
+  if (!value) return 0
+  const parsed = new Date(value)
+  const parsedMs = parsed.getTime()
+  return Number.isFinite(parsedMs) ? parsedMs : 0
+}
+
+function getPostSortTimestamp(post) {
+  return toDateMs(getPublishedAtValue(post)) || toDateMs(post?.createdAt)
+}
+
+function getPostPlayCount(post) {
+  const count = Number(post?.playCount)
+  return Number.isFinite(count) && count > 0 ? count : 0
+}
+
 export function ContactProfilePage({
   contactSlug,
   onBack,
+  onOpenFavorites,
+  onOpenLiked,
   initialOpenJobId = '',
   onConsumeInitialOpenJobId,
 }) {
@@ -99,15 +162,23 @@ export function ContactProfilePage({
     view: 'compact',
     limit: 80,
     contactSlug: normalizedSlug,
+    initialLimit: 18,
+    progressiveDelayMs: 160,
   })
   const [editContactName, setEditContactName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, mode: '', jobId: '', count: 0 })
   const [discoveredPosts, setDiscoveredPosts] = useState(() => readCachedDiscoveredPosts(normalizedSlug))
+  const [isHydratingDiscovered, setIsHydratingDiscovered] = useState(false)
   const [downloadingPostIds, setDownloadingPostIds] = useState(new Set())
   const [discoveryTraceId, setDiscoveryTraceId] = useState('')
   const [syncTraceId, setSyncTraceId] = useState('')
   const [initialOpenJob, setInitialOpenJob] = useState(null)
   const [thumbnailSize, setThumbnailSize] = useState('large')
+  const [postSort, setPostSort] = useState('newest')
+  const [postVisibility, setPostVisibility] = useState('all')
+  const discoveredHydrationSequenceRef = useRef(0)
+  const discoveredPostsRef = useRef(discoveredPosts)
+  const recordedProfileSignatureRef = useRef('')
 
   const discoveryProgress = useDiscoveryProgress(discoveryTraceId, 'discover')
   const syncProgress = useDiscoveryProgress(syncTraceId, 'sync')
@@ -121,6 +192,26 @@ export function ContactProfilePage({
     () => contacts.find((value) => value.slug === normalizedSlug),
     [contacts, normalizedSlug]
   )
+
+  useEffect(() => {
+    if (!normalizedSlug) return
+    const signature = [
+      normalizedSlug,
+      contact?.handle || '',
+      contact?.displayName || '',
+      contact?.avatarPath || '',
+    ].join('|')
+    if (signature === recordedProfileSignatureRef.current) {
+      return
+    }
+    recordedProfileSignatureRef.current = signature
+    recordProfileView({
+      slug: normalizedSlug,
+      handle: contact?.handle || `@${normalizedSlug}`,
+      displayName: contact?.displayName || '',
+      avatarPath: contact?.avatarPath || '',
+    })
+  }, [contact?.avatarPath, contact?.displayName, contact?.handle, normalizedSlug])
 
   const contactJobs = useMemo(
     () => jobs.slice().sort(compareByPublishedAtDesc),
@@ -178,9 +269,19 @@ export function ContactProfilePage({
         return
       }
 
-      const matchingIndex = urlKey
+      let matchingIndex = urlKey
         ? combined.findIndex((post) => normalizeComparableUrl(post?.canonicalUrl || post?.postUrl || '') === urlKey)
         : -1
+
+      // Fallback: match by videoId extracted from the job URL against discovered post videoId
+      if (matchingIndex < 0) {
+        const jobVideoId = extractVideoIdFromUrl(job.canonicalUrl || job.tweetUrl || '')
+        if (jobVideoId) {
+          matchingIndex = combined.findIndex(
+            (post) => post?.videoId && String(post.videoId) === jobVideoId
+          )
+        }
+      }
 
       if (matchingIndex >= 0) {
         const existingPost = combined[matchingIndex]
@@ -207,6 +308,7 @@ export function ContactProfilePage({
               job.profileRemovedFromSourceAt ||
               job.isProfileRemovedFromSource
             ),
+            isFavorite: Boolean(job.isFavorite),
           }
         }
         if (jobId) {
@@ -220,6 +322,7 @@ export function ContactProfilePage({
 
       combined.push({
         _id: `job-${jobId}`,
+        _syntheticJobPost: true,
         postUrl: job.tweetUrl || '',
         canonicalUrl: job.canonicalUrl || '',
         thumbnailPath: job.thumbnailPath || '',
@@ -230,6 +333,7 @@ export function ContactProfilePage({
         downloadOutputPath: outputPath,
         isRemovedFromSource: Boolean(job.removedFromSourceAt || job.isRemovedFromSource),
         isProfileRemovedFromSource: Boolean(job.profileRemovedFromSourceAt || job.isProfileRemovedFromSource),
+        isFavorite: Boolean(job.isFavorite),
       })
 
       if (jobId) {
@@ -253,6 +357,61 @@ export function ContactProfilePage({
 
     return combined.sort(compareByPublishedAtDesc)
   }, [discoveredPosts, initialOpenJob, normalizedSlug, visibleContactJobs])
+
+  const sortedVideoPosts = useMemo(() => {
+    const posts = unifiedVideoPosts.slice()
+
+    if (postSort === 'oldest') {
+      posts.sort((left, right) => {
+        const leftTime = getPostSortTimestamp(left)
+        const rightTime = getPostSortTimestamp(right)
+        if (leftTime !== rightTime) {
+          return leftTime - rightTime
+        }
+        return String(left?._id || '').localeCompare(String(right?._id || ''))
+      })
+      return posts
+    }
+
+    if (postSort === 'most-viewed') {
+      posts.sort((left, right) => {
+        const leftCount = getPostPlayCount(left)
+        const rightCount = getPostPlayCount(right)
+        if (rightCount !== leftCount) {
+          return rightCount - leftCount
+        }
+        return getPostSortTimestamp(right) - getPostSortTimestamp(left)
+      })
+      return posts
+    }
+
+    posts.sort((left, right) => getPostSortTimestamp(right) - getPostSortTimestamp(left))
+    return posts
+  }, [postSort, unifiedVideoPosts])
+
+  const filteredVideoPosts = useMemo(() => {
+    if (postVisibility === 'downloaded') {
+      return sortedVideoPosts.filter((post) => post && post.isDownloaded === true)
+    }
+    if (postVisibility === 'not-downloaded') {
+      return sortedVideoPosts.filter((post) => !post || post.isDownloaded !== true)
+    }
+    return sortedVideoPosts
+  }, [postVisibility, sortedVideoPosts])
+
+  const filteredEmptyMessage = useMemo(() => {
+    if (postVisibility === 'downloaded') {
+      return 'No downloaded videos for this creator yet.'
+    }
+    if (postVisibility === 'not-downloaded') {
+      return 'No pending videos. Everything shown is already downloaded.'
+    }
+    return 'No creator videos found yet. Run discovery to populate candidates.'
+  }, [postVisibility])
+
+  useEffect(() => {
+    discoveredPostsRef.current = discoveredPosts
+  }, [discoveredPosts])
 
   useEffect(() => {
     actions.cleanupHiddenIds(contactJobs.map((j) => j._id))
@@ -287,39 +446,118 @@ export function ContactProfilePage({
     }
   }, [initialOpenJobId])
 
-  const fetchDiscoveredPosts = useCallback(async ({ silent = true } = {}) => {
-    if (!normalizedSlug) return []
+  const fetchDiscoveredPostsPage = useCallback(async ({
+    silent = true,
+    limit = 0,
+    offset = 0,
+    mode = 'replace',
+  } = {}) => {
+    if (!normalizedSlug) {
+      return { posts: [], hasMore: false, nextOffset: null }
+    }
     try {
-      const data = await listDiscoveredPosts(normalizedSlug)
+      const data = await listDiscoveredPosts(normalizedSlug, { limit, offset })
       const posts = Array.isArray(data.posts) ? data.posts.slice().sort(compareByPublishedAtDesc) : []
-      setDiscoveredPosts(posts)
-      writeCachedDiscoveredPosts(normalizedSlug, posts)
-      return posts
+      const hasMore = Boolean(data?.pagination?.hasMore)
+      const nextOffsetRaw = Number(data?.pagination?.nextOffset)
+      const nextOffset = Number.isFinite(nextOffsetRaw) ? nextOffsetRaw : null
+
+      if (mode === 'merge') {
+        setDiscoveredPosts((prev) => {
+          const merged = mergeDiscoveredPosts(prev, posts)
+          writeCachedDiscoveredPosts(normalizedSlug, merged)
+          return merged
+        })
+      } else if (mode === 'replace') {
+        setDiscoveredPosts(posts)
+        writeCachedDiscoveredPosts(normalizedSlug, posts)
+      }
+      return { ok: true, posts, hasMore, nextOffset }
     } catch (err) {
       if (!silent) throw err
-      return []
+      return { ok: false, posts: [], hasMore: false, nextOffset: null }
     }
   }, [normalizedSlug])
 
+  const hydrateDiscoveredPostsProgressively = useCallback(async ({ silent = true } = {}) => {
+    if (!normalizedSlug) {
+      return
+    }
+
+    const hydrationSequence = discoveredHydrationSequenceRef.current + 1
+    discoveredHydrationSequenceRef.current = hydrationSequence
+    setIsHydratingDiscovered(true)
+    const hasSeedPosts = Array.isArray(discoveredPostsRef.current) && discoveredPostsRef.current.length > 0
+
+    const firstPage = await fetchDiscoveredPostsPage({
+      silent,
+      limit: DISCOVERED_INITIAL_LIMIT,
+      offset: 0,
+      mode: hasSeedPosts ? 'none' : 'replace',
+    })
+
+    if (discoveredHydrationSequenceRef.current !== hydrationSequence) {
+      return
+    }
+    if (!firstPage.ok) {
+      setIsHydratingDiscovered(false)
+      return
+    }
+
+    let hydratedPosts = firstPage.posts
+    let nextOffset = firstPage.hasMore ? firstPage.nextOffset : null
+    while (nextOffset !== null && discoveredHydrationSequenceRef.current === hydrationSequence) {
+      const nextPage = await fetchDiscoveredPostsPage({
+        silent,
+        limit: DISCOVERED_PAGE_LIMIT,
+        offset: nextOffset,
+        mode: hasSeedPosts ? 'none' : 'merge',
+      })
+      if (!nextPage.ok) {
+        break
+      }
+      hydratedPosts = mergeDiscoveredPosts(hydratedPosts, nextPage.posts)
+      if (!nextPage.hasMore || nextPage.nextOffset === null) {
+        break
+      }
+      nextOffset = nextPage.nextOffset
+    }
+
+    if (discoveredHydrationSequenceRef.current === hydrationSequence) {
+      if (hasSeedPosts) {
+        setDiscoveredPosts(hydratedPosts)
+        writeCachedDiscoveredPosts(normalizedSlug, hydratedPosts)
+      }
+      setIsHydratingDiscovered(false)
+    }
+  }, [fetchDiscoveredPostsPage, normalizedSlug])
+
   useEffect(() => {
+    discoveredHydrationSequenceRef.current += 1
+    setIsHydratingDiscovered(false)
     setDiscoveredPosts(readCachedDiscoveredPosts(normalizedSlug))
   }, [normalizedSlug])
 
   useEffect(() => {
-    fetchDiscoveredPosts()
-  }, [fetchDiscoveredPosts])
+    hydrateDiscoveredPostsProgressively()
+  }, [hydrateDiscoveredPostsProgressively])
 
   useEffect(() => {
     if (!normalizedSlug) return () => {}
 
     const intervalId = setInterval(() => {
-      fetchDiscoveredPosts()
+      fetchDiscoveredPostsPage({
+        silent: true,
+        limit: DISCOVERED_INITIAL_LIMIT,
+        offset: 0,
+        mode: 'merge',
+      })
     }, 3000)
 
     return () => {
       clearInterval(intervalId)
     }
-  }, [fetchDiscoveredPosts, normalizedSlug])
+  }, [fetchDiscoveredPostsPage, normalizedSlug])
 
   // Reset progress state when navigating to a different contact
   useEffect(() => {
@@ -332,7 +570,7 @@ export function ContactProfilePage({
   // React to discovery completion — refresh grid and clear after delay
   useEffect(() => {
     if (discoveryProgress.isComplete || discoveryProgress.isError) {
-      fetchDiscoveredPosts()
+      hydrateDiscoveredPostsProgressively()
       const timer = setTimeout(() => {
         setDiscoveryTraceId('')
         discoveryProgress.reset()
@@ -344,7 +582,7 @@ export function ContactProfilePage({
   // React to sync completion — refresh grid and clear after delay
   useEffect(() => {
     if (syncProgress.isComplete || syncProgress.isError) {
-      fetchDiscoveredPosts()
+      hydrateDiscoveredPostsProgressively()
       const timer = setTimeout(() => {
         setSyncTraceId('')
         syncProgress.reset()
@@ -359,7 +597,32 @@ export function ContactProfilePage({
       await downloadDiscoveredPost(discoveredPostId)
       // alreadyExists is also a success — the job exists
       await refresh()
-      await fetchDiscoveredPosts()
+      await hydrateDiscoveredPostsProgressively()
+    } catch (err) {
+      actions.setActionError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDownloadingPostIds(prev => {
+        const next = new Set(prev)
+        next.delete(discoveredPostId)
+        return next
+      })
+    }
+  }
+
+  async function handleRedownloadDiscovered(discoveredPostId) {
+    setDownloadingPostIds(prev => new Set(prev).add(discoveredPostId))
+    try {
+      const post = unifiedVideoPosts.find((p) => p._id === discoveredPostId)
+      const isSyntheticJob = post && post._syntheticJobPost === true
+      const jobId = post && post.downloadedJobId ? String(post.downloadedJobId).trim() : ''
+
+      if (isSyntheticJob && jobId) {
+        await redownloadJob(jobId)
+      } else {
+        await redownloadDiscoveredPost(discoveredPostId)
+      }
+      await refresh()
+      await hydrateDiscoveredPostsProgressively()
     } catch (err) {
       actions.setActionError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -374,7 +637,11 @@ export function ContactProfilePage({
   async function handleDeleteDiscovered(postId) {
     try {
       await deleteDiscoveredPost(postId)
-      setDiscoveredPosts((prev) => prev.filter((p) => p._id !== postId))
+      setDiscoveredPosts((prev) => {
+        const next = prev.filter((p) => p._id !== postId)
+        writeCachedDiscoveredPosts(normalizedSlug, next)
+        return next
+      })
     } catch (err) {
       actions.setActionError(err instanceof Error ? err.message : String(err))
     }
@@ -398,6 +665,78 @@ export function ContactProfilePage({
       }
       actions.setActionError(err instanceof Error ? err.message : String(err))
     }
+  }
+
+  async function handleOpenContainingFolder(outputPath) {
+    const resolvedOutputPath = typeof outputPath === 'string' ? outputPath.trim() : ''
+    if (!resolvedOutputPath) {
+      return
+    }
+
+    try {
+      await openContainingFolder(resolvedOutputPath)
+    } catch (err) {
+      actions.setActionError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function handleToggleFavorite(jobId, nextIsFavorite) {
+    const normalizedJobId = typeof jobId === 'string' ? jobId.trim() : ''
+    if (!normalizedJobId || typeof nextIsFavorite !== 'boolean') {
+      return
+    }
+
+    setDiscoveredPosts((prev) => prev.map((post) => {
+      const linkedJobId = post && post.downloadedJobId ? String(post.downloadedJobId).trim() : ''
+      if (linkedJobId !== normalizedJobId) {
+        return post
+      }
+      return { ...post, isFavorite: nextIsFavorite }
+    }))
+
+    try {
+      await updateJob(normalizedJobId, { isFavorite: nextIsFavorite })
+      await refresh()
+      await fetchDiscoveredPostsPage({
+        silent: true,
+        limit: DISCOVERED_INITIAL_LIMIT,
+        offset: 0,
+        mode: 'merge',
+      })
+    } catch (err) {
+      actions.setActionError(err instanceof Error ? err.message : String(err))
+      await refresh()
+      await fetchDiscoveredPostsPage({
+        silent: true,
+        limit: DISCOVERED_INITIAL_LIMIT,
+        offset: 0,
+        mode: 'merge',
+      })
+    }
+  }
+
+  function handleViewedVideo(post) {
+    if (!post || typeof post !== 'object') return
+    const outputPath = typeof post.downloadOutputPath === 'string' && post.downloadOutputPath.trim()
+      ? post.downloadOutputPath.trim()
+      : typeof post.outputPath === 'string'
+        ? post.outputPath.trim()
+        : ''
+    const downloadedJobId = post.downloadedJobId ? String(post.downloadedJobId).trim() : ''
+
+    recordVideoView({
+      slug: normalizedSlug,
+      jobId: downloadedJobId,
+      postId: post._id,
+      title: post.title || '',
+      postUrl: post.postUrl || '',
+      canonicalUrl: post.canonicalUrl || '',
+      outputPath,
+      thumbnailPath: post.thumbnailPath || '',
+      thumbnailUrl: post.thumbnailUrl || '',
+      handle: contact?.handle || `@${normalizedSlug}`,
+      displayName: contact?.displayName || '',
+    })
   }
 
   async function handleRefreshDiscovery() {
@@ -481,17 +820,31 @@ export function ContactProfilePage({
   return (
     <main className="app">
       <header className="hero is-profile">
-        <button type="button" className="back-breadcrumb" onClick={onBack}>
-          &larr; Dashboard
-        </button>
+        <div className="hero-links-row">
+          <button type="button" className="back-breadcrumb" onClick={onBack}>
+            &larr; Dashboard
+          </button>
+          {typeof onOpenFavorites === 'function' && (
+            <button type="button" className="back-breadcrumb" onClick={onOpenFavorites}>
+              Favorites
+            </button>
+          )}
+          {typeof onOpenLiked === 'function' && (
+            <button type="button" className="back-breadcrumb" onClick={onOpenLiked}>
+              Liked
+            </button>
+          )}
+        </div>
         <p className="eyebrow">creator profile</p>
-        <h1>{contact?.displayName || contact?.handle || `@${contactSlug}`}</h1>
+        <div className="profile-hero-top-row">
+          <h1>{contact?.displayName || contact?.handle || `@${contactSlug}`}</h1>
+          <div className="profile-hero-intake-inline">
+            <IntakeForm onCreated={refresh} isBusy={actions.isMutating} compact />
+          </div>
+        </div>
         <p className="subhead">
           Captured posts, media, and metadata.
         </p>
-        <div className="hero-intake-wrap is-compact">
-          <IntakeForm onCreated={refresh} isBusy={actions.isMutating} compact />
-        </div>
       </header>
 
       <section className="layout profile-layout">
@@ -584,35 +937,78 @@ export function ContactProfilePage({
         <div className="profile-right">
           {isLoading && unifiedVideoPosts.length === 0 && <p>Loading profile...</p>}
           <div className="profile-video-toolbar">
-            <p className="profile-video-toolbar-label">Thumbnail size</p>
-            <div className="profile-video-size-group" role="group" aria-label="Thumbnail size">
-              {THUMBNAIL_SIZE_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`ghost-btn profile-video-size-btn${thumbnailSize === option.id ? ' is-active' : ''}`}
-                  onClick={() => setThumbnailSize(option.id)}
-                  aria-pressed={thumbnailSize === option.id}
-                >
-                  {option.label}
-                </button>
-              ))}
+            <div className="profile-video-toolbar-controls">
+              <div className="profile-video-control-group">
+                <p className="profile-video-toolbar-label">Thumbnail size</p>
+                <div className="profile-video-size-group" role="group" aria-label="Thumbnail size">
+                  {THUMBNAIL_SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`ghost-btn profile-video-size-btn${thumbnailSize === option.id ? ' is-active' : ''}`}
+                      onClick={() => setThumbnailSize(option.id)}
+                      aria-pressed={thumbnailSize === option.id}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="profile-video-control-group">
+                <p className="profile-video-toolbar-label">Sort posts</p>
+                <div className="profile-video-sort-group" role="group" aria-label="Sort posts">
+                  {PROFILE_POST_SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`ghost-btn profile-video-sort-btn${postSort === option.id ? ' is-active' : ''}`}
+                      onClick={() => setPostSort(option.id)}
+                      aria-pressed={postSort === option.id}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="profile-video-control-group">
+                <p className="profile-video-toolbar-label">Show posts</p>
+                <div className="profile-video-filter-group" role="group" aria-label="Show posts">
+                  {PROFILE_POST_VISIBILITY_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`ghost-btn profile-video-filter-btn${postVisibility === option.id ? ' is-active' : ''}`}
+                      onClick={() => setPostVisibility(option.id)}
+                      aria-pressed={postVisibility === option.id}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           <DiscoveredGrid
-            posts={unifiedVideoPosts}
+            posts={filteredVideoPosts}
             downloadingPostIds={downloadingPostIds}
             onDownload={handleDownloadDiscovered}
+            onRedownload={handleRedownloadDiscovered}
             onDelete={handleDeleteDiscovered}
             onOpenInVlc={handleOpenInVlc}
+            onOpenFolder={handleOpenContainingFolder}
+            onToggleFavorite={handleToggleFavorite}
+            onViewedVideo={handleViewedVideo}
             initialOpenDownloadedJobId={initialOpenJobId}
             onInitialOpenConsumed={onConsumeInitialOpenJobId}
             size={thumbnailSize}
             title="Videos"
-            emptyMessage="No creator videos found yet. Run discovery to populate candidates."
+            emptyMessage={filteredEmptyMessage}
           />
-          {isLoading && unifiedVideoPosts.length > 0 && (
+          {isLoading && sortedVideoPosts.length > 0 && (
             <p className="subtle-note">Refreshing profile data...</p>
+          )}
+          {isHydratingDiscovered && (
+            <p className="subtle-note">Loading more videos...</p>
           )}
         </div>
       </section>
