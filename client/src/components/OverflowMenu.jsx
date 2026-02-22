@@ -29,11 +29,11 @@ export function OverflowMenu({ items = [] }) {
     <div className="overflow-menu" ref={menuRef}>
       <button
         type="button"
-        className="overflow-menu-trigger"
+        className={`overflow-menu-trigger${isOpen ? ' is-open' : ''}`}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label="More actions"
       >
-        &#8942;
+        <span className="overflow-menu-dots">&#8942;</span>
       </button>
       {isOpen && (
         <div className="overflow-menu-dropdown">

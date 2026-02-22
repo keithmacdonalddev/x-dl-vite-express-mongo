@@ -251,12 +251,31 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.overflow-menu-dots {
+  display: inline-block;
+  transition: transform 180ms ease;
 }
 
 .overflow-menu-trigger:hover {
-  background: #eef2f6;
+  background: rgba(0, 0, 0, 0.06);
   border-color: #d4dde3;
+  transform: scale(1.15);
+}
+
+.overflow-menu-trigger:active {
+  transform: scale(0.95);
+}
+
+.overflow-menu-trigger.is-open {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: #d4dde3;
+}
+
+.overflow-menu-trigger.is-open .overflow-menu-dots {
+  transform: rotate(90deg);
 }
 
 .overflow-menu-dropdown {
@@ -272,6 +291,18 @@
   padding: 4px;
   display: grid;
   gap: 2px;
+  animation: overflow-menu-enter 150ms ease-out both;
+}
+
+@keyframes overflow-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .overflow-menu-item {
@@ -286,7 +317,7 @@
   padding: 8px 12px;
   text-align: left;
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 .overflow-menu-item:hover {
@@ -298,7 +329,7 @@
 }
 
 .overflow-menu-item.is-danger:hover {
-  background: #fef2f2;
+  background: rgba(182, 43, 43, 0.08);
 }
 
 .overflow-menu-item:disabled {
@@ -345,6 +376,16 @@
   color: #6b4f4f;
 }
 
+.status-chip.is-source-removed {
+  background: #fff4df;
+  color: #7a4d00;
+}
+
+.status-chip.is-source-profile-removed {
+  background: #f9e8ea;
+  color: #8d2f3b;
+}
+
 /* === Responsive === */
 
 @media (max-width: 980px) {
@@ -369,9 +410,12 @@
   .job-row,
   .row-checkbox,
   .overflow-menu-trigger,
+  .overflow-menu-dots,
+  .overflow-menu-dropdown,
   .overflow-menu-item,
   .header-select-btn,
   .job-account-link {
     transition: none !important;
+    animation: none !important;
   }
 }
