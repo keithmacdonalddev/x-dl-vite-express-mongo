@@ -18,6 +18,7 @@ const {
   hasJobOutputFile,
   toSafeAbsoluteDownloadPath,
   removeEmptyParentDirs,
+  deleteJobFiles,
 } = require('./helpers/route-utils');
 
 const discoveryRouter = express.Router();
@@ -29,28 +30,36 @@ function isActiveJobStatus(status) {
   return ACTIVE_JOB_STATUSES.includes(status);
 }
 
-async function requeueExistingJob(jobId) {
+async function requeueExistingJob(jobId, traceId) {
   if (!jobId) {
     return null;
   }
 
+  const $set = {
+    status: JOB_STATUSES.QUEUED,
+    progressPct: 0,
+    startedAt: null,
+    completedAt: null,
+    failedAt: null,
+    outputPath: '',
+    thumbnailPath: '',
+    error: '',
+    errorCode: '',
+    sourceType: 'unknown',
+    extractedUrl: '',
+    candidateUrls: [],
+    removedFromSourceAt: null,
+    profileRemovedFromSourceAt: null,
+  };
+
+  if (traceId) {
+    $set.traceId = traceId;
+  }
+
   return Job.findByIdAndUpdate(
     jobId,
-    {
-      $set: {
-        status: JOB_STATUSES.QUEUED,
-        progressPct: 0,
-        startedAt: null,
-        completedAt: null,
-        failedAt: null,
-        outputPath: '',
-        error: '',
-        errorCode: '',
-      },
-    },
-    {
-      returnDocument: 'after',
-    }
+    { $set },
+    { returnDocument: 'after' }
   ).lean();
 }
 
@@ -73,13 +82,14 @@ async function mapPostsWithDownloadState(posts) {
       ...post,
       isDownloaded: false,
       downloadOutputPath: '',
+      isFavorite: false,
       isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
       isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
     }));
   }
 
   const linkedJobs = await Job.find({ _id: { $in: linkedJobIds } })
-    .select({ _id: 1, status: 1, outputPath: 1 })
+    .select({ _id: 1, status: 1, outputPath: 1, isFavorite: 1 })
     .lean();
   const linkedJobsById = new Map(linkedJobs.map((job) => [String(job._id), job]));
   const stalePostIds = [];
@@ -91,6 +101,7 @@ async function mapPostsWithDownloadState(posts) {
           ...(post || {}),
           isDownloaded: false,
           downloadOutputPath: '',
+          isFavorite: false,
           isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
           isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
         };
@@ -104,6 +115,7 @@ async function mapPostsWithDownloadState(posts) {
           downloadedJobId: null,
           isDownloaded: false,
           downloadOutputPath: '',
+          isFavorite: false,
           isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
           isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
         };
@@ -114,6 +126,7 @@ async function mapPostsWithDownloadState(posts) {
           ...post,
           isDownloaded: false,
           downloadOutputPath: '',
+          isFavorite: Boolean(job.isFavorite),
           isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
           isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
         };
@@ -126,6 +139,7 @@ async function mapPostsWithDownloadState(posts) {
             ...post,
             isDownloaded: true,
             downloadOutputPath: typeof job.outputPath === 'string' ? job.outputPath : '',
+            isFavorite: Boolean(job.isFavorite),
             isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
             isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
           };
@@ -138,6 +152,7 @@ async function mapPostsWithDownloadState(posts) {
         downloadedJobId: null,
         isDownloaded: false,
         downloadOutputPath: '',
+        isFavorite: false,
         isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
         isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
       };
@@ -187,6 +202,14 @@ function compareByPublishedAtDesc(left, right) {
   return rc - lc;
 }
 
+function parseListQuery(query = {}) {
+  const parsedLimit = Number(query.limit);
+  const parsedOffset = Number(query.offset);
+  const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(Math.floor(parsedLimit), 0), 200) : 0;
+  const offset = Number.isFinite(parsedOffset) ? Math.max(Math.floor(parsedOffset), 0) : 0;
+  return { limit, offset };
+}
+
 // GET /:accountSlug — List discovered posts for a contact
 discoveryRouter.get('/:accountSlug', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
@@ -199,15 +222,44 @@ discoveryRouter.get('/:accountSlug', async (req, res) => {
   }
 
   try {
-    const postsRaw = await DiscoveredPost.find({ accountSlug: slug }).lean();
+    const { limit, offset } = parseListQuery(req.query);
+    const filter = { accountSlug: slug };
+    const query = DiscoveredPost.find(filter);
+    if (query && typeof query.sort === 'function') {
+      query.sort({ publishedAt: -1, createdAt: -1, _id: -1 });
+    }
+    if (query && typeof query.skip === 'function') {
+      query.skip(offset);
+    }
+    if (limit > 0 && query && typeof query.limit === 'function') {
+      query.limit(limit);
+    }
+
+    const postsRaw = await query.lean();
     const normalizedPosts = postsRaw
       .map((post) => normalizeDiscoveredPostPublishedAt(post))
       .sort(compareByPublishedAtDesc);
     const posts = await mapPostsWithDownloadState(normalizedPosts);
+    let total = posts.length;
+    let hasMore = false;
+    let nextOffset = null;
+    if (limit > 0) {
+      total = await DiscoveredPost.countDocuments(filter);
+      hasMore = (offset + posts.length) < total;
+      nextOffset = hasMore ? offset + posts.length : null;
+    }
 
     return res.json({
       ok: true,
       posts,
+      pagination: {
+        limit,
+        offset,
+        returned: posts.length,
+        total,
+        hasMore,
+        nextOffset,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -431,6 +483,56 @@ discoveryRouter.post('/:id/download', async (req, res) => {
     logger.error('discovery.download.failed', { traceId, message, discoveredPostId: req.params.id });
     return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, `Failed to create download job: ${message}`);
   }
+});
+
+// POST /:id/redownload — Force re-download a single discovered post (overwrite existing file)
+discoveryRouter.post('/:id/redownload', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  if (!isValidObjectId(req.params.id)) {
+    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid post ID.');
+  }
+
+  const post = await DiscoveredPost.findById(req.params.id).lean();
+  if (!post) {
+    return sendError(res, 404, ERROR_CODES.DISCOVERY_NOT_FOUND, 'Discovered post not found.');
+  }
+
+  if (!post.downloadedJobId) {
+    return sendError(res, 400, ERROR_CODES.DISCOVERY_FAILED, 'This post has not been downloaded yet.');
+  }
+
+  const existingJob = await Job.findById(post.downloadedJobId).lean();
+  if (!existingJob) {
+    return sendError(res, 400, ERROR_CODES.JOB_NOT_FOUND, 'Linked download job not found.');
+  }
+
+  if (isActiveJobStatus(existingJob.status)) {
+    return sendError(res, 409, ERROR_CODES.DISCOVERY_FAILED, 'A download is already in progress for this post.');
+  }
+
+  // Delete existing output and thumbnail files before requeuing
+  await deleteJobFiles(existingJob);
+
+  const requeued = await requeueExistingJob(existingJob._id, traceId);
+  if (!requeued) {
+    return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, 'Failed to requeue job.');
+  }
+
+  await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: requeued._id });
+
+  logger.info('discovery.redownload.success', {
+    traceId,
+    discoveredPostId: req.params.id,
+    jobId: String(requeued._id),
+  });
+
+  res.set('x-trace-id', traceId);
+  return res.status(201).json({ ok: true, job: requeued, redownloaded: true, traceId });
 });
 
 // POST /:accountSlug/refresh — Manually re-trigger profile discovery
