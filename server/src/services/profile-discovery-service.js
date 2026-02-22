@@ -567,7 +567,7 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         return '';
       }
 
-      function addItem(postUrl, thumbnailUrl, title, avatarUrl, publishedAt) {
+      function addItem(postUrl, thumbnailUrl, title, avatarUrl, publishedAt, playCount, diggCount, shareCount, commentCount) {
         if (!postUrl) return;
         const key = postUrl.split('?')[0]; // canonical key (no query params)
         if (seen.has(key)) return;
@@ -578,6 +578,10 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
           title: title || '',
           avatarUrl: avatarUrl || '',
           publishedAt: publishedAt || '',
+          playCount: playCount || 0,
+          diggCount: diggCount || 0,
+          shareCount: shareCount || 0,
+          commentCount: commentCount || 0,
         });
       }
 
@@ -638,7 +642,11 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
               if (!profileAvatarUrl) {
                 profileAvatarUrl = author.avatarLarger || author.avatarMedium || author.avatarThumb || '';
               }
-              addItem(postUrl, thumbUrl, title, '', item.createTime || '');
+              const playCount = (item.stats && item.stats.playCount) || (item.statsV2 && item.statsV2.playCount) || 0;
+              const diggCount = (item.stats && item.stats.diggCount) || (item.statsV2 && item.statsV2.diggCount) || 0;
+              const shareCount = (item.stats && item.stats.shareCount) || (item.statsV2 && item.statsV2.shareCount) || 0;
+              const commentCount = (item.stats && item.stats.commentCount) || (item.statsV2 && item.statsV2.commentCount) || 0;
+              addItem(postUrl, thumbUrl, title, '', item.createTime || '', playCount, diggCount, shareCount, commentCount);
             }
           }
         } catch { /* ignore */ }
@@ -662,7 +670,11 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
               const authorData = authorInfo[itemHandle] || {};
               profileAvatarUrl = authorData.avatarLarger || authorData.avatarMedium || authorData.avatarThumb || '';
             }
-            addItem(postUrl, thumbUrl, title, '', item.createTime || '');
+            const playCount = (item.stats && item.stats.playCount) || (item.statsV2 && item.statsV2.playCount) || 0;
+            const diggCount = (item.stats && item.stats.diggCount) || (item.statsV2 && item.statsV2.diggCount) || 0;
+            const shareCount = (item.stats && item.stats.shareCount) || (item.statsV2 && item.statsV2.shareCount) || 0;
+            const commentCount = (item.stats && item.stats.commentCount) || (item.statsV2 && item.statsV2.commentCount) || 0;
+            addItem(postUrl, thumbUrl, title, '', item.createTime || '', playCount, diggCount, shareCount, commentCount);
           }
         } catch { /* ignore */ }
         break; // only first match
@@ -768,6 +780,10 @@ async function scrapeProfileVideos(handle, { traceId, jobId } = {}) {
         title: raw.title || '',
         videoId,
         publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
+        playCount: raw.playCount || 0,
+        diggCount: raw.diggCount || 0,
+        shareCount: raw.shareCount || 0,
+        commentCount: raw.commentCount || 0,
       });
     }
 
@@ -1039,6 +1055,51 @@ async function triggerProfileDiscovery({
     }
 
     // ---------------------------------------------------------------------------
+    // Stats update: update engagement stats for existing posts when fresh scraped
+    // values are greater than 0 (stats can only increase over time).
+    // ---------------------------------------------------------------------------
+    const existingItemsWithStats = items.filter((item) => {
+      const isExisting = knownUrls.has(item.canonicalUrl) || (item.videoId && knownVideoIds.has(item.videoId));
+      const hasStats = (item.playCount || 0) > 0 || (item.diggCount || 0) > 0 ||
+        (item.shareCount || 0) > 0 || (item.commentCount || 0) > 0;
+      return isExisting && hasStats;
+    });
+
+    if (existingItemsWithStats.length > 0) {
+      try {
+        for (let i = 0; i < existingItemsWithStats.length; i += concurrency) {
+          const chunk = existingItemsWithStats.slice(i, i + concurrency);
+          await Promise.all(chunk.map(async (item) => {
+            try {
+              const filter = item.videoId
+                ? { $or: [{ canonicalUrl: item.canonicalUrl }, { videoId: item.videoId }] }
+                : { canonicalUrl: item.canonicalUrl };
+              await DiscoveredPost.updateOne(filter, {
+                $max: {
+                  playCount: item.playCount || 0,
+                  diggCount: item.diggCount || 0,
+                  shareCount: item.shareCount || 0,
+                  commentCount: item.commentCount || 0,
+                },
+              });
+            } catch (err) {
+              logger.info('discovery.stats.update_failed', {
+                ...discoveryLogContext,
+                postUrl: item.postUrl,
+                message: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }));
+        }
+      } catch (err) {
+        logger.info('discovery.stats.update_query_failed', {
+          ...discoveryLogContext,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // ---------------------------------------------------------------------------
     // Re-attempt thumbnails for existing posts with URL but no local file
     // (runs regardless of whether there are new posts this discovery cycle)
     // ---------------------------------------------------------------------------
@@ -1119,6 +1180,10 @@ async function triggerProfileDiscovery({
             videoId: item.videoId,
             title: item.title,
             publishedAt: parsePublishedAt(item.publishedAt),
+            playCount: item.playCount || 0,
+            diggCount: item.diggCount || 0,
+            shareCount: item.shareCount || 0,
+            commentCount: item.commentCount || 0,
           });
 
           // Download thumbnail (with single retry after 2s on failure)
