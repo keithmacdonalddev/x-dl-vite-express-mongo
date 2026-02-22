@@ -1,5 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const fs = require('node:fs');
+const { spawn } = require('node:child_process');
 const { Job } = require('../../core/models/job');
 const { getPostUrlInfo, isTweetUrl, canonicalizePostUrl } = require('../../core/utils/validation');
 const { JOB_STATUSES } = require('../../core/constants/job-status');
@@ -16,6 +18,7 @@ const {
   isValidObjectId,
   deleteJobFiles,
   hasJobOutputFile,
+  toSafeAbsoluteDownloadPath,
   normalizeBulkDeleteIds,
   normalizeContactSlug,
   sanitizeDisplayName,
@@ -48,6 +51,7 @@ const JOB_LIST_SELECT_COMPACT = [
   'attemptCount',
   'removedFromSourceAt',
   'profileRemovedFromSourceAt',
+  'isFavorite',
 ].join(' ');
 const JOB_LIST_SELECT_FULL = [
   JOB_LIST_SELECT_COMPACT,
@@ -66,11 +70,18 @@ function normalizeListView(value) {
 function parseListQuery(query = {}) {
   const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200);
   const status = typeof query.status === 'string' ? query.status.trim() : '';
+  const favoriteRaw = typeof query.favoriteOnly === 'string'
+    ? query.favoriteOnly.trim().toLowerCase()
+    : typeof query.favorite === 'string'
+      ? query.favorite.trim().toLowerCase()
+      : '';
+  const favoriteOnly = favoriteRaw === '1' || favoriteRaw === 'true' || favoriteRaw === 'yes';
   const view = normalizeListView(query.view);
   const projection = view === JOB_LIST_VIEW_FULL ? JOB_LIST_SELECT_FULL : JOB_LIST_SELECT_COMPACT;
   return {
     limit,
     status,
+    favoriteOnly,
     view,
     projection,
   };
@@ -151,13 +162,84 @@ async function requeueExistingJob(jobId) {
   ).lean();
 }
 
+function spawnDetached(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: 'ignore',
+    });
+
+    child.once('error', (error) => reject(error));
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+function buildVlcLaunchAttempts(absolutePath) {
+  const configuredVlcPath = typeof process.env.VLC_PATH === 'string' ? process.env.VLC_PATH.trim() : '';
+  const attempts = [];
+
+  if (configuredVlcPath) {
+    attempts.push({ command: configuredVlcPath, args: [absolutePath], requiresExistingPath: true });
+  }
+
+  if (process.platform === 'win32') {
+    attempts.push(
+      { command: 'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe', args: [absolutePath], requiresExistingPath: true },
+      { command: 'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe', args: [absolutePath], requiresExistingPath: true },
+      { command: 'vlc', args: [absolutePath], requiresExistingPath: false }
+    );
+  } else if (process.platform === 'darwin') {
+    attempts.push(
+      { command: '/Applications/VLC.app/Contents/MacOS/VLC', args: [absolutePath], requiresExistingPath: true },
+      { command: 'open', args: ['-a', 'VLC', absolutePath], requiresExistingPath: false },
+      { command: 'vlc', args: [absolutePath], requiresExistingPath: false }
+    );
+  } else {
+    attempts.push({ command: 'vlc', args: [absolutePath], requiresExistingPath: false });
+  }
+
+  return attempts;
+}
+
+async function launchVlc(absolutePath) {
+  const attempts = buildVlcLaunchAttempts(absolutePath);
+  let lastError = null;
+
+  for (const attempt of attempts) {
+    if (attempt.requiresExistingPath && !fs.existsSync(attempt.command)) {
+      continue;
+    }
+
+    try {
+      await spawnDetached(attempt.command, attempt.args);
+      return { ok: true, command: attempt.command };
+    } catch (error) {
+      lastError = error;
+      if (error && error.code === 'ENOENT') {
+        continue;
+      }
+    }
+  }
+
+  return { ok: false, error: lastError };
+}
+
 jobsRouter.get('/', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
     return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
   }
 
-  const { limit, status, view, projection } = parseListQuery(req.query);
-  const filter = status ? { status } : {};
+  const { limit, status, favoriteOnly, view, projection } = parseListQuery(req.query);
+  const filter = {};
+  if (status) {
+    filter.status = status;
+  }
+  if (favoriteOnly) {
+    filter.isFavorite = true;
+  }
 
   try {
     const jobs = await listJobsByFilter({ filter, projection, limit });
@@ -183,8 +265,14 @@ jobsRouter.get('/contact/:slug', async (req, res) => {
     return sendError(res, 400, ERROR_CODES.INVALID_CONTACT_SLUG, 'Invalid contact slug.');
   }
 
-  const { limit, status, view, projection } = parseListQuery(req.query);
-  const primaryFilter = status ? { accountSlug: slug, status } : { accountSlug: slug };
+  const { limit, status, favoriteOnly, view, projection } = parseListQuery(req.query);
+  const primaryFilter = { accountSlug: slug };
+  if (status) {
+    primaryFilter.status = status;
+  }
+  if (favoriteOnly) {
+    primaryFilter.isFavorite = true;
+  }
 
   try {
     let jobs = await listJobsByFilter({ filter: primaryFilter, projection, limit });
@@ -208,6 +296,50 @@ jobsRouter.get('/contact/:slug', async (req, res) => {
     logger.error('jobs.list.contact.failed', { message, contactSlug: slug });
     return sendError(res, 500, ERROR_CODES.LIST_JOBS_FAILED, `Failed to list jobs: ${message}`);
   }
+});
+
+jobsRouter.post('/open-vlc', async (req, res) => {
+  const requestedOutputPath = typeof req.body?.outputPath === 'string' ? req.body.outputPath.trim() : '';
+  if (!requestedOutputPath) {
+    return sendError(res, 400, ERROR_CODES.INVALID_MEDIA_URL, 'Missing outputPath.');
+  }
+
+  const absolutePath = toSafeAbsoluteDownloadPath(requestedOutputPath);
+  if (!absolutePath) {
+    return sendError(res, 400, ERROR_CODES.INVALID_MEDIA_URL, 'Invalid outputPath.');
+  }
+
+  const hasOutputFile = await hasJobOutputFile({ outputPath: requestedOutputPath });
+  if (!hasOutputFile) {
+    return sendError(res, 404, ERROR_CODES.JOB_NOT_FOUND, 'Downloaded file not found.');
+  }
+
+  const launched = await launchVlc(absolutePath);
+  if (!launched.ok) {
+    const message = launched.error instanceof Error ? launched.error.message : String(launched.error || '');
+    logger.error('jobs.open_vlc.failed', {
+      outputPath: requestedOutputPath,
+      absolutePath,
+      platform: process.platform,
+      message,
+    });
+    return sendError(
+      res,
+      500,
+      ERROR_CODES.BROWSER_LAUNCH_FAILED,
+      'Failed to launch VLC. Verify VLC is installed and set VLC_PATH if needed.'
+    );
+  }
+
+  logger.info('jobs.open_vlc.launched', {
+    outputPath: requestedOutputPath,
+    absolutePath,
+    command: launched.command,
+  });
+  return res.json({
+    ok: true,
+    launched: true,
+  });
 });
 
 jobsRouter.get('/:id', async (req, res) => {
@@ -304,13 +436,11 @@ jobsRouter.post('/', async (req, res) => {
         ? existingJob.status
         : JOB_STATUSES.QUEUED;
 
-      if (
-        existingJobStatus === JOB_STATUSES.COMPLETED &&
-        typeof existingJob.outputPath === 'string' &&
-        existingJob.outputPath.trim()
-      ) {
-        const hasOutputFile = await hasJobOutputFile(existingJob);
-        if (!hasOutputFile) {
+      if (existingJobStatus === JOB_STATUSES.COMPLETED) {
+        const hasOutput = typeof existingJob.outputPath === 'string' &&
+          existingJob.outputPath.trim() &&
+          await hasJobOutputFile(existingJob);
+        if (!hasOutput) {
           const requeuedJob = await requeueExistingJob(existingJob._id);
           if (requeuedJob) {
             logger.info('jobs.create.requeued_missing_file', {
@@ -373,13 +503,11 @@ jobsRouter.post('/', async (req, res) => {
             ? racedJob.status
             : JOB_STATUSES.QUEUED;
 
-          if (
-            existingJobStatus === JOB_STATUSES.COMPLETED &&
-            typeof racedJob.outputPath === 'string' &&
-            racedJob.outputPath.trim()
-          ) {
-            const hasOutputFile = await hasJobOutputFile(racedJob);
-            if (!hasOutputFile) {
+          if (existingJobStatus === JOB_STATUSES.COMPLETED) {
+            const hasOutput = typeof racedJob.outputPath === 'string' &&
+              racedJob.outputPath.trim() &&
+              await hasJobOutputFile(racedJob);
+            if (!hasOutput) {
               const requeuedJob = await requeueExistingJob(racedJob._id);
               if (requeuedJob) {
                 logger.info('jobs.create.requeued_missing_file_race', {
@@ -491,6 +619,9 @@ jobsRouter.patch('/:id', async (req, res) => {
 
   if (typeof req.body?.accountDisplayName === 'string') {
     updates.accountDisplayName = sanitizeDisplayName(req.body.accountDisplayName);
+  }
+  if (typeof req.body?.isFavorite === 'boolean') {
+    updates.isFavorite = req.body.isFavorite;
   }
 
   if (Object.keys(updates).length === 0) {
