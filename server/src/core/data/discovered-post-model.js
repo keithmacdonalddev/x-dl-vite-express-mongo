@@ -53,6 +53,10 @@ const discoveredPostSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    playCount: { type: Number, default: 0 },
+    diggCount: { type: Number, default: 0 },
+    shareCount: { type: Number, default: 0 },
+    commentCount: { type: Number, default: 0 },
     publishedAt: {
       type: Date,
       default: null,
