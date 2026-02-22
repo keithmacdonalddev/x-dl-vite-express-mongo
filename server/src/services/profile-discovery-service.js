@@ -1178,10 +1178,153 @@ async function triggerProfileDiscovery({
   }
 }
 
+// ---------------------------------------------------------------------------
+// oEmbed thumbnail repair
+// ---------------------------------------------------------------------------
+
+const OEMBED_REPAIR_RATE_LIMIT_MS = 500;
+
+/**
+ * Repair missing or placeholder thumbnails for discovered posts belonging to
+ * the given accountSlug by fetching fresh thumbnail URLs from TikTok's public
+ * oEmbed endpoint (no auth required).
+ *
+ * @param {string} accountSlug - The account slug to repair thumbnails for.
+ * @param {{ traceId?: string }} [options]
+ * @returns {Promise<{ total: number, repaired: number, failed: number }>}
+ */
+async function repairThumbnailsViaOembed(accountSlug, { traceId } = {}) {
+  const logContext = { traceId, accountSlug };
+
+  if (!accountSlug || typeof accountSlug !== 'string') {
+    logger.warn('discovery.thumbnails.oembed_repair.invalid_slug', { ...logContext });
+    return { total: 0, repaired: 0, failed: 0 };
+  }
+
+  // Query for posts with missing/empty/placeholder thumbnails that have a valid canonicalUrl
+  let postsNeedingRepair;
+  try {
+    postsNeedingRepair = await DiscoveredPost.find({
+      accountSlug,
+      canonicalUrl: { $exists: true, $ne: '' },
+      $or: [
+        { thumbnailUrl: '' },
+        { thumbnailUrl: { $exists: false } },
+        { thumbnailUrl: /^data:/ },
+      ],
+    }).select('_id videoId canonicalUrl thumbnailUrl thumbnailPath').lean();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('discovery.thumbnails.oembed_repair.query_failed', { ...logContext, message });
+    return { total: 0, repaired: 0, failed: 0 };
+  }
+
+  const total = postsNeedingRepair.length;
+
+  if (total === 0) {
+    logger.info('discovery.thumbnails.oembed_repair', { ...logContext, total: 0, repaired: 0, failed: 0 });
+    return { total: 0, repaired: 0, failed: 0 };
+  }
+
+  logger.info('discovery.thumbnails.oembed_repair.started', { ...logContext, total });
+
+  const discoveredDir = path.join(DOWNLOADS_ROOT, accountSlug, 'discovered');
+  let repaired = 0;
+  let failed = 0;
+
+  for (let i = 0; i < postsNeedingRepair.length; i++) {
+    const post = postsNeedingRepair[i];
+
+    // Rate-limit: wait between requests (skip the delay before the first request)
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, OEMBED_REPAIR_RATE_LIMIT_MS));
+    }
+
+    try {
+      const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(post.canonicalUrl)}`;
+      const response = await fetch(oembedUrl, {
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+        },
+      });
+
+      if (!response.ok) {
+        logger.warn('discovery.thumbnails.oembed_repair.bad_status', {
+          ...logContext,
+          postId: post._id.toString(),
+          canonicalUrl: post.canonicalUrl,
+          status: response.status,
+        });
+        failed++;
+        continue;
+      }
+
+      let oembedData;
+      try {
+        oembedData = await response.json();
+      } catch {
+        logger.warn('discovery.thumbnails.oembed_repair.bad_json', {
+          ...logContext,
+          postId: post._id.toString(),
+          canonicalUrl: post.canonicalUrl,
+        });
+        failed++;
+        continue;
+      }
+
+      const thumbnailUrl =
+        typeof oembedData === 'object' && oembedData !== null
+          ? (typeof oembedData.thumbnail_url === 'string' ? oembedData.thumbnail_url : '')
+          : '';
+
+      if (!thumbnailUrl || !thumbnailUrl.startsWith('http')) {
+        logger.warn('discovery.thumbnails.oembed_repair.no_thumbnail_url', {
+          ...logContext,
+          postId: post._id.toString(),
+          canonicalUrl: post.canonicalUrl,
+        });
+        failed++;
+        continue;
+      }
+
+      // Update the stored thumbnailUrl and clear thumbnailPath so it gets re-downloaded
+      await DiscoveredPost.findByIdAndUpdate(post._id, {
+        $set: { thumbnailUrl, thumbnailPath: '' },
+      });
+
+      // Download the thumbnail file to disk
+      const thumbFilename = `${post.videoId || post._id.toString()}.jpg`;
+      const thumbPath = path.join(discoveredDir, thumbFilename);
+      const savedPath = await downloadThumbnail(thumbnailUrl, thumbPath, { traceId });
+
+      if (savedPath) {
+        const relativePath = path.relative(process.cwd(), savedPath).split(path.sep).join('/');
+        await DiscoveredPost.findByIdAndUpdate(post._id, { $set: { thumbnailPath: relativePath } });
+      }
+
+      repaired++;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn('discovery.thumbnails.oembed_repair.post_failed', {
+        ...logContext,
+        postId: post._id.toString(),
+        canonicalUrl: post.canonicalUrl,
+        message,
+      });
+      failed++;
+    }
+  }
+
+  logger.info('discovery.thumbnails.oembed_repair', { ...logContext, total, repaired, failed });
+  return { total, repaired, failed };
+}
+
 module.exports = {
   triggerProfileDiscovery,
   scrapeProfileVideos,
   extractHandleFromTikTokUrl,
   normalizeHandle,
   resolveDiscoveryHandle,
+  repairThumbnailsViaOembed,
 };
