@@ -8,16 +8,148 @@ const { logger } = require('../../core/lib/logger');
 const { canonicalizePostUrl } = require('../../core/utils/validation');
 const { resolveDomainId } = require('../../core/dispatch/resolve-domain-id');
 const { resolvePublishedAt } = require('../../core/utils/published-at');
-const { triggerProfileDiscovery } = require('../../services/profile-discovery-service');
+const { triggerProfileDiscovery, repairThumbnailsViaOembed } = require('../../services/profile-discovery-service');
 const {
   sendError,
   getRequestTraceId,
   isValidObjectId,
   normalizeContactSlug,
+  hasJobOutputFile,
 } = require('./helpers/route-utils');
 
 const discoveryRouter = express.Router();
 const ACTIVE_DISCOVERY_REFRESH_BY_SLUG = new Map();
+const ACTIVE_THUMBNAIL_REPAIR_BY_SLUG = new Map();
+const ACTIVE_JOB_STATUSES = [JOB_STATUSES.QUEUED, JOB_STATUSES.RUNNING];
+
+function isActiveJobStatus(status) {
+  return ACTIVE_JOB_STATUSES.includes(status);
+}
+
+async function requeueExistingJob(jobId) {
+  if (!jobId) {
+    return null;
+  }
+
+  return Job.findByIdAndUpdate(
+    jobId,
+    {
+      $set: {
+        status: JOB_STATUSES.QUEUED,
+        progressPct: 0,
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        outputPath: '',
+        error: '',
+        errorCode: '',
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  ).lean();
+}
+
+async function mapPostsWithDownloadState(posts) {
+  if (!Array.isArray(posts) || posts.length === 0) {
+    return posts || [];
+  }
+
+  const linkedJobIds = Array.from(
+    new Set(
+      posts
+        .map((post) => post && post.downloadedJobId)
+        .filter((jobId) => Boolean(jobId))
+        .map((jobId) => String(jobId))
+    )
+  );
+
+  if (linkedJobIds.length === 0) {
+    return posts.map((post) => ({
+      ...post,
+      isDownloaded: false,
+      downloadOutputPath: '',
+      isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+      isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+    }));
+  }
+
+  const linkedJobs = await Job.find({ _id: { $in: linkedJobIds } })
+    .select({ _id: 1, status: 1, outputPath: 1 })
+    .lean();
+  const linkedJobsById = new Map(linkedJobs.map((job) => [String(job._id), job]));
+  const stalePostIds = [];
+
+  const resolvedPosts = await Promise.all(
+    posts.map(async (post) => {
+      if (!post || !post.downloadedJobId) {
+        return {
+          ...(post || {}),
+          isDownloaded: false,
+          downloadOutputPath: '',
+          isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+          isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+        };
+      }
+
+      const job = linkedJobsById.get(String(post.downloadedJobId));
+      if (!job) {
+        if (post._id) stalePostIds.push(post._id);
+        return {
+          ...post,
+          downloadedJobId: null,
+          isDownloaded: false,
+          downloadOutputPath: '',
+          isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+          isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+        };
+      }
+
+      if (isActiveJobStatus(job.status)) {
+        return {
+          ...post,
+          isDownloaded: false,
+          downloadOutputPath: '',
+          isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+          isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+        };
+      }
+
+      if (job.status === JOB_STATUSES.COMPLETED) {
+        const hasOutputFile = await hasJobOutputFile(job);
+        if (hasOutputFile) {
+          return {
+            ...post,
+            isDownloaded: true,
+            downloadOutputPath: typeof job.outputPath === 'string' ? job.outputPath : '',
+            isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+            isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+          };
+        }
+      }
+
+      if (post._id) stalePostIds.push(post._id);
+      return {
+        ...post,
+        downloadedJobId: null,
+        isDownloaded: false,
+        downloadOutputPath: '',
+        isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+        isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
+      };
+    })
+  );
+
+  if (stalePostIds.length > 0) {
+    await DiscoveredPost.updateMany(
+      { _id: { $in: stalePostIds } },
+      { $set: { downloadedJobId: null } }
+    );
+  }
+
+  return resolvedPosts;
+}
 
 function normalizeDiscoveredPostPublishedAt(post) {
   const resolvedPublishedAt = resolvePublishedAt({
@@ -31,6 +163,8 @@ function normalizeDiscoveredPostPublishedAt(post) {
   return {
     ...(post || {}),
     publishedAt: resolvedPublishedAt ? resolvedPublishedAt.toISOString() : '',
+    isRemovedFromSource: Boolean(post && post.removedFromSourceAt),
+    isProfileRemovedFromSource: Boolean(post && post.profileRemovedFromSourceAt),
   };
 }
 
@@ -63,9 +197,10 @@ discoveryRouter.get('/:accountSlug', async (req, res) => {
 
   try {
     const postsRaw = await DiscoveredPost.find({ accountSlug: slug }).lean();
-    const posts = postsRaw
+    const normalizedPosts = postsRaw
       .map((post) => normalizeDiscoveredPostPublishedAt(post))
       .sort(compareByPublishedAtDesc);
+    const posts = await mapPostsWithDownloadState(normalizedPosts);
 
     return res.json({
       ok: true,
@@ -100,11 +235,44 @@ discoveryRouter.post('/:id/download', async (req, res) => {
     if (post.downloadedJobId) {
       const existingJob = await Job.findById(post.downloadedJobId).lean();
       if (existingJob) {
-        return res.json({
-          ok: true,
-          job: existingJob,
-          alreadyExists: true,
-        });
+        if (isActiveJobStatus(existingJob.status)) {
+          return res.json({
+            ok: true,
+            job: existingJob,
+            alreadyExists: true,
+          });
+        }
+
+        if (existingJob.status === JOB_STATUSES.COMPLETED) {
+          const hasOutputFile = await hasJobOutputFile(existingJob);
+          if (hasOutputFile) {
+            return res.json({
+              ok: true,
+              job: existingJob,
+              alreadyExists: true,
+            });
+          }
+
+          const requeued = await requeueExistingJob(existingJob._id);
+          if (requeued) {
+            await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: requeued._id }, { new: true });
+            logger.info('discovery.download.requeued_missing_file', {
+              traceId,
+              discoveredPostId: post._id.toString(),
+              jobId: requeued._id.toString(),
+            });
+            return res.status(201).json({
+              ok: true,
+              job: requeued,
+              requeued: true,
+              traceId,
+            });
+          }
+        }
+
+        await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: null }, { new: true });
+      } else {
+        await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: null }, { new: true });
       }
     }
 
@@ -117,19 +285,50 @@ discoveryRouter.post('/:id/download', async (req, res) => {
     }).lean();
 
     if (duplicateJob) {
-      // Atomically link the discovered post to the existing job (idempotent)
-      await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: duplicateJob._id }, { new: true });
-      logger.info('discovery.download.deduplicated', {
-        traceId,
-        discoveredPostId: post._id.toString(),
-        jobId: duplicateJob._id.toString(),
-        canonicalUrl,
-      });
-      return res.json({
-        ok: true,
-        job: duplicateJob,
-        alreadyExists: true,
-      });
+      if (isActiveJobStatus(duplicateJob.status)) {
+        await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: duplicateJob._id }, { new: true });
+        return res.json({
+          ok: true,
+          job: duplicateJob,
+          alreadyExists: true,
+        });
+      }
+
+      if (duplicateJob.status === JOB_STATUSES.COMPLETED) {
+        const hasOutputFile = await hasJobOutputFile(duplicateJob);
+        if (hasOutputFile) {
+          // Atomically link the discovered post to the existing completed job (idempotent)
+          await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: duplicateJob._id }, { new: true });
+          logger.info('discovery.download.deduplicated', {
+            traceId,
+            discoveredPostId: post._id.toString(),
+            jobId: duplicateJob._id.toString(),
+            canonicalUrl,
+          });
+          return res.json({
+            ok: true,
+            job: duplicateJob,
+            alreadyExists: true,
+          });
+        }
+
+        const requeued = await requeueExistingJob(duplicateJob._id);
+        if (requeued) {
+          await DiscoveredPost.findByIdAndUpdate(post._id, { downloadedJobId: requeued._id }, { new: true });
+          logger.info('discovery.download.requeued_duplicate_missing_file', {
+            traceId,
+            discoveredPostId: post._id.toString(),
+            jobId: requeued._id.toString(),
+            canonicalUrl,
+          });
+          return res.status(201).json({
+            ok: true,
+            job: requeued,
+            requeued: true,
+            traceId,
+          });
+        }
+      }
     }
 
     if (!post.postUrl) {
@@ -293,6 +492,56 @@ discoveryRouter.post('/:accountSlug/refresh', async (req, res) => {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('discovery.refresh.failed', { traceId, message, accountSlug: slug });
     return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, `Failed to trigger discovery: ${message}`);
+  }
+});
+
+// POST /:accountSlug/repair-thumbnails — Repair missing thumbnails via TikTok oEmbed API
+discoveryRouter.post('/:accountSlug/repair-thumbnails', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  const slug = normalizeContactSlug(req.params.accountSlug);
+  if (!slug) {
+    return sendError(res, 400, ERROR_CODES.INVALID_CONTACT_SLUG, 'Invalid contact slug.');
+  }
+
+  if (ACTIVE_THUMBNAIL_REPAIR_BY_SLUG.has(slug)) {
+    logger.info('discovery.repair_thumbnails.already_running', { traceId, accountSlug: slug });
+    return res.status(202).json({
+      ok: true,
+      message: 'Thumbnail repair already in progress for this contact.',
+      alreadyRunning: true,
+      traceId,
+    });
+  }
+
+  ACTIVE_THUMBNAIL_REPAIR_BY_SLUG.set(slug, Date.now());
+
+  try {
+    logger.info('discovery.repair_thumbnails.start', { traceId, accountSlug: slug });
+    const result = await repairThumbnailsViaOembed(slug);
+    logger.info('discovery.repair_thumbnails.done', {
+      traceId,
+      accountSlug: slug,
+      total: result.total,
+      repaired: result.repaired,
+      failed: result.failed,
+    });
+    return res.json({
+      ok: true,
+      total: result.total,
+      repaired: result.repaired,
+      failed: result.failed,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('discovery.repair_thumbnails.failed', { traceId, message, accountSlug: slug });
+    return sendError(res, 500, ERROR_CODES.DISCOVERY_FAILED, `Failed to repair thumbnails: ${message}`);
+  } finally {
+    ACTIVE_THUMBNAIL_REPAIR_BY_SLUG.delete(slug);
   }
 });
 

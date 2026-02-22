@@ -16,7 +16,7 @@ This domain owns all files under `server/src/api/`. No agent outside the api-tea
 | `routes/contacts.js` | Contact management: update display name (PATCH /contact/:slug), delete all jobs for contact (DELETE /contact/:slug). Exports `{ contactsRouter }`. |
 | `routes/retry.js` | Manual retry: creates a new queued job from a failed job with a user-supplied media URL (POST /:id/manual-retry). Exports `{ retryRouter }`. |
 | `routes/status.js` | Status transitions: validates state machine and updates job status (PATCH /:id/status). Exports `{ statusRouter }`. |
-| `routes/discovery.js` | Discovered posts: list by contact (GET /:accountSlug), create download job from discovered post (POST /:id/download), trigger profile discovery refresh (POST /:accountSlug/refresh). Imports `triggerProfileDiscovery` from Services domain. Exports `{ discoveryRouter }`. |
+| `routes/discovery.js` | Discovered posts: list by contact (GET /:accountSlug), create download job from discovered post (POST /:id/download), trigger profile discovery refresh (POST /:accountSlug/refresh), repair missing thumbnails via oEmbed (POST /:accountSlug/repair-thumbnails). Imports `triggerProfileDiscovery` and `repairThumbnailsViaOembed` from Services domain. Exports `{ discoveryRouter }`. |
 | `routes/worker-health.js` | Worker health check: queries WorkerHeartbeat model for staleness (GET /api/worker/health). Exports `{ workerHealthRouter }`. |
 | `routes/helpers/route-utils.js` | Internal helpers: `sendError`, `getRequestTraceId`, `getUrlFacts`, `inferSourceTypeFromMediaUrl`, `isValidObjectId`, `toSafeAbsoluteDownloadPath`, `removeEmptyParentDirs`, `deleteJobFiles`, `normalizeBulkDeleteIds`, `normalizeContactSlug`, `sanitizeDisplayName`, `platformLabel`, `ensureEnabledPlatform`, `DOWNLOADS_ROOT`. |
 
@@ -60,7 +60,7 @@ The `deleteJobFiles` helper in route-utils.js handles safe file cleanup:
 | core | `core/domain/job-transitions` | `canTransition` (validates status state machine) |
 | core | `core/utils/validation` | `getPostUrlInfo`, `isTweetUrl`, `canonicalizePostUrl`, `isHttpUrl` |
 | core | `core/data/discovered-post-model` | `DiscoveredPost` Mongoose model (discovery route) |
-| services | `services/profile-discovery-service` | `triggerProfileDiscovery` (jobs.js post-create hook, discovery.js refresh) |
+| services | `services/profile-discovery-service` | `triggerProfileDiscovery` (jobs.js post-create hook, discovery.js refresh), `repairThumbnailsViaOembed` (discovery.js repair-thumbnails) |
 
 ## Consumers (Who Imports Us)
 
