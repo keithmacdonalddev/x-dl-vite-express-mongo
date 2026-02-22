@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const fs = require('node:fs/promises');
 const { DiscoveredPost } = require('../../core/data/discovered-post-model');
 const { Job } = require('../../core/models/job');
 const { JOB_STATUSES } = require('../../core/constants/job-status');
@@ -15,6 +16,8 @@ const {
   isValidObjectId,
   normalizeContactSlug,
   hasJobOutputFile,
+  toSafeAbsoluteDownloadPath,
+  removeEmptyParentDirs,
 } = require('./helpers/route-utils');
 
 const discoveryRouter = express.Router();
@@ -534,6 +537,46 @@ discoveryRouter.post('/:accountSlug/repair-thumbnails', async (req, res) => {
     message: 'Sync started.',
     traceId,
   });
+});
+
+// DELETE /posts/:id — Delete a single discovered post by MongoDB ObjectId
+discoveryRouter.delete('/posts/:id', async (req, res) => {
+  const traceId = getRequestTraceId(req);
+
+  if (mongoose.connection.readyState !== 1) {
+    return sendError(res, 503, ERROR_CODES.DB_NOT_CONNECTED, 'Database not connected.');
+  }
+
+  if (!isValidObjectId(req.params.id)) {
+    return sendError(res, 400, ERROR_CODES.INVALID_JOB_ID, 'Invalid discovered post id.');
+  }
+
+  const post = await DiscoveredPost.findByIdAndDelete(req.params.id).lean();
+
+  if (!post) {
+    return sendError(res, 404, ERROR_CODES.DISCOVERY_NOT_FOUND, 'Discovered post not found.');
+  }
+
+  // Delete the local thumbnail file if one exists
+  if (post.thumbnailPath) {
+    const absolutePath = toSafeAbsoluteDownloadPath(post.thumbnailPath);
+    if (absolutePath) {
+      try {
+        await fs.rm(absolutePath, { force: true });
+        await removeEmptyParentDirs(absolutePath);
+      } catch {
+        // Ignore file deletion failures; DB delete is authoritative.
+      }
+    }
+  }
+
+  logger.info('discovery.post.deleted', {
+    traceId,
+    discoveredPostId: req.params.id,
+    accountSlug: post.accountSlug || '',
+  });
+
+  return res.json({ ok: true });
 });
 
 // Catch-all error handler for unexpected errors not caught by route handlers
