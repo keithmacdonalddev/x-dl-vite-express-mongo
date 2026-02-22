@@ -132,8 +132,12 @@ export function DiscoveredGrid({
   posts,
   downloadingPostIds,
   onDownload,
+  onRedownload,
   onDelete,
   onOpenInVlc,
+  onOpenFolder,
+  onToggleFavorite,
+  onViewedVideo,
   initialOpenDownloadedJobId = '',
   onInitialOpenConsumed,
   size = 'medium',
@@ -145,14 +149,12 @@ export function DiscoveredGrid({
   const [activeVideoPostId, setActiveVideoPostId] = useState('')
   const [activeMetaPostId, setActiveMetaPostId] = useState('')
   const autoOpenedJobIdRef = useRef('')
+  const lastViewedVideoKeyRef = useRef('')
 
   const playableHrefByPostId = useMemo(() => {
     const hrefById = new Map()
     for (const post of safePosts) {
-      const hasVerifiedDownloaded = typeof post.isDownloaded === 'boolean'
-      const isAlreadyDownloaded = hasVerifiedDownloaded
-        ? post.isDownloaded
-        : Boolean(post.downloadedJobId)
+      const isAlreadyDownloaded = post.isDownloaded === true
       if (!isAlreadyDownloaded) {
         continue
       }
@@ -175,10 +177,7 @@ export function DiscoveredGrid({
   const activeDownloadCount = useMemo(() => {
     let count = 0
     for (const post of safePosts) {
-      const hasVerifiedDownloaded = typeof post.isDownloaded === 'boolean'
-      const isAlreadyDownloaded = hasVerifiedDownloaded
-        ? post.isDownloaded
-        : Boolean(post.downloadedJobId)
+      const isAlreadyDownloaded = post.isDownloaded === true
       const isLinkedActive = !isAlreadyDownloaded && Boolean(post.downloadedJobId)
       const isThisDownloading = downloadingPostIds.has(post._id)
       if (isLinkedActive || isThisDownloading) {
@@ -203,6 +202,23 @@ export function DiscoveredGrid({
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [activeVideoPostId, activeMetaPostId])
+
+  useEffect(() => {
+    if (!activeVideoPost || !activeVideoHref) {
+      lastViewedVideoKeyRef.current = ''
+      return
+    }
+
+    const viewedKey = `${activeVideoPost._id}:${activeVideoHref}`
+    if (viewedKey === lastViewedVideoKeyRef.current) {
+      return
+    }
+    lastViewedVideoKeyRef.current = viewedKey
+
+    if (typeof onViewedVideo === 'function') {
+      onViewedVideo(activeVideoPost)
+    }
+  }, [activeVideoHref, activeVideoPost, onViewedVideo])
 
   useEffect(() => {
     const targetJobId = typeof initialOpenDownloadedJobId === 'string'
@@ -286,15 +302,14 @@ export function DiscoveredGrid({
       </div>
       <ul className="discovered-grid">
         {safePosts.map((post) => {
-          const hasVerifiedDownloaded = typeof post.isDownloaded === 'boolean'
-          const isAlreadyDownloaded = hasVerifiedDownloaded
-            ? post.isDownloaded
-            : Boolean(post.downloadedJobId)
+          const isAlreadyDownloaded = post.isDownloaded === true
           const isRemovedFromSource = Boolean(post.isRemovedFromSource || post.removedFromSourceAt)
           const isProfileRemovedFromSource = Boolean(
             post.isProfileRemovedFromSource || post.profileRemovedFromSourceAt
           )
           const isLinkedActive = !isAlreadyDownloaded && Boolean(post.downloadedJobId)
+          const downloadedJobId = post && post.downloadedJobId ? String(post.downloadedJobId).trim() : ''
+          const isFavorite = post.isFavorite === true
           const isThisDownloading = downloadingPostIds.has(post._id)
           const thumbSrc = post.thumbnailPath
             ? toAssetHref(post.thumbnailPath)
@@ -304,6 +319,8 @@ export function DiscoveredGrid({
           const vlcHref = buildVlcHref(playableHref)
           const canPlayInBrowser = Boolean(playableHref)
           const canOpenInVlc = Boolean(vlcHref || outputPath)
+          const canOpenFolder = Boolean(outputPath) && typeof onOpenFolder === 'function'
+          const canToggleFavorite = isAlreadyDownloaded && Boolean(downloadedJobId) && typeof onToggleFavorite === 'function'
           const canQueue = !isAlreadyDownloaded && !isLinkedActive && !isThisDownloading
           const canThumbAction = canQueue || canPlayInBrowser
           const isActiveDownload = isLinkedActive || isThisDownloading
@@ -311,12 +328,12 @@ export function DiscoveredGrid({
           const canonicalUrl = typeof post.canonicalUrl === 'string' ? post.canonicalUrl.trim() : ''
           const videoId = typeof post.videoId === 'string' ? post.videoId.trim() : ''
           const publishedLabel = formatPublishedLabel(post.publishedAt || post.createdAt)
-          const statusLabel = isAlreadyDownloaded
-            ? 'Downloaded'
-            : isLinkedActive
-              ? 'Queued'
-              : isThisDownloading
-                ? 'Queuing'
+          const statusLabel = isThisDownloading
+            ? (isAlreadyDownloaded ? 'Re-downloading' : 'Queuing')
+            : isAlreadyDownloaded
+              ? 'Downloaded'
+              : isLinkedActive
+                ? 'Queued'
                 : 'Ready to download'
 
           function handleThumbClick() {
@@ -364,6 +381,33 @@ export function DiscoveredGrid({
               label: `Status: ${statusLabel}`,
               onClick: () => {},
               disabled: true,
+            },
+            {
+              label: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+              onClick: () => {
+                if (canToggleFavorite) {
+                  onToggleFavorite(downloadedJobId, !isFavorite)
+                }
+              },
+              hidden: !canToggleFavorite,
+            },
+            {
+              label: 'Re-download',
+              onClick: () => {
+                if (typeof onRedownload === 'function' && window.confirm('Re-download this post? The existing file will be replaced.')) {
+                  onRedownload(post._id)
+                }
+              },
+              hidden: !isAlreadyDownloaded || isThisDownloading || isLinkedActive || typeof onRedownload !== 'function',
+            },
+            {
+              label: 'Open file folder',
+              onClick: () => {
+                if (canOpenFolder) {
+                  onOpenFolder(outputPath)
+                }
+              },
+              hidden: !canOpenFolder,
             },
             {
               label: 'Delete',
@@ -418,6 +462,10 @@ export function DiscoveredGrid({
                   <div className="discovered-main-action">
                     {isRemovedFromSource ? (
                       <button className="discovered-btn-unavailable" disabled>Unavailable</button>
+                    ) : isThisDownloading ? (
+                      <span className="discovered-badge is-active is-pulse">
+                        {isAlreadyDownloaded ? 'Re-downloading' : 'Queuing...'}
+                      </span>
                     ) : isAlreadyDownloaded ? (
                       <>
                         <button
@@ -438,6 +486,16 @@ export function DiscoveredGrid({
                           >
                             <VlcIcon />
                           </a>
+                        )}
+                        {canToggleFavorite && (
+                          <button
+                            type="button"
+                            className={`discovered-favorite-btn${isFavorite ? ' is-active' : ''}`}
+                            onClick={() => onToggleFavorite(downloadedJobId, !isFavorite)}
+                            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            {isFavorite ? 'Favorited' : 'Favorite'}
+                          </button>
                         )}
                       </>
                     ) : isLinkedActive ? (
@@ -529,7 +587,7 @@ export function DiscoveredGrid({
               <div>
                 <dt>Status</dt>
                 <dd>
-                  {activeMetaPost.isDownloaded
+                  {activeMetaPost.isDownloaded === true
                     ? 'Downloaded'
                     : activeMetaPost.downloadedJobId
                       ? 'Queued'
