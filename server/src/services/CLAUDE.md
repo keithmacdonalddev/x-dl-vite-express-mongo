@@ -72,6 +72,16 @@ downloadMedia(mediaUrl, { targetPath, telemetryContext })
 - Extracts `play_addr` (non-watermarked) and `bitrateInfo` (quality variants)
 - Excludes `download_addr` and `sigi_download_addr` (watermarked)
 
+### Recommendation/Autoplay Contamination Guard
+
+TikTok loads recommendation and autoplay media from other creators' videos on the same page, polluting the network-intercepted URL pool. Two defences prevent the wrong video from being downloaded:
+
+1. **`collectMediaUrls()` network filter** (playwright-adapter.js): When rehydration JSON extraction fails and the code falls back to network-intercepted URLs, any URL whose `item_id` query parameter does NOT match the target video ID is excluded. URLs with no `item_id` param are kept (CDN responses don't always carry it). A `extraction.collectMediaUrls.filtered_non_target` telemetry event is emitted when URLs are removed.
+
+2. **`pickMediaUrl()` identity scoring** (extractor-service.js): A new `identityMatch` dimension is the highest-priority sort criterion in `compareDirectQuality`. A URL whose `item_id` param matches the target video ID scores `identityMatch=1` and sorts before all unverified URLs regardless of quality metrics. `targetVideoId` is extracted from `tweetUrl` in `extractFromTweet` and threaded through `pickMediaUrl → pickBestDirectMediaUrl → compareDirectQuality`.
+
+3. **`goto()` Set clearing** (playwright-adapter.js): `mediaUrls` and `imageUrls` Sets are cleared at the start of each `goto()` call, preventing prior-navigation captures from polluting a subsequent navigation on the same page object.
+
 ## Dependencies (What We Import)
 
 | Source Domain | Module | What We Use |
